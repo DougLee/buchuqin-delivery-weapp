@@ -1,3 +1,78 @@
-<script setup lang="ts">import{ref}from'vue';import{onShow}from'@dcloudio/uni-app';import{api}from'../../api';import{useSessionStore}from'../../stores/session';import type{Dashboard,StaffRole}from'../../types';const session=useSessionStore(),data=ref<Dashboard>(),roles:Array<[StaffRole,string]>=[['building-manager','楼长'],['fulltime-rider','全职配送'],['parttime-rider','兼职配送']];async function load(){await session.ensure();data.value=await api.dashboard(session.role)}async function change(r:StaffRole){session.setRole(r);await load()}onShow(load);const open=(id:string)=>uni.navigateTo({url:`/pages/task/detail?id=${id}`})</script>
-<template><view class="page home"><view class="top"><view><text class="brand">不出寝履约</text><text class="campus">湖北工业大学 · 湖工大校园仓</text></view><view class="online">在线</view></view><view class="roles"><view v-for="r in roles" :key="r[0]" class="role" :class="{'role--active':session.role===r[0]}" @tap="change(r[0])">{{r[1]}}</view></view><template v-if="data"><view class="hero"><text class="hello">早上好，{{data.profile.name}}</text><text class="role-name">{{data.profile.roleText}}</text><view class="hero__line"><text>{{data.profile.staffNo}}</text><text>{{data.profile.building}}</text></view></view><view class="notice">{{data.announcement}}</view><view class="stats card"><view v-for="(value,key) in data.stats" :key="key"><text class="stats__value">{{value}}{{key==='income'?'元':key.includes('Rate')?'%':''}}</text><text class="stats__label">{{({pending:'待处理',completed:'今日完成',income:'今日收入',onTimeRate:'准时率',averageMinutes:'平均分钟'})[key]||key}}</text></view></view><view class="section-title"><text class="section-title__main">当前任务</text><text class="section-title__sub" @tap="uni.switchTab({url:'/pages/tasks/index'})">查看全部 ›</text></view><view v-for="task in data.tasks" :key="task.id" class="task card" @tap="open(task.id)"><view class="task__head"><text class="package">{{task.packageNo}}</text><text class="status">{{task.statusText}}</text></view><text class="destination">{{task.building}} · {{task.floor}} 楼 · {{task.room}}</text><view class="task__meta"><text>{{task.itemCount}} 件 / {{task.weight}}kg</text><text>{{task.modeText}}</text><text>预计 {{task.commission}} 元</text></view></view></template></view></template>
-<style scoped lang="scss">@import '../../styles/theme.scss';.home{padding-top:calc(34rpx + env(safe-area-inset-top))}.top{display:flex;justify-content:space-between;align-items:center}.brand,.campus{display:block}.brand{font-size:40rpx;font-weight:900;color:$primary-dark}.campus{font-size:22rpx;color:$muted;margin-top:4rpx}.online{background:$soft;color:$primary-dark;padding:12rpx 22rpx;border-radius:26rpx;font-weight:800}.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:10rpx;background:#e9eeeb;padding:8rpx;border-radius:32rpx;margin:28rpx 0}.role{min-height:68rpx;display:flex;align-items:center;justify-content:center;border-radius:26rpx;font-size:23rpx}.role--active{background:#fff;color:$primary-dark;font-weight:900;box-shadow:0 5rpx 14rpx rgba(20,70,40,.1)}.hero{padding:34rpx;border-radius:32rpx;background:linear-gradient(135deg,$primary-dark,$primary);color:#fff;box-shadow:0 14rpx 34rpx rgba(8,107,57,.22)}.hello,.role-name{display:block}.hello{opacity:.85}.role-name{font-size:44rpx;font-weight:900;margin:8rpx 0 28rpx}.hero__line{display:flex;justify-content:space-between;font-size:22rpx;opacity:.85}.notice{margin:20rpx 0;background:$warning;color:#85500c;padding:22rpx;border-radius:22rpx;border-left:7rpx solid $accent}.stats{display:grid;grid-template-columns:repeat(4,1fr);padding:26rpx 8rpx;text-align:center}.stats__value,.stats__label{display:block}.stats__value{font-size:32rpx;font-weight:900;color:$primary-dark}.stats__label{font-size:20rpx;color:$muted;margin-top:5rpx}.task{padding:26rpx;margin-bottom:18rpx}.task__head,.task__meta{display:flex;justify-content:space-between;gap:12rpx}.package{font-weight:800}.destination{display:block;font-size:34rpx;font-weight:900;margin:22rpx 0}.task__meta{font-size:21rpx;color:$muted}</style>
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
+import { api } from '../../api';
+import { useSessionStore } from '../../stores/session';
+import type { Dashboard, StaffRole } from '../../types';
+
+const session = useSessionStore();
+const data = ref<Dashboard>();
+const roles: Array<[StaffRole, string, string]> = [
+  ['building-manager', '楼长', '楼内交付'],
+  ['fulltime-rider', '全职', '干线配送'],
+  ['parttime-rider', '兼职', '灵活接单'],
+];
+const hour = new Date().getHours();
+const greeting = computed(() => hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好');
+
+async function load() { await session.ensure(); data.value = await api.dashboard(session.role); }
+async function change(role: StaffRole) { session.setRole(role); await load(); }
+const open = (id: string) => uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
+onShow(load);
+</script>
+
+<template>
+  <view class="page home">
+    <view class="nav">
+      <view class="identity">
+        <view class="logo"><view class="logo__route"></view></view>
+        <view><text class="brand">不出寝履约</text><text class="campus">湖北工业大学 · 湖工大校园仓</text></view>
+      </view>
+      <view class="online"><view class="online__dot"></view><text>接单中</text></view>
+    </view>
+
+    <view class="roles" aria-label="切换履约角色">
+      <view v-for="role in roles" :key="role[0]" class="role" :class="{'role--active':session.role===role[0]}" role="button" @tap="change(role[0])">
+        <text class="role__name">{{role[1]}}</text><text class="role__desc">{{role[2]}}</text>
+      </view>
+    </view>
+
+    <template v-if="data">
+      <view class="hero">
+        <view class="hero__glow"></view>
+        <view class="hero__top"><view><text class="eyebrow">TODAY · 今日履约</text><text class="hello">{{greeting}}，{{data.profile.name}}</text></view><view class="shift">当班</view></view>
+        <view class="hero__metric"><text class="metric__number">{{data.stats.pending}}</text><view><text class="metric__unit">单待处理</text><text class="metric__hint">下一单请在 8 分钟内响应</text></view></view>
+        <view class="route"><view class="route__point route__point--done"></view><view class="route__line"></view><view class="route__point route__point--active"></view><view class="route__line"></view><view class="route__point"></view></view>
+        <view class="route-label"><text>校园仓</text><text>配送中</text><text>寝室楼</text></view>
+      </view>
+
+      <view class="announcement"><view class="announcement__mark">i</view><text>{{data.announcement}}</text></view>
+
+      <view class="stats card">
+        <view><text class="stats__value">{{data.stats.completed}}</text><text class="stats__label">今日完成</text></view>
+        <view><text class="stats__value">¥{{data.stats.income}}</text><text class="stats__label">今日收入</text></view>
+        <view><text class="stats__value">{{data.stats.onTimeRate}}%</text><text class="stats__label">准时率</text></view>
+        <view><text class="stats__value">{{data.stats.averageMinutes || 12}}<text class="small">min</text></text><text class="stats__label">平均用时</text></view>
+      </view>
+
+      <view class="section-title"><view><text class="section-kicker">NEXT TASKS</text><text class="section-title__main">优先任务</text></view><text class="section-title__sub" @tap="uni.switchTab({url:'/pages/tasks/index'})">全部任务 →</text></view>
+      <view v-for="(task,index) in data.tasks" :key="task.id" class="task card" role="button" @tap="open(task.id)">
+        <view class="task__accent" :class="{'task__accent--orange':index===0}"></view>
+        <view class="task__head"><text class="package">{{task.packageNo}}</text><text class="status">{{task.statusText}}</text></view>
+        <view class="task__destination"><view class="floor"><text>{{task.floor}}</text><text>F</text></view><view><text class="building">{{task.building}} · {{task.room}}</text><text class="deadline">履约时效：{{task.deadline}}</text></view></view>
+        <view class="task__meta"><text>{{task.itemCount}} 件 · {{task.weight}}kg</text><text>{{task.modeText}}</text><text class="commission">+¥{{task.commission}}</text></view>
+        <view class="task__action"><text>查看路线与操作</text><text>→</text></view>
+      </view>
+    </template>
+  </view>
+</template>
+
+<style scoped lang="scss">
+@import '../../styles/theme.scss';
+.home{padding-top:calc(30rpx + env(safe-area-inset-top));background:radial-gradient(circle at 92% 8%,rgba(185,242,39,.18),transparent 28%),$paper}.nav,.identity,.online,.hero__top,.hero__metric,.task__head,.task__meta,.task__action{display:flex;align-items:center}.nav{justify-content:space-between}.identity{gap:16rpx}.logo{width:68rpx;height:68rpx;border-radius:20rpx;background:$primary-dark;display:grid;place-items:center;transform:rotate(-4deg)}.logo__route{width:28rpx;height:28rpx;border:6rpx solid $lime;border-left-color:transparent;border-radius:50%;position:relative}.logo__route:after{content:"";position:absolute;width:8rpx;height:8rpx;background:$lime;border-radius:50%;right:-8rpx;top:-3rpx}.brand,.campus{display:block}.brand{font-size:34rpx;font-weight:900;letter-spacing:-1rpx}.campus{font-size:20rpx;color:$muted;margin-top:2rpx}.online{gap:9rpx;min-height:62rpx;padding:0 20rpx;border-radius:999rpx;background:#fff;border:2rpx solid $line;color:$primary-dark;font-size:22rpx;font-weight:800}.online__dot{width:13rpx;height:13rpx;border-radius:50%;background:$lime;box-shadow:0 0 0 7rpx rgba(185,242,39,.2)}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:8rpx;background:#dfe8e1;padding:8rpx;border-radius:26rpx;margin:30rpx 0 24rpx}.role{min-height:90rpx;border-radius:20rpx;display:flex;flex-direction:column;align-items:center;justify-content:center;color:$muted;transition:background .2s}.role__name,.role__desc{display:block}.role__name{font-size:25rpx;font-weight:800}.role__desc{font-size:18rpx;margin-top:2rpx}.role--active{background:#fff;color:$primary-dark;box-shadow:0 6rpx 18rpx rgba(7,63,45,.1)}.role--active .role__desc{color:$primary}
+.hero{position:relative;overflow:hidden;padding:34rpx;border-radius:36rpx;background:linear-gradient(145deg,$primary-deep,$primary-dark 72%,#126c43);color:#fff;box-shadow:0 18rpx 44rpx rgba(3,45,34,.22)}.hero__glow{position:absolute;width:280rpx;height:280rpx;border-radius:50%;right:-100rpx;top:-140rpx;background:rgba(185,242,39,.15)}.hero__top{position:relative;justify-content:space-between}.eyebrow,.hello{display:block}.eyebrow{color:$lime;font-size:19rpx;font-weight:800;letter-spacing:2rpx}.hello{font-size:31rpx;font-weight:800;margin-top:7rpx}.shift{border:2rpx solid rgba(255,255,255,.28);border-radius:999rpx;padding:8rpx 18rpx;font-size:20rpx}.hero__metric{gap:18rpx;margin:34rpx 0}.metric__number{font-size:82rpx;line-height:1;font-weight:900;color:$lime}.metric__unit,.metric__hint{display:block}.metric__unit{font-size:28rpx;font-weight:800}.metric__hint{font-size:19rpx;opacity:.68;margin-top:5rpx}.route{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center}.route__point{width:15rpx;height:15rpx;border:4rpx solid rgba(255,255,255,.45);border-radius:50%}.route__point--done{background:$lime;border-color:$lime}.route__point--active{width:22rpx;height:22rpx;background:$accent;border-color:#fff;box-shadow:0 0 0 8rpx rgba(255,138,52,.18)}.route__line{height:2rpx;background:rgba(255,255,255,.28)}.route-label{display:flex;justify-content:space-between;margin-top:10rpx;font-size:18rpx;opacity:.65}
+.announcement{display:flex;align-items:flex-start;gap:14rpx;margin:20rpx 0;padding:20rpx 22rpx;border-radius:22rpx;background:$warning;color:#795024;font-size:22rpx}.announcement__mark{flex:0 0 34rpx;width:34rpx;height:34rpx;border-radius:50%;background:$accent;color:#fff;display:grid;place-items:center;font-weight:900}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);padding:26rpx 8rpx;text-align:center}.stats>view+view{border-left:2rpx solid $line}.stats__value,.stats__label{display:block}.stats__value{font-size:30rpx;font-weight:900;color:$primary-dark}.stats__label{font-size:18rpx;color:$muted;margin-top:5rpx}.small{font-size:17rpx;margin-left:2rpx}.section-kicker{display:block;color:$primary;font-size:18rpx;font-weight:900;letter-spacing:2rpx}.section-title__main{display:block}
+.task{position:relative;overflow:hidden;padding:28rpx;margin-bottom:20rpx}.task:active{background:$soft}.task__accent{position:absolute;left:0;top:26rpx;width:7rpx;height:70rpx;border-radius:0 8rpx 8rpx 0;background:$primary}.task__accent--orange{background:$accent}.task__head{justify-content:space-between}.package{font-size:22rpx;color:$muted;font-weight:700}.task__destination{display:flex;align-items:center;gap:18rpx;margin:24rpx 0}.floor{width:76rpx;height:76rpx;border-radius:20rpx;background:$primary-dark;color:#fff;display:flex;align-items:baseline;justify-content:center}.floor text:first-child{font-size:36rpx;font-weight:900}.floor text:last-child{font-size:17rpx}.building,.deadline{display:block}.building{font-size:34rpx;font-weight:900}.deadline{font-size:20rpx;color:$muted;margin-top:3rpx}.task__meta{gap:14rpx;color:$muted;font-size:20rpx}.commission{margin-left:auto;color:$primary-dark;font-size:25rpx;font-weight:900}.task__action{justify-content:space-between;border-top:2rpx dashed $line;margin-top:22rpx;padding-top:18rpx;color:$primary-dark;font-size:22rpx;font-weight:800}
+</style>

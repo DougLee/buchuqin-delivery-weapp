@@ -1,2 +1,20 @@
 <script setup lang="ts">import{onLaunch}from'@dcloudio/uni-app';import{useSessionStore}from'./stores/session';onLaunch(()=>void useSessionStore().ensure())</script>
-<style lang="scss">@import './styles/theme.scss';page{background:$paper;color:$ink;font-family:"PingFang SC",sans-serif;font-size:30rpx;line-height:1.55}view,text,image,button,input,textarea{box-sizing:border-box}button::after{border:none}.page{min-height:100vh;padding:28rpx 28rpx 170rpx}.card{background:#fff;border:2rpx solid rgba(21,92,48,.07);border-radius:28rpx;box-shadow:0 8rpx 28rpx rgba(21,75,38,.07)}.muted{color:$muted}.primary-btn{min-height:92rpx;border-radius:46rpx;background:linear-gradient(135deg,$primary,$primary-dark);color:#fff;font-size:30rpx;font-weight:800;display:flex;align-items:center;justify-content:center}.section-title{display:flex;justify-content:space-between;align-items:center;margin:34rpx 2rpx 20rpx}.section-title__main{font-size:34rpx;font-weight:900}.section-title__sub{font-size:23rpx;color:$muted}.status{padding:6rpx 14rpx;border-radius:16rpx;background:$soft;color:$primary-dark;font-size:21rpx;font-weight:800}.empty{text-align:center;padding:120rpx 20rpx;color:$muted}@media(min-width:768px){.page{max-width:750px;margin:auto}}@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}</style>
+<style lang="scss">
+@import './styles/theme.scss';
+page{background:$paper;color:$ink;font-family:"PingFang SC","Helvetica Neue",sans-serif;font-size:30rpx;line-height:1.55}
+view,text,image,button,input,textarea{box-sizing:border-box}
+button::after{border:none}
+button,view[role="button"]{touch-action:manipulation}
+.page{min-height:100vh;padding:28rpx 28rpx 170rpx;overflow-x:hidden}
+.card{background:rgba(255,255,255,.96);border:2rpx solid rgba(7,63,45,.07);border-radius:30rpx;box-shadow:0 12rpx 36rpx rgba(7,63,45,.07)}
+.muted{color:$muted}
+.primary-btn{min-height:96rpx;border-radius:28rpx;background:$primary-dark;color:#fff;font-size:30rpx;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 12rpx 24rpx rgba(7,63,45,.18)}
+.primary-btn:active{opacity:.88;transform:translateY(2rpx)}
+.section-title{display:flex;justify-content:space-between;align-items:flex-end;margin:38rpx 2rpx 20rpx}
+.section-title__main{font-size:36rpx;font-weight:900;letter-spacing:-1rpx}
+.section-title__sub{min-height:48rpx;display:flex;align-items:center;font-size:23rpx;color:$muted}
+.status{padding:7rpx 16rpx;border-radius:999rpx;background:$soft;color:$primary-dark;font-size:21rpx;font-weight:800}
+.empty{text-align:center;padding:120rpx 20rpx;color:$muted}
+@media(min-width:768px){.page{max-width:750px;margin:auto}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
