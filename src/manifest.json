@@ -9,6 +9,12 @@
   "mp-weixin": {
     "appid": "",
     "setting": { "urlCheck": false },
-    "usingComponents": true
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "送达凭证需要记录你的实时位置"
+      }
+    },
+    "requiredPrivateInfos": ["getLocation"]
   }
 }

@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { uploadImage } from "../../api/upload";
 import { useSessionStore } from "../../stores/session";
 import type { Task } from "../../types";
 const session = useSessionStore(),
@@ -22,23 +23,66 @@ onLoad(async (q) => {
   await session.ensure();
   task.value = await api.task(session.role, String(q?.id));
 });
+/** 扫码取码值；扫码取消/失败时允许手动输入兜底 */
+function scanOrInput(title: string): Promise<string> {
+  // TODO(真机验证): uni.scanCode 在真机的扫码回调与取消路径
+  return new Promise((resolve, reject) => {
+    uni.scanCode({
+      scanType: ["qrCode", "barCode"],
+      success: (res) => resolve(res.result),
+      fail: () => {
+        uni.showModal({
+          title,
+          editable: true,
+          placeholderText: "扫码失败时可手动输入编号",
+          success: (m) => {
+            if (m.confirm && m.content) resolve(m.content.trim());
+            else reject(new Error("已取消"));
+          },
+          fail: () => reject(new Error("已取消")),
+        });
+      },
+    });
+  });
+}
+/** 取真实 gcj02 定位，失败直接报错并中断动作 */
+function locate(): Promise<{ latitude: number; longitude: number }> {
+  // TODO(真机验证): 真机定位授权与精度
+  return new Promise((resolve, reject) => {
+    uni.getLocation({
+      type: "gcj02",
+      isHighAccuracy: true,
+      success: (res) => resolve({ latitude: res.latitude, longitude: res.longitude }),
+      fail: () => {
+        uni.showToast({ title: "定位失败，请检查定位授权", icon: "none" });
+        reject(new Error("定位失败"));
+      },
+    });
+  });
+}
 async function act(action: string) {
   if (!task.value) return;
   let payload: Record<string, unknown> = {};
-  if (action === "pickup") payload = { packageCode: task.value.packageNo };
-  if (action === "handover")
-    payload = { handoverCode: `HANDOVER-${task.value.orderId}` };
-  if (action === "delivered") {
-    const result = await uni.chooseImage({ count: 1 });
-    payload = {
-      images: Array.isArray(result.tempFilePaths)
-        ? result.tempFilePaths
-        : [result.tempFilePaths],
-      location: `${task.value.floor}楼定位`,
-    };
+  try {
+    if (action === "pickup")
+      payload = { packageCode: await scanOrInput("输入包裹编号") };
+    if (action === "handover")
+      payload = { handoverCode: await scanOrInput("输入交接码") };
+    if (action === "delivered") {
+      const chosen = await uni.chooseImage({ count: 1, sizeType: ["compressed"] });
+      const paths = Array.isArray(chosen.tempFilePaths)
+        ? chosen.tempFilePaths
+        : [chosen.tempFilePaths];
+      uni.showLoading({ title: "凭证上传中", mask: true });
+      const images = await Promise.all(paths.map((p) => uploadImage(p)));
+      const coords = await locate();
+      payload = { images, ...coords };
+    }
+    task.value = await api.action(session.role, task.value.id, action, payload);
+    uni.showToast({ title: "操作成功", icon: "success" });
+  } finally {
+    uni.hideLoading();
   }
-  task.value = await api.action(session.role, task.value.id, action, payload);
-  uni.showToast({ title: "操作成功", icon: "success" });
 }
 </script>
 <template>
