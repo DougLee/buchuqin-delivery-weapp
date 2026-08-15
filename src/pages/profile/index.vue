@@ -3,12 +3,14 @@ import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
-import type { StaffProfile } from "../../types";
+import type { Performance, StaffProfile } from "../../types";
 const session = useSessionStore(),
-  profile = ref<StaffProfile>();
+  profile = ref<StaffProfile>(),
+  performance = ref<Performance>();
 onShow(async () => {
   await session.ensure();
   profile.value = await api.profile(session.role);
+  performance.value = await api.performance(session.role);
 });
 </script>
 <template>
@@ -26,9 +28,21 @@ onShow(async () => {
         ></view
       ><view class="badge">优秀履约员</view></view
     ><view class="kpi card"
-      ><view><text>96%</text><text>准时率</text></view
-      ><view><text>99%</text><text>凭证完整率</text></view
-      ><view><text>286</text><text>累计配送</text></view></view
+      ><view
+        ><text>{{ Math.round(performance?.onTimeRate ?? 0) }}%</text
+        ><text>准时率</text></view
+      ><view
+        ><text>{{
+          performance?.proofRate == null
+            ? "—"
+            : `${Math.round(performance.proofRate)}%`
+        }}</text
+        ><text>凭证完整率</text></view
+      ><view
+        ><text>{{ performance?.completed ?? 0 }}</text
+        ><text>今日完成</text></view
+      ></view
+    >
     ><view class="section-title"
       ><view
         ><text class="kicker">ACCOUNT</text

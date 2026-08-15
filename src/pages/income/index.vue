@@ -3,8 +3,9 @@ import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
+import type { CommissionBill } from "../../types";
 const session = useSessionStore(),
-  bill = ref<any>();
+  bill = ref<CommissionBill>();
 onShow(async () => {
   await session.ensure();
   bill.value = await api.commissions(session.role);
@@ -15,7 +16,7 @@ onShow(async () => {
     ><view class="income-hero"
       ><view class="income-hero__top"
         ><view
-          ><text class="kicker">AUGUST INCOME</text
+          ><text class="kicker">{{ bill.month }} INCOME</text
           ><text class="label">本月预计收入</text></view
         ><text class="bill-tag">月结</text></view
       ><text class="amount"><small>¥</small>{{ bill.payable }}</text
