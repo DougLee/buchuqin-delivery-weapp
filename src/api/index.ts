@@ -1,5 +1,13 @@
 import { request } from "./request";
-import type { Dashboard, StaffProfile, StaffRole, Task } from "../types";
+import type {
+  CommissionBill,
+  Dashboard,
+  LeaveItem,
+  Performance,
+  StaffProfile,
+  StaffRole,
+  Task,
+} from "../types";
 export const api = {
   login: (identity: StaffRole) =>
     request<{ token: string }>("/auth/test-login", {
@@ -22,12 +30,15 @@ export const api = {
       method: "POST",
       data,
     }),
-  leave: () => request<any[]>("/fulfillment/leave-dispatch"),
+  performance: (_r: StaffRole) =>
+    request<Performance>("/fulfillment/performance"),
+  leave: () => request<LeaveItem[]>("/fulfillment/leave-dispatch"),
   createLeave: (data: Record<string, unknown>) =>
-    request<any>("/fulfillment/leave-requests", { method: "POST", data }),
+    request<LeaveItem>("/fulfillment/leave-requests", { method: "POST", data }),
   acceptDispatch: (id: string) =>
-    request<any>(`/fulfillment/dispatch-invitations/${id}/accept`, {
+    request<LeaveItem>(`/fulfillment/dispatch-invitations/${id}/accept`, {
       method: "POST",
     }),
-  commissions: (_r: StaffRole) => request<any>("/fulfillment/commissions"),
+  commissions: (_r: StaffRole) =>
+    request<CommissionBill>("/fulfillment/commissions"),
 };

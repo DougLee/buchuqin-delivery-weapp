@@ -47,3 +47,38 @@ export interface ApiResult<T> {
   data: T;
   timestamp: string;
 }
+export interface Performance {
+  period: string;
+  pending: number;
+  completed: number;
+  income: number;
+  onTimeRate: number;
+  proofRate: number | null;
+  exceptionRate: number;
+}
+export interface CommissionRecord {
+  id: string;
+  orderNo: string;
+  building: string;
+  amount: number;
+  createdAt: string;
+  status: string;
+}
+export interface CommissionBill {
+  month: string;
+  baseSalary: number;
+  deliveryIncome: number;
+  adjustment: number;
+  payable: number;
+  records: CommissionRecord[];
+}
+export interface LeaveItem {
+  id: string;
+  building?: string;
+  status: string;
+  statusText: string;
+  startAt: string;
+  endAt: string;
+  reason?: string;
+  reward?: number;
+}

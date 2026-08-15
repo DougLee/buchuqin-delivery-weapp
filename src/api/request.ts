@@ -1,6 +1,7 @@
 import type { ApiResult } from "../types";
-const BASE_URL =
+export const baseURL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
+const BASE_URL = baseURL;
 type Options = Omit<UniApp.RequestOptions, "url">;
 function valid<T>(v: unknown): v is ApiResult<T> {
   return typeof v === "object" && v !== null && "code" in v && "data" in v;
