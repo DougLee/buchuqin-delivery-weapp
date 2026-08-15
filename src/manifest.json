@@ -5,7 +5,7 @@
   "versionName": "1.0.0",
   "versionCode": "100",
   "transformPx": false,
-  "h5": { "title": "不出寝履约端" },
+  "h5": { "title": "不出寝履约端", "router": { "base": "/h5/delivery/" } },
   "mp-weixin": {
     "appid": "",
     "setting": { "urlCheck": false },
