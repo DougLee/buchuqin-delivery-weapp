@@ -1,3 +1,168 @@
-<script setup lang="ts">import{computed,ref}from'vue';import{onLoad}from'@dcloudio/uni-app';import{api}from'../../api';import{useSessionStore}from'../../stores/session';import type{Task}from'../../types';const session=useSessionStore(),task=ref<Task>();onLoad(async q=>task.value=await api.task(session.role,String(q?.id)));const isManager=computed(()=>session.role==='building-manager');async function act(action:string){if(!task.value)return;let payload={};if(action==='delivered'){const result=await uni.chooseImage({count:1});payload={images:Array.isArray(result.tempFilePaths)?result.tempFilePaths:[result.tempFilePaths],location:`${task.value.floor}楼定位`}}task.value=await api.action(session.role,task.value.id,action,payload);uni.showToast({title:'操作成功',icon:'success'})}</script>
-<template><view v-if="task" class="page"><view class="summary"><text class="status-text">{{task.statusText}}</text><text class="destination">{{task.building}} · {{task.floor}} 楼 · {{task.room}}</text><text class="muted-light">{{task.packageNo}}　{{task.modeText}}</text></view><view class="section-title"><text class="section-title__main">包裹商品</text><text class="section-title__sub">{{task.itemCount}} 件 / {{task.weight}}kg</text></view><view class="goods card"><view v-for="item in task.items" :key="item.name" class="goods__line"><image :src="item.image" mode="aspectFit"/><text>{{item.name}}</text><text>× {{item.quantity}}</text></view></view><view class="info card"><view><text>取货仓库</text><text>{{task.warehouse}}</text></view><view><text>预计时效</text><text>{{task.deadline}}</text></view><view><text>预计收入</text><text class="income">¥{{task.commission}}</text></view></view><view class="actions"><template v-if="isManager"><button class="secondary" @tap="act('receive')">确认楼下接货</button><button class="primary-btn" @tap="act('delivered')">上传凭证并送达</button><button class="danger" @tap="act('absent')">用户不在</button></template><template v-else><button class="secondary" @tap="act('accept')">接收任务</button><button class="primary-btn" @tap="act('pickup')">扫码取货</button><button class="primary-btn" @tap="act('arrive')">到达楼下</button><button class="danger" @tap="act('transfer')">申请转单</button></template></view></view></template>
-<style scoped lang="scss">@import '../../styles/theme.scss';.summary{padding:38rpx;border-radius:32rpx;background:linear-gradient(135deg,$primary-dark,$primary);color:#fff}.status-text,.destination,.muted-light{display:block}.status-text{font-weight:800}.destination{font-size:42rpx;font-weight:900;margin:18rpx 0}.muted-light{opacity:.82;font-size:22rpx}.goods{padding:10rpx 26rpx}.goods__line{display:grid;grid-template-columns:90rpx 1fr auto;align-items:center;gap:16rpx;padding:16rpx 0;border-bottom:2rpx solid $line}.goods__line image{width:90rpx;height:90rpx;background:$soft;border-radius:18rpx}.info{margin-top:22rpx;padding:22rpx 28rpx}.info>view{display:flex;justify-content:space-between;padding:15rpx 0}.info>view text:first-child{color:$muted}.income{color:$primary-dark;font-weight:900}.actions{display:grid;gap:16rpx;margin-top:26rpx}.secondary,.danger{min-height:88rpx;border-radius:44rpx;background:#fff;font-weight:800}.secondary{color:$primary-dark;border:2rpx solid $primary}.danger{color:#a74432;border:2rpx solid #efc9c1}</style>
+<script setup lang="ts">
+import { ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
+import { api } from "../../api";
+import { useSessionStore } from "../../stores/session";
+import type { Task } from "../../types";
+const session = useSessionStore(),
+  task = ref<Task>();
+const labels: Record<string, string> = {
+  accept: "接收任务",
+  pickup: "扫码取货",
+  depart: "确认从校园仓出发",
+  arrive: "到达楼下",
+  handover: "确认交接楼长",
+  receive: "确认楼下接货",
+  "start-delivery": "开始送往寝室",
+  delivered: "上传凭证并送达",
+  absent: "用户不在",
+  transfer: "申请转单",
+};
+onLoad(async (q) => {
+  await session.ensure();
+  task.value = await api.task(session.role, String(q?.id));
+});
+async function act(action: string) {
+  if (!task.value) return;
+  let payload: Record<string, unknown> = {};
+  if (action === "pickup") payload = { packageCode: task.value.packageNo };
+  if (action === "handover")
+    payload = { handoverCode: `HANDOVER-${task.value.orderId}` };
+  if (action === "delivered") {
+    const result = await uni.chooseImage({ count: 1 });
+    payload = {
+      images: Array.isArray(result.tempFilePaths)
+        ? result.tempFilePaths
+        : [result.tempFilePaths],
+      location: `${task.value.floor}楼定位`,
+    };
+  }
+  task.value = await api.action(session.role, task.value.id, action, payload);
+  uni.showToast({ title: "操作成功", icon: "success" });
+}
+</script>
+<template>
+  <view v-if="task" class="page"
+    ><view class="summary"
+      ><text class="status-text">{{ task.statusText }}</text
+      ><text class="destination"
+        >{{ task.building }} · {{ task.floor }} 楼 · {{ task.room }}</text
+      ><text class="muted-light"
+        >{{ task.packageNo }}　{{ task.modeText }}</text
+      ></view
+    ><view class="section-title"
+      ><text class="section-title__main">包裹商品</text
+      ><text class="section-title__sub"
+        >{{ task.itemCount }} 件 / {{ task.weight }}kg</text
+      ></view
+    ><view class="goods card"
+      ><view v-for="item in task.items" :key="item.name" class="goods__line"
+        ><image :src="item.image" mode="aspectFit" /><text>{{ item.name }}</text
+        ><text>× {{ item.quantity }}</text></view
+      ></view
+    ><view class="info card"
+      ><view
+        ><text>取货仓库</text><text>{{ task.warehouse }}</text></view
+      ><view
+        ><text>预计时效</text><text>{{ task.deadline }}</text></view
+      ><view
+        ><text>预计收入</text
+        ><text class="income">¥{{ task.commission }}</text></view
+      ></view
+    ><view class="actions"
+      ><button
+        v-for="action in task.availableActions"
+        :key="action"
+        :class="
+          action === 'transfer' || action === 'absent'
+            ? 'danger'
+            : 'primary-btn'
+        "
+        @tap="act(action)"
+      >
+        {{ labels[action] || action }}</button
+      ><view v-if="!task.availableActions.length" class="muted"
+        >当前节点暂无可执行操作</view
+      ></view
+    ></view
+  >
+</template>
+<style scoped lang="scss">
+@import "../../styles/theme.scss";
+.summary {
+  padding: 38rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(135deg, $primary-dark, $primary);
+  color: #fff;
+}
+.status-text,
+.destination,
+.muted-light {
+  display: block;
+}
+.status-text {
+  font-weight: 800;
+}
+.destination {
+  font-size: 42rpx;
+  font-weight: 900;
+  margin: 18rpx 0;
+}
+.muted-light {
+  opacity: 0.82;
+  font-size: 22rpx;
+}
+.goods {
+  padding: 10rpx 26rpx;
+}
+.goods__line {
+  display: grid;
+  grid-template-columns: 90rpx 1fr auto;
+  align-items: center;
+  gap: 16rpx;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid $line;
+}
+.goods__line image {
+  width: 90rpx;
+  height: 90rpx;
+  background: $soft;
+  border-radius: 18rpx;
+}
+.info {
+  margin-top: 22rpx;
+  padding: 22rpx 28rpx;
+}
+.info > view {
+  display: flex;
+  justify-content: space-between;
+  padding: 15rpx 0;
+}
+.info > view text:first-child {
+  color: $muted;
+}
+.income {
+  color: $primary-dark;
+  font-weight: 900;
+}
+.actions {
+  display: grid;
+  gap: 16rpx;
+  margin-top: 26rpx;
+}
+.secondary,
+.danger {
+  min-height: 88rpx;
+  border-radius: 44rpx;
+  background: #fff;
+  font-weight: 800;
+}
+.secondary {
+  color: $primary-dark;
+  border: 2rpx solid $primary;
+}
+.danger {
+  color: #a74432;
+  border: 2rpx solid #efc9c1;
+}
+</style>
