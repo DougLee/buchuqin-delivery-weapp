@@ -6,32 +6,50 @@ type Options = Omit<UniApp.RequestOptions, "url">;
 function valid<T>(v: unknown): v is ApiResult<T> {
   return typeof v === "object" && v !== null && "code" in v && "data" in v;
 }
+// token 失效后重登（动态引入避免与 stores/session 的循环依赖）
+async function relogin() {
+  uni.removeStorageSync("staffToken");
+  const { useSessionStore } = await import("../stores/session");
+  await useSessionStore().ensure();
+  return uni.getStorageSync("staffToken") as string;
+}
 export async function request<T>(
   path: string,
   options: Options = {},
 ): Promise<T> {
   const token = uni.getStorageSync("staffToken") as string;
-  return new Promise((resolve, reject) =>
-    uni.request({
-      ...options,
-      url: BASE_URL + path,
-      header: {
-        "content-type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      success(res) {
-        if (valid<T>(res.data) && res.statusCode < 300) {
-          resolve(res.data.data);
-          return;
-        }
-        const msg = valid<T>(res.data) ? res.data.message : "请求失败";
-        uni.showToast({ title: msg, icon: "none" });
-        reject(new Error(msg));
-      },
-      fail(err) {
-        uni.showToast({ title: "服务暂时不可用", icon: "none" });
-        reject(err);
-      },
-    }),
-  );
+  const send = (authToken: string, retried: boolean) =>
+    new Promise<T>((resolve, reject) =>
+      uni.request({
+        ...options,
+        url: BASE_URL + path,
+        header: {
+          "content-type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        success: async (res) => {
+          // token 过期/失效：清缓存重登一次后重试
+          if (res.statusCode === 401 && !retried) {
+            try {
+              resolve(await send(await relogin(), true));
+            } catch (error) {
+              reject(error instanceof Error ? error : new Error("重新登录失败"));
+            }
+            return;
+          }
+          if (valid<T>(res.data) && res.statusCode < 300) {
+            resolve(res.data.data);
+            return;
+          }
+          const msg = valid<T>(res.data) ? res.data.message : "请求失败";
+          uni.showToast({ title: msg, icon: "none" });
+          reject(new Error(msg));
+        },
+        fail(err) {
+          uni.showToast({ title: "服务暂时不可用", icon: "none" });
+          reject(err);
+        },
+      }),
+    );
+  return send(token, false);
 }
