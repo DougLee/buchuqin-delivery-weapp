@@ -1,6 +1,7 @@
 import { request } from "./request";
 import type {
   CommissionBill,
+  CommissionRecord,
   Dashboard,
   LeaveItem,
   Performance,
@@ -10,6 +11,13 @@ import type {
   StaffStatus,
   Task,
 } from "../types";
+/** 后端列表统一分页信封（IK8W5 分页包裹），api 层解包成页面所需的裸形状 */
+interface PageResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
 export const api = {
   login: (identity: StaffRole) =>
     request<{ token: string }>("/auth/test-login", {
@@ -18,8 +26,8 @@ export const api = {
     }),
   profile: (_r: StaffRole) => request<StaffProfile>("/fulfillment/profile"),
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
-  tasks: (_r: StaffRole, s = "all") =>
-    request<Task[]>(`/fulfillment/tasks?status=${s}`),
+  tasks: async (_r: StaffRole, s = "all") =>
+    (await request<PageResult<Task>>(`/fulfillment/tasks?status=${s}`)).items,
   task: (_r: StaffRole, id: string) =>
     request<Task>(`/fulfillment/tasks/${id}`),
   action: (
@@ -41,8 +49,13 @@ export const api = {
     request<LeaveItem>(`/fulfillment/dispatch-invitations/${id}/accept`, {
       method: "POST",
     }),
-  commissions: (_r: StaffRole) =>
-    request<CommissionBill>("/fulfillment/commissions"),
+  /** 后端把 records 改为 items 并加分页信封（汇总字段平铺不变），这里映射回 CommissionBill */
+  commissions: async (_r: StaffRole) => {
+    const { items, ...summary } = await request<
+      Omit<CommissionBill, "records"> & PageResult<CommissionRecord>
+    >("/fulfillment/commissions");
+    return { ...summary, records: items };
+  },
   // —— 以下为 IK8W5U 接入的后端已有能力 ——
   /** 当班卡：GET /fulfillment/shifts/current */
   shiftsCurrent: () => request<Shift>("/fulfillment/shifts/current"),
