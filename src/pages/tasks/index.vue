@@ -8,7 +8,9 @@ const session = useSessionStore(),
   items = ref<Task[]>([]),
   active = ref("all"),
   /** 抢单防重：当前正在抢的任务 id（IK8W5U） */
-  grabbing = ref<string | null>(null);
+  grabbing = ref<string | null>(null),
+  /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+  error = ref(false);
 // 抢单池仅骑手角色可见（IK8W5U，后端对楼长返回 403）
 const isRider = computed(() => session.role !== "building-manager");
 const baseTabs: Array<[string, string]> = [
@@ -22,14 +24,19 @@ const tabs = computed<Array<[string, string]>>(() =>
   isRider.value ? [["pool", "抢单池"], ...baseTabs] : baseTabs,
 );
 async function load(s = active.value) {
-  await session.ensure();
-  // 角色切换后停留在抢单池时回退到全部（楼长无抢单池）
-  if (s === "pool" && !isRider.value) s = "all";
-  active.value = s;
-  items.value =
-    s === "pool"
-      ? await api.availableTasks()
-      : await api.tasks(session.role, s);
+  error.value = false;
+  try {
+    await session.ensure();
+    // 角色切换后停留在抢单池时回退到全部（楼长无抢单池）
+    if (s === "pool" && !isRider.value) s = "all";
+    active.value = s;
+    items.value =
+      s === "pool"
+        ? await api.availableTasks()
+        : await api.tasks(session.role, s);
+  } catch {
+    error.value = true;
+  }
 }
 /** 抢单（IK8W5U）：成功跳详情；被抢走时提示并刷新列表 */
 async function grab(task: Task) {
@@ -80,7 +87,11 @@ onShow(() => load());
         ></view
       ></scroll-view
     >
-    <view v-if="!items.length" class="empty card"
+    <view v-if="error" class="empty card" role="button" @tap="load"
+      ><view class="empty__mark"></view><text>加载失败</text
+      ><text class="empty__sub">点击重试</text></view
+    >
+    <view v-else-if="!items.length" class="empty card"
       ><view class="empty__mark"></view><text>当前分类没有任务</text
       ><text class="empty__sub">新任务会自动出现在这里</text></view
     >

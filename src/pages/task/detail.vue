@@ -4,9 +4,15 @@ import { onLoad } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { uploadImage } from "../../api/upload";
 import { useSessionStore } from "../../stores/session";
+import { formatShort } from "../../utils/datetime";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   task = ref<Task>();
+/** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+const error = ref(false);
+const taskId = ref("");
+/** 动作进行中防重复提交 */
+const acting = ref(false);
 const labels: Record<string, string> = {
   accept: "接收任务",
   pickup: "扫码取货",
@@ -20,10 +26,28 @@ const labels: Record<string, string> = {
   refused: "用户拒收",
   transfer: "申请转单",
 };
-onLoad(async (q) => {
-  await session.ensure();
-  task.value = await api.task(session.role, String(q?.id));
-});
+/** timeline 节点 key → 展示标题（老数据 title 存的是原始 key，IK8W5V） */
+const stepTitles: Record<string, string> = {
+  paid: "支付成功",
+  picking: "仓库拣货",
+  "first-mile": "送往楼下",
+  "waiting-handover": "楼下待交接",
+  "last-mile": "送到寝室",
+};
+function stepTitle(key: string, title: string): string {
+  return stepTitles[key] ?? title ?? key;
+}
+async function load(id: string) {
+  taskId.value = id;
+  error.value = false;
+  try {
+    await session.ensure();
+    task.value = await api.task(session.role, id);
+  } catch {
+    error.value = true;
+  }
+}
+onLoad((q) => load(String(q?.id ?? "")));
 /** 扫码取码值；扫码取消/失败时允许手动输入兜底 */
 function scanOrInput(title: string): Promise<string> {
   // TODO(真机验证): uni.scanCode 在真机的扫码回调与取消路径
@@ -90,7 +114,8 @@ function locate(): Promise<{ latitude: number; longitude: number }> {
   });
 }
 async function act(action: string) {
-  if (!task.value) return;
+  if (!task.value || acting.value) return;
+  acting.value = true;
   let payload: Record<string, unknown> = {};
   try {
     if (action === "pickup")
@@ -125,13 +150,22 @@ async function act(action: string) {
     }
     task.value = await api.action(session.role, task.value.id, action, payload);
     uni.showToast({ title: "操作成功", icon: "success" });
+  } catch {
+    // IK8W5V：失败提示由 request 层统一 toast，此处兜底防未处理异常
   } finally {
+    acting.value = false;
     uni.hideLoading();
   }
 }
 </script>
 <template>
-  <view v-if="task" class="page"
+  <view v-if="error" class="page"
+    ><view class="retry card" role="button" @tap="load(taskId)"
+      ><text class="retry__title">任务加载失败</text
+      ><text class="retry__sub">网络异常或任务不存在，点击重试</text></view
+    ></view
+  >
+  <view v-else-if="task" class="page"
     ><view class="summary"
       ><text class="status-text">{{ task.statusText }}</text
       ><text class="destination"
@@ -158,6 +192,39 @@ async function act(action: string) {
         ><text>预计收入</text
         ><text class="income">¥{{ task.commission }}</text></view
       ></view
+    ><!-- IK8W5V：渲染后端 Task.timeline（types.ts 已有定义） -->
+    <view class="section-title"
+      ><text class="section-title__main">履约进度</text
+      ><text class="section-title__sub"
+        >{{ task.timeline.filter((s) => s.done).length }}/{{
+          task.timeline.length
+        }}
+        节点</text
+      ></view
+    ><view class="timeline card"
+      ><view
+        v-for="(step, i) in task.timeline"
+        :key="step.key"
+        class="step"
+        :class="{ 'step--done': step.done }"
+      >
+        <view class="step__rail"
+          ><view class="step__dot"></view
+          ><view
+            v-if="i < task.timeline.length - 1"
+            class="step__line"
+          ></view
+        ></view>
+        <view class="step__body"
+          ><text class="step__title">{{ stepTitle(step.key, step.title) }}</text
+          ><text v-if="step.description" class="step__desc">{{
+            step.description
+          }}</text
+          ><text v-if="step.time" class="step__time">{{
+            formatShort(step.time)
+          }}</text
+        ></view>
+      </view></view
     ><view class="actions"
       ><button
         v-for="action in task.availableActions"
@@ -233,6 +300,87 @@ async function act(action: string) {
 .income {
   color: $primary-dark;
   font-weight: 900;
+}
+.retry {
+  text-align: center;
+  padding: 120rpx 30rpx;
+}
+.retry__title,
+.retry__sub {
+  display: block;
+}
+.retry__title {
+  font-weight: 900;
+  color: $primary-dark;
+}
+.retry__sub {
+  font-size: 21rpx;
+  color: $muted;
+  margin-top: 8rpx;
+}
+.timeline {
+  padding: 26rpx 28rpx;
+}
+.step {
+  display: flex;
+  gap: 18rpx;
+}
+.step__rail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.step__dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  border: 5rpx solid $line;
+  background: #fff;
+  margin-top: 6rpx;
+}
+.step--done .step__dot {
+  border-color: $primary;
+  background: $primary;
+}
+.step__line {
+  width: 4rpx;
+  flex: 1;
+  min-height: 34rpx;
+  background: $line;
+}
+.step--done .step__line {
+  background: $primary;
+}
+.step__body {
+  flex: 1;
+  padding-bottom: 26rpx;
+}
+.step:last-child .step__body {
+  padding-bottom: 0;
+}
+.step__title,
+.step__desc,
+.step__time {
+  display: block;
+}
+.step__title {
+  font-size: 26rpx;
+  font-weight: 800;
+  color: $muted;
+}
+.step--done .step__title {
+  color: $primary-dark;
+}
+.step__desc {
+  font-size: 20rpx;
+  color: $muted;
+  margin-top: 3rpx;
+}
+.step__time {
+  font-size: 19rpx;
+  color: $muted;
+  margin-top: 3rpx;
 }
 .actions {
   display: grid;

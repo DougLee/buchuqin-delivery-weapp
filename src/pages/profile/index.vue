@@ -1,20 +1,55 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
-import type { Performance, StaffProfile } from "../../types";
+import type { Performance, StaffProfile, StaffStatus } from "../../types";
 const session = useSessionStore(),
   profile = ref<StaffProfile>(),
-  performance = ref<Performance>();
-onShow(async () => {
-  await session.ensure();
-  profile.value = await api.profile(session.role);
-  performance.value = await api.performance(session.role);
-});
+  performance = ref<Performance>(),
+  /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+  error = ref(false);
+const statusDesc: Record<StaffStatus, string> = {
+  online: "当前可接收新任务",
+  paused: "暂停中，暂不派新单",
+  offline: "已下线休息",
+};
+const statusText: Record<StaffStatus, string> = {
+  online: "接单中",
+  paused: "暂停接单",
+  offline: "已下线",
+};
+/** IK8W5V：优秀履约员徽章按真实绩效（准时率≥95）显示，不再常亮 */
+const excellent = computed(
+  () => (performance.value?.onTimeRate ?? 0) >= 95,
+);
+async function load() {
+  error.value = false;
+  try {
+    await session.ensure();
+    profile.value = await api.profile(session.role);
+    performance.value = await api.performance(session.role);
+  } catch {
+    error.value = true;
+  }
+}
+onShow(load);
+/** IK8W5V：演示模式开关，关闭后角色锁定（工作台切换卡隐藏） */
+function toggleDemo(e: Event) {
+  const value = (
+    e as unknown as { detail?: { value?: boolean } }
+  ).detail?.value;
+  if (typeof value === "boolean") session.setDemoMode(value);
+}
 </script>
 <template>
-  <view v-if="profile" class="page profile"
+  <view v-if="error" class="page profile"
+    ><view class="retry card" role="button" @tap="load"
+      ><text class="retry__title">加载失败</text
+      ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
+    ></view
+  >
+  <view v-else-if="profile" class="page profile"
     ><view class="profile-card"
       ><view class="person"
         ><view class="avatar"
@@ -26,7 +61,8 @@ onShow(async () => {
             >{{ profile.roleText }} · {{ profile.staffNo }}</text
           ></view
         ></view
-      ><view class="badge">优秀履约员</view></view
+      ><!-- IK8W5V：徽章按真实绩效（准时率≥95）显示 -->
+      ><view v-if="excellent" class="badge">优秀履约员</view></view
     ><view class="kpi card"
       ><view
         ><text>{{ Math.round(performance?.onTimeRate ?? 0) }}%</text
@@ -64,12 +100,20 @@ onShow(async () => {
         ><view class="menu__icon pulse"></view
         ><view class="menu__body"
           ><text>工作状态</text
-          ><text>{{
-            profile.online ? "当前可接收新任务" : "暂不接单"
-          }}</text></view
-        ><text class="online-text">{{
-          profile.online ? "在线" : "休息"
-        }}</text></view
+          ><text>{{ statusDesc[profile.status] }}</text></view
+        ><text class="online-text">{{ statusText[profile.status] }}</text></view
+      ><!-- IK8W5V：演示模式开关（默认开）；关闭后角色锁定当前登录身份 -->
+      ><view class="menu__switch"
+        ><view class="menu__icon demo"></view
+        ><view class="menu__body"
+          ><text>演示模式</text
+          ><text>关闭后锁定当前角色（IK8W5V）</text></view
+        ><switch
+          class="demo-switch"
+          :checked="session.demoMode"
+          color="#18a957"
+          @change="toggleDemo($event)"
+        ></switch></view
       ><view
         ><view class="menu__icon help"></view
         ><view class="menu__body"
@@ -203,6 +247,7 @@ onShow(async () => {
 .calendar:before,
 .building:before,
 .pulse:before,
+.demo:before,
 .help:before {
   position: absolute;
   inset: 0;
@@ -221,8 +266,38 @@ onShow(async () => {
 .pulse:before {
   content: "ON";
 }
+.demo:before {
+  content: "D";
+}
 .help:before {
   content: "?";
+}
+.menu__switch {
+  min-height: 124rpx;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  border-bottom: 2rpx solid $line;
+}
+.demo-switch {
+  transform: scale(0.8);
+}
+.retry {
+  text-align: center;
+  padding: 120rpx 30rpx;
+}
+.retry__title,
+.retry__sub {
+  display: block;
+}
+.retry__title {
+  font-weight: 900;
+  color: $primary-dark;
+}
+.retry__sub {
+  font-size: 21rpx;
+  color: $muted;
+  margin-top: 8rpx;
 }
 .menu__body {
   flex: 1;

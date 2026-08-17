@@ -3,17 +3,25 @@ import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
+import { formatShort } from "../../utils/datetime";
 import type { LeaveItem } from "../../types";
 const items = ref<LeaveItem[]>([]);
 const session = useSessionStore();
+/** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+const error = ref(false);
 const startDate = ref(""),
   startTime = ref(""),
   endDate = ref(""),
   endTime = ref(""),
   reason = ref("");
 async function load() {
-  await session.ensure();
-  items.value = await api.leave();
+  error.value = false;
+  try {
+    await session.ensure();
+    items.value = await api.leave();
+  } catch {
+    error.value = true;
+  }
 }
 onShow(load);
 function pick(e: { detail: { value: string } }) {
@@ -118,11 +126,16 @@ function cancelRequest(id: string) {
         maxlength="200"
       ></textarea></view
       ><button class="primary-btn apply" @tap="apply">提交申请</button></view
+    ><view v-if="error" class="retry card" role="button" @tap="load"
+      ><text class="retry__title">加载失败</text
+      ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     ><view v-for="item in items" :key="item.id" class="leave card"
       ><view class="head"
         ><text>{{ item.building || "请假申请" }}</text
         ><text class="status">{{ item.statusText }}</text></view
-      ><text class="time">{{ item.startAt }} 至 {{ item.endAt }}</text
+      ><text class="time"
+        >{{ formatShort(item.startAt) }} 至 {{ formatShort(item.endAt) }}</text
+      >
       ><text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
       ><text v-if="item.reward" class="reward">调配奖励 ¥{{ item.reward }}</text
       ><view v-if="item.status === 'invited'" class="leave__ops"
@@ -245,5 +258,23 @@ function cancelRequest(id: string) {
 }
 .apply {
   margin-top: 34rpx;
+}
+.retry {
+  text-align: center;
+  padding: 100rpx 30rpx;
+  margin-bottom: 20rpx;
+}
+.retry__title,
+.retry__sub {
+  display: block;
+}
+.retry__title {
+  font-weight: 900;
+  color: $primary-dark;
+}
+.retry__sub {
+  font-size: 21rpx;
+  color: $muted;
+  margin-top: 8rpx;
 }
 </style>

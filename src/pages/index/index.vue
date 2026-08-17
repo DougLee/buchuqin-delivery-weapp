@@ -8,6 +8,8 @@ import type { Dashboard, Shift, StaffRole, StaffStatus } from "../../types";
 const session = useSessionStore();
 const data = ref<Dashboard>();
 const shift = ref<Shift>();
+/** 加载失败标记（IK8W5V）：失败时展示重试入口，避免页面永久空白 */
+const error = ref(false);
 /** 当班卡按钮防重（IK8W5U） */
 const shiftBusy = ref(false);
 const statusBusy = ref(false);
@@ -37,13 +39,18 @@ const shiftState = computed(() => {
 });
 
 async function load() {
-  await session.ensure();
-  const [d, s] = await Promise.all([
-    api.dashboard(session.role),
-    api.shiftsCurrent(),
-  ]);
-  data.value = d;
-  shift.value = s;
+  error.value = false;
+  try {
+    await session.ensure();
+    const [d, s] = await Promise.all([
+      api.dashboard(session.role),
+      api.shiftsCurrent(),
+    ]);
+    data.value = d;
+    shift.value = s;
+  } catch {
+    error.value = true;
+  }
 }
 async function change(role: StaffRole) {
   await session.setRole(role);
@@ -105,6 +112,11 @@ function applyStatus(s: StaffStatus) {
       profile: { ...data.value.profile, status: s, online: s === "online" },
     };
 }
+/** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
+const avgMinutes = computed<number | null>(() => {
+  const v = data.value?.stats.averageMinutes;
+  return typeof v === "number" ? v : null;
+});
 const open = (id: string) =>
   uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
 onShow(load);
@@ -151,7 +163,9 @@ onShow(load);
       </button>
     </view>
 
-    <view class="roles" aria-label="切换履约角色">
+    <!-- IK8W5V 角色守卫：三角色切换卡仅演示模式可见（默认开，设置页可关）；
+         关闭后角色锁定当前值，由登录 token 决定，正式登录落地后删除此卡 -->
+    <view v-if="session.demoMode" class="roles" aria-label="切换履约角色">
       <view
         v-for="role in roles"
         :key="role[0]"
@@ -165,6 +179,11 @@ onShow(load);
       </view>
     </view>
 
+    <view v-if="error" class="retry card" role="button" @tap="load"
+      ><text class="retry__title">加载失败</text
+      ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
+    >
+
     <template v-if="data">
       <view class="hero">
         <view class="hero__glow"></view>
@@ -174,15 +193,16 @@ onShow(load);
             ><text class="hello"
               >{{ greeting }}，{{ data.profile.name }}</text
             ></view
-          ><view class="shift">当班</view></view
+          ><!-- IK8W5V：当班徽章接 shifts/current 真实状态 -->
+          ><view class="shift" :class="{ 'shift--off': !shiftState.working }">{{
+            shiftState.working ? "当班" : "未当班"
+          }}</view></view
         >
         <view class="hero__metric"
           ><text class="metric__number">{{ data.stats.pending }}</text
-          ><view
-            ><text class="metric__unit">单待处理</text
-            ><text class="metric__hint">下一单请在 8 分钟内响应</text></view
-          ></view
+          ><view><text class="metric__unit">单待处理</text></view></view
         >
+        <!-- IK8W5V：路线进度点为纯视觉装饰，不映射真实履约阶段 -->
         <view class="route"
           ><view class="route__point route__point--done"></view
           ><view class="route__line"></view
@@ -214,8 +234,9 @@ onShow(load);
         >
         <view
           ><text class="stats__value"
-            >{{ data.stats.averageMinutes || 12
-            }}<text class="small">min</text></text
+            >{{ avgMinutes ?? "—" }}<text v-if="avgMinutes != null" class="small"
+              >min</text
+            ></text
           ><text class="stats__label">平均用时</text></view
         >
       </view>
@@ -376,6 +397,7 @@ onShow(load);
   justify-content: space-between;
   gap: 20rpx;
   padding: 24rpx 28rpx;
+  margin: 30rpx 0 0;
 }
 .shift-card__info {
   flex: 1;
@@ -422,7 +444,7 @@ onShow(load);
   background: #dfe8e1;
   padding: 8rpx;
   border-radius: 26rpx;
-  margin: 30rpx 0 24rpx;
+  margin: 20rpx 0 24rpx;
 }
 .role {
   min-height: 90rpx;
@@ -501,6 +523,26 @@ onShow(load);
   border-radius: 999rpx;
   padding: 8rpx 18rpx;
   font-size: 20rpx;
+}
+.shift--off {
+  opacity: 0.72;
+}
+.retry {
+  text-align: center;
+  padding: 90rpx 30rpx;
+}
+.retry__title,
+.retry__sub {
+  display: block;
+}
+.retry__title {
+  font-weight: 900;
+  color: $primary-dark;
+}
+.retry__sub {
+  font-size: 21rpx;
+  color: $muted;
+  margin-top: 8rpx;
 }
 .hero__metric {
   gap: 18rpx;
