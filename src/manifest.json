@@ -1,5 +1,6 @@
 {
   "name": "不出寝履约端",
+  /* 履约端正式 appid（道哥 2026-08-17 提供）；根级 appid 为 uni-app 应用标识 */
   "appid": "__UNI__FULFILLMENT_MOCK",
   "description": "不出寝食社履约人员小程序",
   "versionName": "1.0.0",
@@ -7,7 +8,7 @@
   "transformPx": false,
   "h5": { "title": "不出寝履约端", "router": { "base": "/h5/delivery/m/" } },
   "mp-weixin": {
-    "appid": "",
+    "appid": "wxdc6ded350d633443",
     "setting": { "urlCheck": false },
     "usingComponents": true,
     "permission": {
