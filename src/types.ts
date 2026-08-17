@@ -1,5 +1,7 @@
 export type StaffRole =
   "building-manager" | "fulltime-rider" | "parttime-rider";
+/** 后端 Staff.status 三态（IK8W5U）：profile.online 由它派生 */
+export type StaffStatus = "online" | "paused" | "offline";
 export interface StaffProfile {
   id: string;
   name: string;
@@ -8,6 +10,18 @@ export interface StaffProfile {
   staffNo: string;
   building: string;
   online: boolean;
+  status: StaffStatus;
+}
+/** 当班卡（IK8W5U）：GET /fulfillment/shifts/current */
+export interface Shift {
+  id: string;
+  status: "working" | "not-started" | "completed";
+  role: StaffRole;
+  serviceArea: string;
+  startAt: string;
+  endAt: string;
+  checkedInAt?: string;
+  checkedOutAt?: string;
 }
 export interface Task {
   id: string;
@@ -63,6 +77,9 @@ export interface CommissionRecord {
   amount: number;
   createdAt: string;
   status: string;
+  /** 无规则命中的兜底提成标记（IK8W5L 口径） */
+  fallback?: boolean;
+  remark?: string | null;
 }
 export interface CommissionBill {
   month: string;

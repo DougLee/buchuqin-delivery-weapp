@@ -4,8 +4,10 @@ import type {
   Dashboard,
   LeaveItem,
   Performance,
+  Shift,
   StaffProfile,
   StaffRole,
+  StaffStatus,
   Task,
 } from "../types";
 export const api = {
@@ -41,4 +43,38 @@ export const api = {
     }),
   commissions: (_r: StaffRole) =>
     request<CommissionBill>("/fulfillment/commissions"),
+  // —— 以下为 IK8W5U 接入的后端已有能力 ——
+  /** 当班卡：GET /fulfillment/shifts/current */
+  shiftsCurrent: () => request<Shift>("/fulfillment/shifts/current"),
+  checkIn: () =>
+    request<Shift>("/fulfillment/shifts/check-in", { method: "POST" }),
+  checkOut: () =>
+    request<Shift>("/fulfillment/shifts/check-out", { method: "POST" }),
+  /** 上下线切换：PATCH /fulfillment/profile/status
+   * TODO(真机验证): @dcloudio/types 未收录 PATCH；H5 正常，微信端 wx.request
+   * 对 PATCH 的支持未在官方文档列出，需真机回归（异常时需后端补 POST 通道） */
+  updateStatus: (status: StaffStatus) =>
+    request<StaffProfile>("/fulfillment/profile/status", {
+      method: "PATCH" as UniApp.RequestOptions["method"],
+      data: { status },
+    }),
+  /** 抢单池（仅骑手角色，楼长 403）：GET /fulfillment/tasks/available */
+  availableTasks: () => request<Task[]>("/fulfillment/tasks/available"),
+  /** 抢单：POST /fulfillment/tasks/:id/grab，与 accept 同互斥 */
+  grab: (id: string) =>
+    request<Task>(`/fulfillment/tasks/${id}/grab`, {
+      method: "POST",
+      data: {},
+    }),
+  /** 拒绝调配邀请 */
+  rejectDispatch: (id: string) =>
+    request<LeaveItem>(`/fulfillment/dispatch-invitations/${id}/reject`, {
+      method: "POST",
+      data: {},
+    }),
+  /** 撤销待审核请假 */
+  cancelLeave: (id: string) =>
+    request<LeaveItem>(`/fulfillment/leave-requests/${id}/cancel`, {
+      method: "POST",
+    }),
 };

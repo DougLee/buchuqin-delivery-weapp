@@ -3,10 +3,14 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
-import type { Dashboard, StaffRole } from "../../types";
+import type { Dashboard, Shift, StaffRole, StaffStatus } from "../../types";
 
 const session = useSessionStore();
 const data = ref<Dashboard>();
+const shift = ref<Shift>();
+/** 当班卡按钮防重（IK8W5U） */
+const shiftBusy = ref(false);
+const statusBusy = ref(false);
 const roles: Array<[StaffRole, string, string]> = [
   ["building-manager", "楼长", "楼内交付"],
   ["fulltime-rider", "全职", "干线配送"],
@@ -16,14 +20,90 @@ const hour = new Date().getHours();
 const greeting = computed(() =>
   hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好",
 );
+const statusText: Record<StaffStatus, string> = {
+  online: "接单中",
+  paused: "暂停接单",
+  offline: "已下线",
+};
+const staffStatus = computed<StaffStatus>(
+  () => data.value?.profile.status ?? "offline",
+);
+const shiftState = computed(() => {
+  if (!shift.value) return { text: "排班加载中", working: false };
+  if (shift.value.status === "working") return { text: "当班中", working: true };
+  if (shift.value.status === "completed")
+    return { text: "今日已签退", working: false };
+  return { text: "今日未签到", working: false };
+});
 
 async function load() {
   await session.ensure();
-  data.value = await api.dashboard(session.role);
+  const [d, s] = await Promise.all([
+    api.dashboard(session.role),
+    api.shiftsCurrent(),
+  ]);
+  data.value = d;
+  shift.value = s;
 }
 async function change(role: StaffRole) {
   await session.setRole(role);
   await load();
+}
+/** 签到 / 签退（IK8W5U）：签到会上线、签退会下线，本地同步徽章状态 */
+async function shiftAction() {
+  if (shiftBusy.value) return;
+  shiftBusy.value = true;
+  try {
+    const working = shift.value?.status === "working";
+    const next = working ? await api.checkOut() : await api.checkIn();
+    shift.value = next;
+    applyStatus(next.status === "working" ? "online" : "offline");
+    uni.showToast({ title: working ? "已签退" : "已签到", icon: "success" });
+  } finally {
+    shiftBusy.value = false;
+  }
+}
+/** 上下线切换（IK8W5U）：真实 staff.status，三态切换 + 确认框 */
+function toggleStatus() {
+  if (statusBusy.value || !data.value) return;
+  const options: Array<[StaffStatus, string]> = [
+    ["online", "上线接单"],
+    ["paused", "暂停接单"],
+    ["offline", "下线休息"],
+  ];
+  uni.showActionSheet({
+    itemList: options.map((o) => o[1]),
+    success: ({ tapIndex }) => {
+      const next = options[tapIndex];
+      if (!next || next[0] === staffStatus.value) return;
+      uni.showModal({
+        title: "切换工作状态",
+        content: `确定切换为「${next[1]}」吗？`,
+        success: async (m) => {
+          if (!m.confirm || statusBusy.value) return;
+          statusBusy.value = true;
+          try {
+            const profile = await api.updateStatus(next[0]);
+            if (data.value)
+              data.value = {
+                ...data.value,
+                profile: { ...data.value.profile, ...profile },
+              };
+            uni.showToast({ title: `已${next[1]}`, icon: "success" });
+          } finally {
+            statusBusy.value = false;
+          }
+        },
+      });
+    },
+  });
+}
+function applyStatus(s: StaffStatus) {
+  if (data.value)
+    data.value = {
+      ...data.value,
+      profile: { ...data.value.profile, status: s, online: s === "online" },
+    };
 }
 const open = (id: string) =>
   uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
@@ -40,9 +120,35 @@ onShow(load);
           ><text class="campus">湖北工业大学 · 湖工大校园仓</text></view
         >
       </view>
-      <view class="online"
-        ><view class="online__dot"></view><text>接单中</text></view
+      <view
+        class="online"
+        :class="{
+          'online--paused': staffStatus === 'paused',
+          'online--offline': staffStatus === 'offline',
+        }"
+        role="button"
+        @tap="toggleStatus"
+        ><view class="online__dot"></view
+        ><text>{{ statusText[staffStatus] }}</text></view
       >
+    </view>
+
+    <view class="shift-card card">
+      <view class="shift-card__info"
+        ><text class="shift-card__title">{{ shiftState.text }}</text
+        ><text class="shift-card__sub"
+          >{{ shift?.serviceArea || "湖北工业大学" }} ·
+          {{ shift?.startAt || "--:--" }}—{{ shift?.endAt || "--:--" }}</text
+        ></view
+      >
+      <button
+        class="shift-card__btn"
+        :class="{ 'shift-card__btn--outline': shiftState.working }"
+        :disabled="shiftBusy"
+        @tap="shiftAction"
+      >
+        {{ shiftBusy ? "处理中…" : shiftState.working ? "签退下班" : "签到上班" }}
+      </button>
     </view>
 
     <view class="roles" aria-label="切换履约角色">
@@ -242,12 +348,72 @@ onShow(load);
   font-size: 22rpx;
   font-weight: 800;
 }
+.online--paused {
+  color: #8a5a17;
+  border-color: #ecd9b4;
+}
+.online--offline {
+  color: $muted;
+}
 .online__dot {
   width: 13rpx;
   height: 13rpx;
   border-radius: 50%;
   background: $lime;
   box-shadow: 0 0 0 7rpx rgba(185, 242, 39, 0.2);
+}
+.online--paused .online__dot {
+  background: $accent;
+  box-shadow: 0 0 0 7rpx rgba(255, 138, 52, 0.18);
+}
+.online--offline .online__dot {
+  background: #b7c4ba;
+  box-shadow: none;
+}
+.shift-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+}
+.shift-card__info {
+  flex: 1;
+}
+.shift-card__title,
+.shift-card__sub {
+  display: block;
+}
+.shift-card__title {
+  font-size: 28rpx;
+  font-weight: 900;
+  color: $primary-dark;
+}
+.shift-card__sub {
+  font-size: 20rpx;
+  color: $muted;
+  margin-top: 4rpx;
+}
+.shift-card__btn {
+  flex: 0 0 auto;
+  min-height: 68rpx;
+  margin: 0;
+  padding: 0 34rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+}
+.shift-card__btn--outline {
+  background: #fff;
+  color: $primary-dark;
+  border: 2rpx solid $primary;
+}
+.shift-card__btn[disabled] {
+  opacity: 0.6;
 }
 .roles {
   display: grid;

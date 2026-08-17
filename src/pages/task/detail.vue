@@ -17,6 +17,7 @@ const labels: Record<string, string> = {
   "start-delivery": "开始送往寝室",
   delivered: "上传凭证并送达",
   absent: "用户不在",
+  refused: "用户拒收",
   transfer: "申请转单",
 };
 onLoad(async (q) => {
@@ -45,6 +46,34 @@ function scanOrInput(title: string): Promise<string> {
     });
   });
 }
+/** 弹文本输入框（IK8W5U 异常上报/转单）：确认返回输入值（可为空串），取消返回 null */
+function promptText(title: string, placeholder: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    uni.showModal({
+      title,
+      editable: true,
+      placeholderText: placeholder,
+      success: (m) => resolve(m.confirm ? (m.content ?? "").trim() : null),
+      fail: () => resolve(null),
+    });
+  });
+}
+/** 选图并上传（可选凭证）：用户取消或上传失败时返回 []，不阻断动作 */
+async function chooseUploadedImages(count: number): Promise<string[]> {
+  try {
+    const chosen = await uni.chooseImage({ count, sizeType: ["compressed"] });
+    const paths = Array.isArray(chosen.tempFilePaths)
+      ? chosen.tempFilePaths
+      : [chosen.tempFilePaths];
+    if (!paths.length) return [];
+    uni.showLoading({ title: "照片上传中", mask: true });
+    return await Promise.all(paths.map((p) => uploadImage(p)));
+  } catch {
+    return [];
+  } finally {
+    uni.hideLoading();
+  }
+}
 /** 取真实 gcj02 定位，失败直接报错并中断动作 */
 function locate(): Promise<{ latitude: number; longitude: number }> {
   // TODO(真机验证): 真机定位授权与精度
@@ -68,6 +97,22 @@ async function act(action: string) {
       payload = { packageCode: await scanOrInput("输入包裹编号") };
     if (action === "handover")
       payload = { handoverCode: await scanOrInput("输入交接码") };
+    // 转单（IK8W5U）：原因必填
+    if (action === "transfer") {
+      const reason = await promptText("申请转单", "请填写转单原因（必填）");
+      if (reason === null) return;
+      if (!reason) {
+        uni.showToast({ title: "请填写转单原因", icon: "none" });
+        return;
+      }
+      payload = { reason };
+    }
+    // 异常上报-用户不在（IK8W5U）：备注 + 可选照片
+    if (action === "absent") {
+      const remark = await promptText("用户不在", "备注放置位置/联系结果（选填）");
+      if (remark === null) return;
+      payload = { reason: remark, images: await chooseUploadedImages(3) };
+    }
     if (action === "delivered") {
       const chosen = await uni.chooseImage({ count: 1, sizeType: ["compressed"] });
       const paths = Array.isArray(chosen.tempFilePaths)

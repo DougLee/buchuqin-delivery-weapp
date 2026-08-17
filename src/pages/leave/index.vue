@@ -49,6 +49,32 @@ async function accept(id: string) {
   await load();
   uni.showToast({ title: "已接受调配", icon: "success" });
 }
+/** 拒绝调配邀请（IK8W5U）：POST dispatch-invitations/:id/reject */
+function reject(id: string) {
+  uni.showModal({
+    title: "拒绝调配",
+    content: "确定拒绝该跨楼调配邀请吗？",
+    success: async (m) => {
+      if (!m.confirm) return;
+      await api.rejectDispatch(id);
+      await load();
+      uni.showToast({ title: "已拒绝调配", icon: "success" });
+    },
+  });
+}
+/** 撤销待审核请假（IK8W5U）：POST leave-requests/:id/cancel */
+function cancelRequest(id: string) {
+  uni.showModal({
+    title: "撤销请假",
+    content: "确定撤销这条请假申请吗？",
+    success: async (m) => {
+      if (!m.confirm) return;
+      await api.cancelLeave(id);
+      await load();
+      uni.showToast({ title: "已撤销", icon: "success" });
+    },
+  });
+}
 </script>
 <template>
   <view class="page"
@@ -99,12 +125,15 @@ async function accept(id: string) {
       ><text class="time">{{ item.startAt }} 至 {{ item.endAt }}</text
       ><text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
       ><text v-if="item.reward" class="reward">调配奖励 ¥{{ item.reward }}</text
+      ><view v-if="item.status === 'invited'" class="leave__ops"
+        ><button class="primary-btn" @tap="accept(item.id)">接受调配</button
+        ><button class="ghost-btn" @tap="reject(item.id)">拒绝</button></view
       ><button
-        v-if="item.status === 'invited'"
-        class="primary-btn"
-        @tap="accept(item.id)"
+        v-if="item.status === 'pending'"
+        class="ghost-btn"
+        @tap="cancelRequest(item.id)"
       >
-        接受调配
+        撤销请假
       </button></view
     ></view
   >
@@ -187,6 +216,32 @@ async function accept(id: string) {
 }
 .leave .primary-btn {
   margin-top: 22rpx;
+}
+.leave__ops {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 22rpx;
+}
+.leave__ops .primary-btn {
+  flex: 1;
+  margin-top: 0;
+}
+.ghost-btn {
+  flex: 1;
+  min-height: 96rpx;
+  margin-top: 22rpx;
+  border-radius: 28rpx;
+  background: #fff;
+  border: 2rpx solid $line;
+  color: $muted;
+  font-size: 30rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.leave__ops .ghost-btn {
+  margin-top: 0;
 }
 .apply {
   margin-top: 34rpx;

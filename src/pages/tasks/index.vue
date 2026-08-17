@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
@@ -7,17 +7,48 @@ import type { Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
   active = ref("all"),
-  tabs = [
-    ["all", "全部"],
-    ["waiting", "待处理"],
-    ["available", "待接单"],
-    ["delivering", "进行中"],
-    ["completed", "已完成"],
-  ];
+  /** 抢单防重：当前正在抢的任务 id（IK8W5U） */
+  grabbing = ref<string | null>(null);
+// 抢单池仅骑手角色可见（IK8W5U，后端对楼长返回 403）
+const isRider = computed(() => session.role !== "building-manager");
+const baseTabs: Array<[string, string]> = [
+  ["all", "全部"],
+  ["waiting", "待处理"],
+  ["available", "待接单"],
+  ["delivering", "进行中"],
+  ["completed", "已完成"],
+];
+const tabs = computed<Array<[string, string]>>(() =>
+  isRider.value ? [["pool", "抢单池"], ...baseTabs] : baseTabs,
+);
 async function load(s = active.value) {
   await session.ensure();
+  // 角色切换后停留在抢单池时回退到全部（楼长无抢单池）
+  if (s === "pool" && !isRider.value) s = "all";
   active.value = s;
-  items.value = await api.tasks(session.role, s);
+  items.value =
+    s === "pool"
+      ? await api.availableTasks()
+      : await api.tasks(session.role, s);
+}
+/** 抢单（IK8W5U）：成功跳详情；被抢走时提示并刷新列表 */
+async function grab(task: Task) {
+  if (grabbing.value) return;
+  grabbing.value = task.id;
+  try {
+    const t = await api.grab(task.id);
+    uni.showToast({ title: "抢单成功", icon: "success" });
+    uni.navigateTo({ url: `/pages/task/detail?id=${t.id}` });
+  } catch {
+    uni.showToast({ title: "手慢了，任务已被抢", icon: "none" });
+    try {
+      await load("pool");
+    } catch {
+      /* 刷新失败由 request 统一 toast */
+    }
+  } finally {
+    grabbing.value = null;
+  }
 }
 onShow(() => load());
 </script>
@@ -88,7 +119,14 @@ onShow(() => load());
       >
       <view class="footer"
         ><text class="time">{{ task.deadline }} 前完成</text
-        ><text class="go">查看任务 →</text></view
+        ><button
+          v-if="active === 'pool'"
+          class="grab-btn"
+          :disabled="grabbing === task.id"
+          @tap.stop="grab(task)"
+        >
+          {{ grabbing === task.id ? "抢单中…" : "抢单" }}
+        </button><text v-else class="go">查看任务 →</text></view
       >
     </view>
   </view>
@@ -281,6 +319,21 @@ onShow(() => load());
   font-size: 22rpx;
   color: $primary-dark;
   font-weight: 900;
+}
+.grab-btn {
+  min-height: 62rpx;
+  margin: 0;
+  padding: 0 36rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: $lime;
+  font-size: 24rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+}
+.grab-btn[disabled] {
+  opacity: 0.6;
 }
 .empty text {
   display: block;
