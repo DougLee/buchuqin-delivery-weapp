@@ -34,6 +34,9 @@ export interface Task {
   room: string;
   itemCount: number;
   weight: number;
+  /** 收件人联系（IK9AWW）：展示脱敏、拨号用真实号 */
+  recipientName: string;
+  recipientPhone: string;
   mode: string;
   modeText: string;
   deadline: string;

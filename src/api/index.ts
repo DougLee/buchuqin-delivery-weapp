@@ -28,6 +28,11 @@ export const api = {
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
   tasks: async (_r: StaffRole, s = "all") =>
     (await request<PageResult<Task>>(`/fulfillment/tasks?status=${s}`)).items,
+  /** 任务分页契约（IK9AWX）：滚动加载用，返回完整信封 */
+  tasksPage: (s = "all", page = 1, pageSize = 20) =>
+    request<PageResult<Task>>(
+      `/fulfillment/tasks?status=${s}&page=${page}&pageSize=${pageSize}`,
+    ),
   task: (_r: StaffRole, id: string) =>
     request<Task>(`/fulfillment/tasks/${id}`),
   action: (
@@ -50,11 +55,19 @@ export const api = {
       method: "POST",
     }),
   /** 后端把 records 改为 items 并加分页信封（汇总字段平铺不变），这里映射回 CommissionBill */
-  commissions: async (_r: StaffRole) => {
-    const { items, ...summary } = await request<
+  /**
+   * 提成账单（IK9AWZ/AWX）：month 缺省当月；pageSize=100 取整月记录
+   * （校园量级单月远小于 100，超出再上真分页），total 为信封真实总数。
+   */
+  commissions: async (
+    _r: StaffRole,
+    month?: string,
+  ): Promise<CommissionBill & { total: number }> => {
+    const query = month ? `?month=${month}&pageSize=100` : "?pageSize=100";
+    const { items, total, ...summary } = await request<
       Omit<CommissionBill, "records"> & PageResult<CommissionRecord>
-    >("/fulfillment/commissions");
-    return { ...summary, records: items };
+    >(`/fulfillment/commissions${query}`);
+    return { ...summary, records: items, total };
   },
   // —— 以下为 IK8W5U 接入的后端已有能力 ——
   /** 当班卡：GET /fulfillment/shifts/current */
