@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
+import { fenToYuan } from "../../utils/money";
 import type { LeaveItem } from "../../types";
 const items = ref<LeaveItem[]>([]);
 const session = useSessionStore();
@@ -137,7 +138,9 @@ function cancelRequest(id: string) {
         >{{ formatShort(item.startAt) }} 至 {{ formatShort(item.endAt) }}</text
       >
       ><text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
-      ><text v-if="item.reward" class="reward">调配奖励 ¥{{ item.reward }}</text
+      ><text v-if="item.reward" class="reward"
+        >调配奖励 ¥{{ fenToYuan(item.reward) }}</text
+      >
       ><view v-if="item.status === 'invited'" class="leave__ops"
         ><button class="primary-btn" @tap="accept(item.id)">接受调配</button
         ><button class="ghost-btn" @tap="reject(item.id)">拒绝</button></view

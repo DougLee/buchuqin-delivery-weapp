@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
+import { fenToYuan } from "../../utils/money";
 import type { Dashboard, Shift, StaffRole, StaffStatus } from "../../types";
 
 const session = useSessionStore();
@@ -225,7 +226,7 @@ onShow(load);
           ><text class="stats__label">今日完成</text></view
         >
         <view
-          ><text class="stats__value">¥{{ data.stats.income }}</text
+          ><text class="stats__value">¥{{ fenToYuan(data.stats.income) }}</text
           ><text class="stats__label">今日收入</text></view
         >
         <view
@@ -278,7 +279,9 @@ onShow(load);
         <view class="task__meta"
           ><text>{{ task.itemCount }} 件 · {{ task.weight }}kg</text
           ><text>{{ task.modeText }}</text
-          ><text class="commission">+¥{{ task.commission }}</text></view
+          ><text class="commission"
+            >+¥{{ fenToYuan(task.commission) }}</text
+          ></view
         >
         <view class="task__action"
           ><text>查看路线与操作</text><text>→</text></view

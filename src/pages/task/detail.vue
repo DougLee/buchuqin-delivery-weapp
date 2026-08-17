@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { uploadImage } from "../../api/upload";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
+import { fenToYuan } from "../../utils/money";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   task = ref<Task>();
@@ -190,7 +191,7 @@ async function act(action: string) {
         ><text>预计时效</text><text>{{ task.deadline }}</text></view
       ><view
         ><text>预计收入</text
-        ><text class="income">¥{{ task.commission }}</text></view
+        ><text class="income">¥{{ fenToYuan(task.commission) }}</text></view
       ></view
     ><!-- IK8W5V：渲染后端 Task.timeline（types.ts 已有定义） -->
     <view class="section-title"

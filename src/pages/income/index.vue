@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
+import { fenToYuan } from "../../utils/money";
 import type { CommissionBill } from "../../types";
 const session = useSessionStore(),
   bill = ref<CommissionBill>(),
@@ -67,7 +68,7 @@ const week = computed(() => {
           ><text class="kicker">{{ bill.month }} INCOME</text
           ><text class="label">本月预计收入</text></view
         ><text class="bill-tag">月结</text></view
-      ><text class="amount"><small>¥</small>{{ bill.payable }}</text
+      ><text class="amount"><small>¥</small>{{ fenToYuan(bill.payable) }}</text
       ><view class="trend"
         ><!-- IK8W5V：柱状图由近 7 天提成记录驱动，无数据显示空态文案 -->
         ><view class="trend__bars"
@@ -84,11 +85,14 @@ const week = computed(() => {
       ></view
     ><view class="breakdown card"
       ><view
-        ><text>社群底薪</text><strong>¥{{ bill.baseSalary }}</strong></view
+        ><text>社群底薪</text
+        ><strong>¥{{ fenToYuan(bill.baseSalary) }}</strong></view
       ><view
-        ><text>配送提成</text><strong>¥{{ bill.deliveryIncome }}</strong></view
+        ><text>配送提成</text
+        ><strong>¥{{ fenToYuan(bill.deliveryIncome) }}</strong></view
       ><view
-        ><text>跨期调整</text><strong>¥{{ bill.adjustment }}</strong></view
+        ><text>跨期调整</text
+        ><strong>¥{{ fenToYuan(bill.adjustment) }}</strong></view
       ></view
     ><view class="section-title"
       ><view
@@ -104,7 +108,7 @@ const week = computed(() => {
         ><text class="muted"
           >{{ r.orderNo }} · {{ formatShort(r.createdAt) }}</text
         ></view
-      ><text class="money">+¥{{ r.amount }}</text></view
+      ><text class="money">+¥{{ fenToYuan(r.amount) }}</text></view
     ></view
   >
 </template>

@@ -38,6 +38,7 @@ export interface Task {
   modeText: string;
   deadline: string;
   warehouse: string;
+  /** 任务佣金（单位:分） */
   commission: number;
   items: Array<{ name: string; quantity: number; image: string }>;
   timeline: Array<{
@@ -51,6 +52,7 @@ export interface Task {
 }
 export interface Dashboard {
   profile: StaffProfile;
+  /** 统计卡数值；income 键为金额（单位:分），其余为单量/百分比 */
   stats: Record<string, number>;
   announcement: string;
   tasks: Task[];
@@ -65,6 +67,7 @@ export interface Performance {
   period: string;
   pending: number;
   completed: number;
+  /** 收入（单位:分） */
   income: number;
   onTimeRate: number;
   proofRate: number | null;
@@ -74,6 +77,7 @@ export interface CommissionRecord {
   id: string;
   orderNo: string;
   building: string;
+  /** 提成金额（单位:分） */
   amount: number;
   createdAt: string;
   status: string;
@@ -83,9 +87,13 @@ export interface CommissionRecord {
 }
 export interface CommissionBill {
   month: string;
+  /** 社群底薪（单位:分） */
   baseSalary: number;
+  /** 配送提成（单位:分） */
   deliveryIncome: number;
+  /** 跨期调整（单位:分，可为负） */
   adjustment: number;
+  /** 应结金额（单位:分） */
   payable: number;
   records: CommissionRecord[];
 }
@@ -97,5 +105,6 @@ export interface LeaveItem {
   startAt: string;
   endAt: string;
   reason?: string;
+  /** 调配奖励，源自 DispatchInvitation.reward（单位:分） */
   reward?: number;
 }

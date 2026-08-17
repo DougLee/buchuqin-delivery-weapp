@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
+import { fenToYuan } from "../../utils/money";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
@@ -125,7 +126,7 @@ onShow(() => load());
           ><text>模式</text><strong>{{ task.modeText }}</strong></view
         ><view
           ><text>预计收入</text
-          ><strong class="money">¥{{ task.commission }}</strong></view
+          ><strong class="money">¥{{ fenToYuan(task.commission) }}</strong></view
         ></view
       >
       <view class="footer"
