@@ -41,6 +41,16 @@ function toggleDemo(e: Event) {
   ).detail?.value;
   if (typeof value === "boolean") session.setDemoMode(value);
 }
+/** 履约规范（IK9AX0）：原「帮助」行是带箭头的死菜单，点开真内容 */
+function help() {
+  uni.showModal({
+    title: "履约规范速览",
+    content:
+      "1. 取货：到仓扫码/输编号，核对件数\n2. 交接：楼下与楼长当面交接确认\n3. 送达：敲门送达，上传凭证照\n4. 请假：至少提前 2 小时提交\n5. 异常：用户不在/拒收及时上报\n支持时段 09:00-22:30",
+    showCancel: false,
+    confirmText: "知道了",
+  });
+}
 </script>
 <template>
   <view v-if="error" class="page profile"
@@ -91,11 +101,12 @@ function toggleDemo(e: Event) {
           ><text>请假与跨楼调配</text
           ><text>排班、请假、接受临时调配</text></view
         ><text class="arrow">→</text></view
+      ><!-- IK9AX0：服务楼栋是信息展示行，去掉误导导航的箭头 -->
       ><view
         ><view class="menu__icon building"></view
         ><view class="menu__body"
           ><text>服务楼栋</text><text>{{ profile.building }}</text></view
-        ><text class="arrow">→</text></view
+        ></view
       ><view
         ><view class="menu__icon pulse"></view
         ><view class="menu__body"
@@ -108,16 +119,18 @@ function toggleDemo(e: Event) {
         ><view class="menu__body"
           ><text>演示模式</text
           ><text>关闭后锁定当前角色（IK8W5V）</text></view
+        ><!-- switch 选中色与主题 $primary 一致（IK9AX2） -->
         ><switch
           class="demo-switch"
           :checked="session.demoMode"
           color="#18a957"
           @change="toggleDemo($event)"
         ></switch></view
-      ><view
+      ><!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
+      ><view role="button" @tap="help"
         ><view class="menu__icon help"></view
         ><view class="menu__body"
-          ><text>履约规范与帮助</text><text>标准流程与常见问题</text></view
+          ><text>履约规范与帮助</text><text>标准流程速览</text></view
         ><text class="arrow">→</text></view
       ></view
     ><view class="service"
@@ -191,7 +204,7 @@ function toggleDemo(e: Event) {
   border-radius: 999rpx;
   background: rgba(185, 242, 39, 0.14);
   color: $lime;
-  font-size: 18rpx;
+  font-size: 20rpx;
   font-weight: 800;
 }
 .kpi {
@@ -213,14 +226,14 @@ function toggleDemo(e: Event) {
   color: $primary-dark;
 }
 .kpi text:last-child {
-  font-size: 18rpx;
+  font-size: 20rpx;
   color: $muted;
   margin-top: 4rpx;
 }
 .kicker {
   display: block;
   color: $primary;
-  font-size: 18rpx;
+  font-size: 20rpx;
   font-weight: 900;
   letter-spacing: 3rpx;
 }
@@ -309,7 +322,7 @@ function toggleDemo(e: Event) {
   font-weight: 800;
 }
 .menu__body text:last-child {
-  font-size: 19rpx;
+  font-size: 20rpx;
   color: $muted;
   margin-top: 3rpx;
 }

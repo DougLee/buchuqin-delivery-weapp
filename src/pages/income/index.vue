@@ -7,19 +7,37 @@ import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
 import type { CommissionBill } from "../../types";
 const session = useSessionStore(),
-  bill = ref<CommissionBill>(),
+  bill = ref<CommissionBill & { total?: number }>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
-  error = ref(false);
-async function load() {
+  error = ref(false),
+  /** 首屏/切换加载中（IK9AWY）：驱动骨架屏 */
+  loading = ref(false),
+  /** 查看月份（IK9AWZ）：YYYY-MM，缺省当月，picker 切换后按月重查 */
+  month = ref("");
+function nowMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+const isCurrent = computed(() => month.value === nowMonth());
+async function load(m = month.value) {
   error.value = false;
+  loading.value = true;
   try {
     await session.ensure();
-    bill.value = await api.commissions(session.role);
+    bill.value = await api.commissions(session.role, m || undefined);
+    if (!m) month.value = nowMonth();
   } catch {
     error.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 onShow(load);
+/** 月份切换（IK9AWZ）：picker fields=month，回调即按月重查 */
+function onMonthChange(e: { detail: { value: string } }) {
+  month.value = e.detail.value;
+  load(e.detail.value);
+}
 /** IK8W5V 去演示化：柱状图由 records 真实数据驱动（近 7 天单量），无数据显示空态文案 */
 const week = computed(() => {
   const records = bill.value?.records ?? [];
@@ -61,17 +79,33 @@ const week = computed(() => {
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     ></view
   >
+  <view v-else-if="loading" class="page income-page"
+    ><!-- 加载骨架（IK9AWY） -->
+    ><view class="income-skeleton__hero" /><view
+      class="income-skeleton__break"
+    /><view v-for="n in 3" :key="n" class="income-skeleton__record" />
+  </view>
   <view v-else-if="bill" class="page income-page"
     ><view class="income-hero"
       ><view class="income-hero__top"
         ><view
-          ><text class="kicker">{{ bill.month }} INCOME</text
-          ><text class="label">本月预计收入</text></view
-        ><text class="bill-tag">月结</text></view
+          ><text class="kicker">{{ month }} INCOME</text
+          ><text class="label">{{
+            isCurrent ? "本月预计收入" : "当月收入"
+          }}</text></view
+        ><!-- 月份切换（IK9AWZ）：picker 月份粒度，选中即重查 -->
+        ><picker
+          mode="date"
+          fields="month"
+          :value="month"
+          @change="onMonthChange"
+          ><text class="bill-tag">{{ month }} ▾</text></picker
+        ></view
       ><text class="amount"><small>¥</small>{{ fenToYuan(bill.payable) }}</text
       ><view class="trend"
-        ><!-- IK8W5V：柱状图由近 7 天提成记录驱动，无数据显示空态文案 -->
-        ><view class="trend__bars"
+        ><!-- IK8W5V：柱状图由近 7 天提成记录驱动，无数据显示空态文案；
+            非当月视图不画「近 7 日」柱（数据是整月记录，画了必错） -->
+        ><view v-if="isCurrent" class="trend__bars"
           ><view
             v-for="d in week.days"
             :key="d.label"
@@ -80,7 +114,11 @@ const week = computed(() => {
             :style="{ height: d.height + 'px' }"
           ></view></view
         ><text>{{
-          week.total ? `近 7 日完成 ${week.total} 单` : "近 7 日暂无提成记录"
+          isCurrent
+            ? week.total
+              ? `近 7 日完成 ${week.total} 单`
+              : "近 7 日暂无提成记录"
+            : `该月共 ${bill.total ?? bill.records.length} 笔提成`
         }}</text></view
       ></view
     ><view class="breakdown card"
@@ -98,8 +136,9 @@ const week = computed(() => {
       ><view
         ><text class="kicker green">DETAILS</text
         ><text class="section-title__main">提成明细</text></view
+      ><!-- 笔数用信封 total（IK9AWX）：records 上限 100，超了不再少报 -->
       ><text class="section-title__sub"
-        >共 {{ bill.records.length }} 笔</text
+        >共 {{ bill.total ?? bill.records.length }} 笔</text
       ></view
     ><view v-for="r in bill.records" :key="r.id" class="record card"
       ><view class="record__mark"></view
@@ -146,7 +185,7 @@ const week = computed(() => {
   justify-content: space-between;
 }
 .kicker {
-  font-size: 18rpx;
+  font-size: 20rpx;
   letter-spacing: 3rpx;
   color: $lime;
   font-weight: 900;
@@ -177,7 +216,7 @@ const week = computed(() => {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  font-size: 19rpx;
+  font-size: 20rpx;
   opacity: 0.76;
 }
 .trend__bars {
@@ -211,7 +250,7 @@ const week = computed(() => {
   display: block;
 }
 .breakdown text {
-  font-size: 19rpx;
+  font-size: 20rpx;
   color: $muted;
 }
 .breakdown strong {
@@ -268,5 +307,30 @@ const week = computed(() => {
   color: $primary-dark;
   font-size: 30rpx;
   font-weight: 900;
+}
+.income-skeleton__hero,
+.income-skeleton__break,
+.income-skeleton__record {
+  border-radius: 38rpx;
+  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  animation: income-pulse 1.2s infinite;
+}
+.income-skeleton__hero {
+  height: 300rpx;
+}
+.income-skeleton__break {
+  height: 130rpx;
+  margin-top: 22rpx;
+  border-radius: 28rpx;
+}
+.income-skeleton__record {
+  height: 102rpx;
+  margin-top: 16rpx;
+  border-radius: 28rpx;
+}
+@keyframes income-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 </style>

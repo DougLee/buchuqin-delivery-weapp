@@ -28,7 +28,10 @@ onShow(load);
 function pick(e: { detail: { value: string } }) {
   return e.detail.value;
 }
+/** 提交防重（IK9AWU）：连点「提交申请」只发一次请求 */
+const submitting = ref(false);
 async function apply() {
+  if (submitting.value) return;
   if (!startDate.value || !startTime.value || !endDate.value || !endTime.value) {
     uni.showToast({ title: "请选择请假的起止时间", icon: "none" });
     return;
@@ -43,20 +46,37 @@ async function apply() {
     uni.showToast({ title: "结束时间需晚于开始时间", icon: "none" });
     return;
   }
-  await api.createLeave({
-    startAt: startAt.toISOString(),
-    endAt: endAt.toISOString(),
-    reason: reason.value.trim(),
-  });
-  startDate.value = startTime.value = endDate.value = endTime.value = "";
-  reason.value = "";
-  items.value = await api.leave();
-  uni.showToast({ title: "请假申请已提交", icon: "success" });
+  submitting.value = true;
+  try {
+    await api.createLeave({
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+      reason: reason.value.trim(),
+    });
+    startDate.value = startTime.value = endDate.value = endTime.value = "";
+    reason.value = "";
+    items.value = await api.leave();
+    uni.showToast({ title: "请假申请已提交", icon: "success" });
+  } catch {
+    // 失败提示由 request 层统一 toast，表单保留已填内容便于改后重提
+  } finally {
+    submitting.value = false;
+  }
 }
+/** 接受调配防重（IK9AWU）：正在接受的邀请 id */
+const accepting = ref<string | null>(null);
 async function accept(id: string) {
-  await api.acceptDispatch(id);
-  await load();
-  uni.showToast({ title: "已接受调配", icon: "success" });
+  if (accepting.value) return;
+  accepting.value = id;
+  try {
+    await api.acceptDispatch(id);
+    await load();
+    uni.showToast({ title: "已接受调配", icon: "success" });
+  } catch {
+    // 失败提示由 request 层统一 toast
+  } finally {
+    accepting.value = null;
+  }
 }
 /** 拒绝调配邀请（IK8W5U）：POST dispatch-invitations/:id/reject */
 function reject(id: string) {
@@ -126,7 +146,9 @@ function cancelRequest(id: string) {
         placeholder="请填写具体原因（必填）"
         maxlength="200"
       ></textarea></view
-      ><button class="primary-btn apply" @tap="apply">提交申请</button></view
+      ><button class="primary-btn apply" :disabled="submitting" @tap="apply">
+        {{ submitting ? "提交中…" : "提交申请" }}</button
+      ></view
     ><view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
@@ -142,7 +164,12 @@ function cancelRequest(id: string) {
         >调配奖励 ¥{{ fenToYuan(item.reward) }}</text
       >
       ><view v-if="item.status === 'invited'" class="leave__ops"
-        ><button class="primary-btn" @tap="accept(item.id)">接受调配</button
+        ><button
+          class="primary-btn"
+          :disabled="accepting === item.id"
+          @tap="accept(item.id)"
+        >
+          {{ accepting === item.id ? "接受中…" : "接受调配" }}</button
         ><button class="ghost-btn" @tap="reject(item.id)">拒绝</button></view
       ><button
         v-if="item.status === 'pending'"
