@@ -49,6 +49,37 @@ async function load(id: string) {
   }
 }
 onLoad((q) => load(String(q?.id ?? "")));
+/**
+ * 自绘输入弹层（IK9AX1）：uni.showModal 的 editable 仅微信小程序支持，
+ * H5 弹出后没有输入框、确认永远提交空串——扫码兜底/转单/异常备注全走这里。
+ */
+interface DialogState {
+  visible: boolean;
+  title: string;
+  placeholder: string;
+  value: string;
+  resolve: ((v: string | null) => void) | null;
+}
+const dialog = ref<DialogState>({
+  visible: false,
+  title: "",
+  placeholder: "",
+  value: "",
+  resolve: null,
+});
+function promptDialog(
+  title: string,
+  placeholder: string,
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    dialog.value = { visible: true, title, placeholder, value: "", resolve };
+  });
+}
+function settleDialog(result: string | null) {
+  dialog.value.visible = false;
+  dialog.value.resolve?.(result);
+  dialog.value.resolve = null;
+}
 /** 扫码取码值；扫码取消/失败时允许手动输入兜底 */
 function scanOrInput(title: string): Promise<string> {
   // TODO(真机验证): uni.scanCode 在真机的扫码回调与取消路径
@@ -56,33 +87,34 @@ function scanOrInput(title: string): Promise<string> {
     uni.scanCode({
       scanType: ["qrCode", "barCode"],
       success: (res) => resolve(res.result),
-      fail: () => {
-        uni.showModal({
-          title,
-          editable: true,
-          placeholderText: "扫码失败时可手动输入编号",
-          success: (m) => {
-            if (m.confirm && m.content) resolve(m.content.trim());
-            else reject(new Error("已取消"));
-          },
-          fail: () => reject(new Error("已取消")),
-        });
+      fail: async () => {
+        const input = await promptDialog(title, "扫码失败时可手动输入编号");
+        if (input) resolve(input);
+        else reject(new Error("已取消"));
       },
     });
   });
 }
 /** 弹文本输入框（IK8W5U 异常上报/转单）：确认返回输入值（可为空串），取消返回 null */
 function promptText(title: string, placeholder: string): Promise<string | null> {
-  return new Promise((resolve) => {
-    uni.showModal({
-      title,
-      editable: true,
-      placeholderText: placeholder,
-      success: (m) => resolve(m.confirm ? (m.content ?? "").trim() : null),
-      fail: () => resolve(null),
-    });
-  });
+  return promptDialog(title, placeholder);
 }
+/** 收件人联系（IK9AWW）：展示脱敏、拨号用真实号（真实号仅当班员工可见） */
+function maskName(name: string): string {
+  if (!name) return "—";
+  return name.length <= 1
+    ? name
+    : name[0] + "*".repeat(Math.min(name.length - 1, 2));
+}
+function maskPhone(phone: string): string {
+  return /^1\d{10}$/.test(phone)
+    ? phone.slice(0, 3) + "****" + phone.slice(7)
+    : "—";
+}
+const callRecipient = () => {
+  if (task.value?.recipientPhone)
+    uni.makePhoneCall({ phoneNumber: task.value.recipientPhone });
+};
 /** 选图并上传（可选凭证）：用户取消或上传失败时返回 []，不阻断动作 */
 async function chooseUploadedImages(count: number): Promise<string[]> {
   try {
@@ -193,6 +225,22 @@ async function act(action: string) {
         ><text>预计收入</text
         ><text class="income">¥{{ fenToYuan(task.commission) }}</text></view
       ></view
+    ><!-- 收件人联系（IK9AWW）：脱敏展示 + 一键拨真实号 -->
+    ><view
+      v-if="task.recipientName || task.recipientPhone"
+      class="contact card"
+      ><view
+        ><text class="contact__label">收件人</text
+        ><text class="contact__value"
+        >{{ maskName(task.recipientName) }} · {{ maskPhone(task.recipientPhone) }}</text
+      ></view
+      ><button
+        class="contact__call"
+        aria-label="拨打收件人电话"
+        @tap="callRecipient"
+      >
+        联系
+      </button></view
     ><!-- IK8W5V：渲染后端 Task.timeline（types.ts 已有定义） -->
     <view class="section-title"
       ><text class="section-title__main">履约进度</text
@@ -242,6 +290,32 @@ async function act(action: string) {
         >当前节点暂无可执行操作</view
       ></view
     ></view
+  >
+  <!-- 自绘输入弹层（IK9AX1）：扫码兜底 / 转单原因 / 异常备注 -->
+  <view v-if="dialog.visible" class="input-dialog"
+    ><view class="input-dialog__mask" @tap="settleDialog(null)"></view
+    ><view class="input-dialog__panel"
+      ><text class="input-dialog__title">{{ dialog.title }}</text
+      ><input
+        v-model="dialog.value"
+        class="input-dialog__input"
+        :placeholder="dialog.placeholder"
+        placeholder-class="input-dialog__placeholder"
+        :focus="dialog.visible"
+        confirm-type="done"
+        @confirm="settleDialog(dialog.value.trim())"
+      /><view class="input-dialog__actions"
+      ><button class="input-dialog__btn" @tap="settleDialog(null)">
+        取消
+      </button
+      ><button
+        class="input-dialog__btn input-dialog__btn--primary"
+        @tap="settleDialog(dialog.value.trim())"
+      >
+        确定
+      </button></view
+    ></view
+  ></view
   >
 </template>
 <style scoped lang="scss">
@@ -374,14 +448,102 @@ async function act(action: string) {
   color: $primary-dark;
 }
 .step__desc {
-  font-size: 20rpx;
+  font-size: 21rpx;
   color: $muted;
   margin-top: 3rpx;
 }
 .step__time {
-  font-size: 19rpx;
+  font-size: 20rpx;
   color: $muted;
   margin-top: 3rpx;
+}
+.contact {
+  margin-top: 22rpx;
+  padding: 22rpx 28rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+}
+.contact__label {
+  display: block;
+  color: $muted;
+  font-size: 20rpx;
+  margin-bottom: 4rpx;
+}
+.contact__value {
+  font-weight: 800;
+  font-size: 28rpx;
+}
+.contact__call {
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0 48rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+}
+.input-dialog__mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 20, 0.5);
+  z-index: 998;
+}
+.input-dialog__panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 600rpx;
+  z-index: 999;
+  background: #fff;
+  border-radius: 28rpx;
+  padding: 40rpx 32rpx 28rpx;
+  box-sizing: border-box;
+}
+.input-dialog__title {
+  display: block;
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: 900;
+  margin-bottom: 26rpx;
+}
+.input-dialog__input {
+  height: 92rpx;
+  border: 2rpx solid $line;
+  border-radius: 18rpx;
+  background: $paper;
+  padding: 0 24rpx;
+  font-size: 30rpx;
+}
+.input-dialog__placeholder {
+  color: #8a938d;
+}
+.input-dialog__actions {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 28rpx;
+}
+.input-dialog__btn {
+  flex: 1;
+  min-height: 88rpx;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 44rpx;
+  background: $paper;
+  color: $ink;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.input-dialog__btn--primary {
+  background: $primary-dark;
+  color: #fff;
 }
 .actions {
   display: grid;
