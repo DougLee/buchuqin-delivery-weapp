@@ -117,10 +117,13 @@ view[role="button"] {
     transform: translateX(-50%);
   }
 }
+/* #ifdef H5 */
+/* 无障碍：跟随系统减少动效。WXSS 不支持 * 通配符（app.wxss 编译报错），小程序端不注入此块 */
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
     animation: none !important;
   }
 }
+/* #endif */
 </style>
