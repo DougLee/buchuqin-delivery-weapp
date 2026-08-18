@@ -113,7 +113,8 @@ function help() {
           ><text>工作状态</text
           ><text>{{ statusDesc[profile.status] }}</text></view
         ><text class="online-text">{{ statusText[profile.status] }}</text></view
-      ><!-- IK8W5V：演示模式开关（默认开）；关闭后角色锁定当前登录身份 -->
+      ><!-- #ifndef MP-WEIXIN -->
+      ><!-- IK8W5V：演示模式开关仅 H5（小程序端微信登录后角色由 token 决定） -->
       ><view class="menu__switch"
         ><view class="menu__icon demo"></view
         ><view class="menu__body"
@@ -126,7 +127,9 @@ function help() {
           color="#18a957"
           @change="toggleDemo($event)"
         ></switch></view
-      ><!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
+      >
+      <!-- #endif -->
+      <!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
       ><view role="button" @tap="help"
         ><view class="menu__icon help"></view
         ><view class="menu__body"

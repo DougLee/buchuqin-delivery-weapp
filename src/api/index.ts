@@ -11,6 +11,18 @@ import type {
   StaffStatus,
   Task,
 } from "../types";
+/** 本端小程序 appid（IK8W5Q 双小程序凭证路由，与 manifest 一致） */
+const DELIVERY_APPID = "wxdc6ded350d633443";
+/** 微信登录返回（wechat-login / staff-bind 共用） */
+interface WechatLoginResult {
+  token: string;
+  user: {
+    id: string;
+    campusId: string;
+    role: StaffRole;
+    nickname: string;
+  };
+}
 /** 后端列表统一分页信封（IK8W5 分页包裹），api 层解包成页面所需的裸形状 */
 interface PageResult<T> {
   items: T[];
@@ -23,6 +35,18 @@ export const api = {
     request<{ token: string }>("/auth/test-login", {
       method: "POST",
       data: { identity },
+    }),
+  /** 微信员工登录（IK8W5Q）：appid 路由到履约端凭证；openid 未绑定 Staff 时 404 */
+  wechatStaffLogin: (code: string) =>
+    request<WechatLoginResult>("/auth/wechat-login", {
+      method: "POST",
+      data: { code, appid: DELIVERY_APPID },
+    }),
+  /** 首次绑定：工号+姓名换绑 openid，绑定即登录 */
+  staffBind: (code: string, staffNo: string, name: string) =>
+    request<WechatLoginResult>("/auth/staff-bind", {
+      method: "POST",
+      data: { code, staffNo, name, appid: DELIVERY_APPID },
     }),
   profile: (_r: StaffRole) => request<StaffProfile>("/fulfillment/profile"),
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
