@@ -1,6 +1,7 @@
 import type { ApiResult } from "../types";
 export const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api/v1";
+  // 本机 API 固定 3100（3000 被占），dev 裸跑不再需要前置 VITE_API_BASE_URL；生产构建同源相对路径 /api/v1
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3100/api/v1";
 const BASE_URL = baseURL;
 type Options = Omit<UniApp.RequestOptions, "url">;
 function valid<T>(v: unknown): v is ApiResult<T> {
