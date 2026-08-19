@@ -12,7 +12,7 @@ export const isBindRequired = (e: unknown): boolean => {
   const message = e instanceof Error ? e.message : String(e);
   return e instanceof StaffBindRequiredError || message.includes("未绑定");
 };
-/** wx.login 取 code（仅小程序环境；H5 无此通道走演示登录） */
+/** wx.login 取 code（仅小程序环境） */
 function wxLoginCode(): Promise<string> {
   return new Promise((resolve, reject) =>
     uni.login({
@@ -25,31 +25,22 @@ function wxLoginCode(): Promise<string> {
     }),
   );
 }
+/**
+ * 员工会话（IK8W5Q 正式通道）：微信直登，openid 未绑定 Staff 时由登录页
+ * 承接工号绑定表单。H5 演示通道（test-login）已随 IK9JHP 后端端点删除
+ * 而清除，本端只保留微信小程序一个端。
+ */
 export const useSessionStore = defineStore("staff-session", () => {
   const role = ref<StaffRole>(
     (uni.getStorageSync("staffRole") as StaffRole) || "building-manager",
   );
-  // IK8W5V 角色守卫：H5 演示模式（角色选择 + test-login）。
-  // 小程序端正式微信登录已落地（2026-08-18），角色由登录 token 决定，恒关。
-  // #ifdef MP-WEIXIN
-  const demoMode = ref(false);
-  // #endif
-  // #ifndef MP-WEIXIN
-  const demoMode = ref<boolean>(uni.getStorageSync("demoMode") !== false);
-  // #endif
-  function setDemoMode(v: boolean) {
-    // #ifndef MP-WEIXIN
-    demoMode.value = v;
-    uni.setStorageSync("demoMode", v);
-    // #endif
-  }
   function applyLogin(r: { token: string; user: { role: StaffRole } }) {
     uni.setStorageSync("staffToken", r.token);
     uni.setStorageSync("staffTokenRole", r.user.role);
     role.value = r.user.role;
     uni.setStorageSync("staffRole", r.user.role);
   }
-  /** 小程序正式通道：微信直登；openid 未绑定时抛 StaffBindRequiredError 由登录页承接 */
+  /** 微信正式通道：微信直登；openid 未绑定时抛 StaffBindRequiredError 由登录页承接 */
   async function loginByWechat() {
     const code = await wxLoginCode();
     try {
@@ -64,15 +55,7 @@ export const useSessionStore = defineStore("staff-session", () => {
     const code = await wxLoginCode();
     applyLogin(await api.staffBind(code, staffNo, name));
   }
-  /** H5 演示通道（test-login） */
-  async function loginDemo(v: StaffRole) {
-    const r = await api.login(v);
-    uni.setStorageSync("staffToken", r.token);
-    uni.setStorageSync("staffTokenRole", v);
-    role.value = v;
-  }
   async function ensure() {
-    // #ifdef MP-WEIXIN
     const token = uni.getStorageSync("staffToken");
     if (token) {
       role.value = (uni.getStorageSync("staffTokenRole") as StaffRole) || role.value;
@@ -85,31 +68,11 @@ export const useSessionStore = defineStore("staff-session", () => {
       uni.reLaunch({ url: "/pages/login/index" });
       throw e;
     }
-    // #endif
-    // #ifndef MP-WEIXIN
-    if (
-      !uni.getStorageSync("staffToken") ||
-      uni.getStorageSync("staffTokenRole") !== role.value
-    )
-      await loginDemo(role.value);
-    // #endif
-  }
-  async function setRole(v: StaffRole) {
-    // IK8W5V：正式通道角色由 token 决定；仅 H5 演示模式可切
-    // #ifndef MP-WEIXIN
-    if (!demoMode.value) return;
-    role.value = v;
-    uni.setStorageSync("staffRole", v);
-    await loginDemo(v);
-    // #endif
   }
   return {
     role,
-    demoMode,
-    setDemoMode,
     loginByWechat,
     bindByWechat,
     ensure,
-    setRole,
   };
 });

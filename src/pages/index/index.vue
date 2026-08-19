@@ -14,11 +14,6 @@ const error = ref(false);
 /** 当班卡按钮防重（IK8W5U） */
 const shiftBusy = ref(false);
 const statusBusy = ref(false);
-const roles: Array<[StaffRole, string, string]> = [
-  ["building-manager", "楼长", "楼内交付"],
-  ["fulltime-rider", "全职", "干线配送"],
-  ["parttime-rider", "兼职", "灵活接单"],
-];
 const hour = new Date().getHours();
 const greeting = computed(() =>
   hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好",
@@ -52,10 +47,6 @@ async function load() {
   } catch {
     error.value = true;
   }
-}
-async function change(role: StaffRole) {
-  await session.setRole(role);
-  await load();
 }
 /** 签到 / 签退（IK8W5U）：签到会上线、签退会下线，本地同步徽章状态 */
 async function shiftAction() {
@@ -162,22 +153,6 @@ onShow(load);
       >
         {{ shiftBusy ? "处理中…" : shiftState.working ? "签退下班" : "签到上班" }}
       </button>
-    </view>
-
-    <!-- IK8W5V 角色守卫：三角色切换卡仅演示模式可见（默认开，设置页可关）；
-         关闭后角色锁定当前值，由登录 token 决定，正式登录落地后删除此卡 -->
-    <view v-if="session.demoMode" class="roles" aria-label="切换履约角色">
-      <view
-        v-for="role in roles"
-        :key="role[0]"
-        class="role"
-        :class="{ 'role--active': session.role === role[0] }"
-        role="button"
-        @tap="change(role[0])"
-      >
-        <text class="role__name">{{ role[1] }}</text
-        ><text class="role__desc">{{ role[2] }}</text>
-      </view>
     </view>
 
     <view v-if="error" class="retry card" role="button" @tap="load"
@@ -439,45 +414,6 @@ onShow(load);
 }
 .shift-card__btn[disabled] {
   opacity: 0.6;
-}
-.roles {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8rpx;
-  background: #dfe8e1;
-  padding: 8rpx;
-  border-radius: 26rpx;
-  margin: 20rpx 0 24rpx;
-}
-.role {
-  min-height: 90rpx;
-  border-radius: 20rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: $muted;
-  transition: background 0.2s;
-}
-.role__name,
-.role__desc {
-  display: block;
-}
-.role__name {
-  font-size: 25rpx;
-  font-weight: 800;
-}
-.role__desc {
-  font-size: 18rpx;
-  margin-top: 2rpx;
-}
-.role--active {
-  background: #fff;
-  color: $primary-dark;
-  box-shadow: 0 6rpx 18rpx rgba(7, 63, 45, 0.1);
-}
-.role--active .role__desc {
-  color: $primary;
 }
 .hero {
   position: relative;

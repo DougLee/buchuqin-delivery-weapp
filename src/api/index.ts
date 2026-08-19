@@ -31,11 +31,6 @@ interface PageResult<T> {
   total: number;
 }
 export const api = {
-  login: (identity: StaffRole) =>
-    request<{ token: string }>("/auth/test-login", {
-      method: "POST",
-      data: { identity },
-    }),
   /** 微信员工登录（IK8W5Q）：appid 路由到履约端凭证；openid 未绑定 Staff 时 404 */
   wechatStaffLogin: (code: string) =>
     request<WechatLoginResult>("/auth/wechat-login", {

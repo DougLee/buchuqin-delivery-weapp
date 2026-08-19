@@ -34,13 +34,6 @@ async function load() {
   }
 }
 onShow(load);
-/** IK8W5V：演示模式开关，关闭后角色锁定（工作台切换卡隐藏） */
-function toggleDemo(e: Event) {
-  const value = (
-    e as unknown as { detail?: { value?: boolean } }
-  ).detail?.value;
-  if (typeof value === "boolean") session.setDemoMode(value);
-}
 /** 履约规范（IK9AX0）：原「帮助」行是带箭头的死菜单，点开真内容 */
 function help() {
   uni.showModal({
@@ -113,23 +106,7 @@ function help() {
           ><text>工作状态</text
           ><text>{{ statusDesc[profile.status] }}</text></view
         ><text class="online-text">{{ statusText[profile.status] }}</text></view
-      ><!-- #ifndef MP-WEIXIN -->
-      ><!-- IK8W5V：演示模式开关仅 H5（小程序端微信登录后角色由 token 决定） -->
-      ><view class="menu__switch"
-        ><view class="menu__icon demo"></view
-        ><view class="menu__body"
-          ><text>演示模式</text
-          ><text>关闭后锁定当前角色（IK8W5V）</text></view
-        ><!-- switch 选中色与主题 $primary 一致（IK9AX2） -->
-        ><switch
-          class="demo-switch"
-          :checked="session.demoMode"
-          color="#18a957"
-          @change="toggleDemo($event)"
-        ></switch></view
-      >
-      <!-- #endif -->
-      <!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
+      ><!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
       ><view role="button" @tap="help"
         ><view class="menu__icon help"></view
         ><view class="menu__body"
@@ -263,7 +240,6 @@ function help() {
 .calendar:before,
 .building:before,
 .pulse:before,
-.demo:before,
 .help:before {
   position: absolute;
   inset: 0;
@@ -282,21 +258,8 @@ function help() {
 .pulse:before {
   content: "ON";
 }
-.demo:before {
-  content: "D";
-}
 .help:before {
   content: "?";
-}
-.menu__switch {
-  min-height: 124rpx;
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-  border-bottom: 2rpx solid $line;
-}
-.demo-switch {
-  transform: scale(0.8);
 }
 .retry {
   text-align: center;

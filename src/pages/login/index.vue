@@ -58,7 +58,7 @@ async function bind() {
           <text class="login__label">工号</text>
           <input
             v-model="staffNo"
-            placeholder="例如：BM-0001"
+            placeholder="例如：BM-HBUT-005"
             placeholder-class="login__placeholder"
           />
         </view>
