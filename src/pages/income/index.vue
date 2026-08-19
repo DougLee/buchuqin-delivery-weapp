@@ -89,7 +89,8 @@ const week = computed(() => {
     ><view class="income-hero"
       ><view class="income-hero__top"
         ><view
-          ><text class="kicker">{{ month }} INCOME</text
+          ><!-- IK9U48：月份只保留右上角切换入口，左上角不再重复展示 -->
+          ><text class="kicker">INCOME</text
           ><text class="label">{{
             isCurrent ? "本月预计收入" : "当月收入"
           }}</text></view
@@ -99,7 +100,8 @@ const week = computed(() => {
           fields="month"
           :value="month"
           @change="onMonthChange"
-          ><text class="bill-tag">{{ month }} ▾</text></picker
+          ><text class="bill-tag">{{ month }}
+            <text class="chevron chevron--down"/></text></picker
         ></view
       ><text class="amount"><small>¥</small>{{ fenToYuan(bill.payable) }}</text
       ><view class="trend"

@@ -14,7 +14,9 @@ const startDate = ref(""),
   startTime = ref(""),
   endDate = ref(""),
   endTime = ref(""),
-  reason = ref("");
+  reason = ref(""),
+  /** 请假期间订单调配方式（IK9U4B 反馈#9）：self=自己联系代班楼长，platform=平台自动派单 */
+  dispatchMode = ref<"self" | "platform">("platform");
 async function load() {
   error.value = false;
   try {
@@ -52,6 +54,8 @@ async function apply() {
       startAt: startAt.toISOString(),
       endAt: endAt.toISOString(),
       reason: reason.value.trim(),
+      // IK9U4B：调配方式随请假单提交（后端落库供后台核对，平台模式才会自动派单）
+      dispatchMode: dispatchMode.value,
     });
     startDate.value = startTime.value = endDate.value = endTime.value = "";
     reason.value = "";
@@ -146,6 +150,26 @@ function cancelRequest(id: string) {
         placeholder="请填写具体原因（必填）"
         maxlength="200"
       ></textarea></view
+      ><!-- IK9U4B（反馈#9）：请假期间本楼订单处理方式二选一 -->
+      ><view class="field field--column"
+        ><text class="field__label">请假期间本楼订单如何处理?</text
+        ><view
+          class="dispatch-opt"
+          :class="{ 'dispatch-opt--active': dispatchMode === 'self' }"
+          role="button"
+          @tap="dispatchMode = 'self'"
+          ><text class="dispatch-opt__title">自己联系调配楼长</text
+          ><text class="muted">我已联系好其他楼长代班，平台展示姓名供核对</text
+          ></view
+        ><view
+          class="dispatch-opt"
+          :class="{ 'dispatch-opt--active': dispatchMode === 'platform' }"
+          role="button"
+          @tap="dispatchMode = 'platform'"
+          ><text class="dispatch-opt__title">平台分配调配楼长</text
+          ><text class="muted">由平台按同性别、同楼栋邻近自动派单</text
+          ></view
+        ></view
       ><button class="primary-btn apply" :disabled="submitting" @tap="apply">
         {{ submitting ? "提交中…" : "提交申请" }}</button
       ></view
@@ -237,6 +261,27 @@ function cancelRequest(id: string) {
   background: $soft;
   border-radius: 16rpx;
   font-size: 26rpx;
+}
+/* 调配方式选项（IK9U4B）：卡片单选 */
+.dispatch-opt {
+  margin-top: 14rpx;
+  padding: 20rpx 24rpx;
+  border: 3rpx solid $line;
+  border-radius: 18rpx;
+  background: #fff;
+}
+.dispatch-opt--active {
+  border-color: $primary;
+  background: $soft;
+}
+.dispatch-opt__title {
+  display: block;
+  font-weight: 800;
+  color: $primary-dark;
+}
+.dispatch-opt--active .dispatch-opt__title::after {
+  content: " ✓";
+  color: $primary;
 }
 .leave {
   padding: 28rpx;

@@ -41,6 +41,22 @@ view[role="button"] {
 .muted {
   color: $muted;
 }
+/* CSS 箭头（IK9U43/45/48）：替代 →/▾ 字符——安卓部分机型字体缺该字形，
+   渲染为方框异常符号。两条边旋转画 chevron，全机型一致 */
+.chevron {
+  display: inline-block;
+  width: 14rpx;
+  height: 14rpx;
+  border-top: 3rpx solid currentColor;
+  border-right: 3rpx solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.55;
+}
+/* 向下变体（月份切换▾等） */
+.chevron--down {
+  transform: rotate(135deg);
+  margin-bottom: 4rpx;
+}
 .primary-btn {
   min-height: 96rpx;
   border-radius: 28rpx;

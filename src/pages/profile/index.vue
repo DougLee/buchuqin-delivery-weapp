@@ -39,9 +39,22 @@ function help() {
   uni.showModal({
     title: "履约规范速览",
     content:
-      "1. 取货：到仓扫码/输编号，核对件数\n2. 交接：楼下与楼长当面交接确认\n3. 送达：敲门送达，上传凭证照\n4. 请假：至少提前 2 小时提交\n5. 异常：用户不在/拒收及时上报\n支持时段 09:00-22:30",
+      "1. 取货：到仓扫码/输编号，核对件数\n2. 交接：楼下与楼长当面交接确认\n3. 送达：敲门送达，上传凭证照\n4. 请假：至少提前 2 小时提交\n5. 异常：用户不在/拒收及时上报",
     showCancel: false,
     confirmText: "知道了",
+  });
+}
+/** 退出登录（IK9U4H）：清登录态回登录页 */
+function logout() {
+  uni.showModal({
+    title: "退出登录",
+    content: "确定退出当前账号吗？",
+    confirmColor: "#a74432",
+    success: (m) => {
+      if (!m.confirm) return;
+      uni.removeStorageSync("staffToken");
+      uni.reLaunch({ url: "/pages/login/index" });
+    },
   });
 }
 </script>
@@ -93,7 +106,7 @@ function help() {
         ><view class="menu__body"
           ><text>请假与跨楼调配</text
           ><text>排班、请假、接受临时调配</text></view
-        ><text class="arrow">→</text></view
+        ><text class="chevron"/></view
       ><!-- IK9AX0：服务楼栋是信息展示行，去掉误导导航的箭头 -->
       ><view
         ><view class="menu__icon building"></view
@@ -111,11 +124,15 @@ function help() {
         ><view class="menu__icon help"></view
         ><view class="menu__body"
           ><text>履约规范与帮助</text><text>标准流程速览</text></view
-        ><text class="arrow">→</text></view
+        ><text class="chevron"/></view
+      ><!-- IK9U4H：退出登录入口 -->
+      ><view role="button" class="menu__logout" @tap="logout"
+        ><view class="menu__icon logout"></view
+        ><view class="menu__body"
+          ><text>退出登录</text><text>清除本机登录态并返回登录页</text></view
+        ></view
       ></view
-    ><view class="service"
-      ><text>履约支持</text><strong>09:00—22:30</strong></view
-    ></view
+    ><!-- IK9U49：删「履约支持 09:00-22:30」底栏 --></view
   >
 </template>
 <style scoped lang="scss">
@@ -260,6 +277,15 @@ function help() {
 }
 .help:before {
   content: "?";
+}
+.logout:before {
+  content: "×";
+}
+.menu__logout {
+  color: #a74432;
+}
+.menu__logout .menu__body text {
+  color: #a74432;
 }
 .retry {
   text-align: center;

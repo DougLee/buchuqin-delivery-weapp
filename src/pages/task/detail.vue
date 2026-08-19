@@ -50,35 +50,35 @@ async function load(id: string) {
 }
 onLoad((q) => load(String(q?.id ?? "")));
 /**
- * 自绘输入弹层（IK9AX1）：uni.showModal 的 editable 仅微信小程序支持，
- * H5 弹出后没有输入框、确认永远提交空串——扫码兜底/转单/异常备注全走这里。
+ * 自绘输入弹层（IK9AX1 → IK9U4I 重构）：uni.showModal 的 editable 仅微信
+ * 小程序支持。resolve 存模块级普通变量（响应式对象存函数在部分真机上
+ * 会被代理干扰），输入值独立 ref，确定/取消走显式方法。
  */
-interface DialogState {
-  visible: boolean;
-  title: string;
-  placeholder: string;
-  value: string;
-  resolve: ((v: string | null) => void) | null;
-}
-const dialog = ref<DialogState>({
-  visible: false,
-  title: "",
-  placeholder: "",
-  value: "",
-  resolve: null,
-});
+const dialogVisible = ref(false),
+  dialogTitle = ref(""),
+  dialogPlaceholder = ref(""),
+  dialogInput = ref("");
+let dialogResolve: ((v: string | null) => void) | null = null;
 function promptDialog(
   title: string,
   placeholder: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
-    dialog.value = { visible: true, title, placeholder, value: "", resolve };
+    dialogResolve = resolve;
+    dialogTitle.value = title;
+    dialogPlaceholder.value = placeholder;
+    dialogInput.value = "";
+    dialogVisible.value = true;
   });
 }
 function settleDialog(result: string | null) {
-  dialog.value.visible = false;
-  dialog.value.resolve?.(result);
-  dialog.value.resolve = null;
+  dialogVisible.value = false;
+  dialogResolve?.(result);
+  dialogResolve = null;
+}
+/** 弹层确定（IK9U4I）：trim 后提交，空串按取消语义交给调用方判断 */
+function confirmDialog() {
+  settleDialog(dialogInput.value.trim());
 }
 /** 扫码取码值；扫码取消/失败时允许手动输入兜底 */
 function scanOrInput(title: string): Promise<string> {
@@ -181,13 +181,21 @@ async function act(action: string) {
       const coords = await locate();
       payload = { images, ...coords };
     }
+    // 微信端 showLoading 与 showToast 共用单例：必须先收 loading 再弹结果，
+    // 否则 toast 被 loading 遮罩吞掉——真机上表现为「点了没反应」（IK9U4I/J）
+    uni.hideLoading();
     task.value = await api.action(session.role, task.value.id, action, payload);
     uni.showToast({ title: "操作成功", icon: "success" });
-  } catch {
-    // IK8W5V：失败提示由 request 层统一 toast，此处兜底防未处理异常
+  } catch (error) {
+    // IK9U4I/J：任何失败都必须可见。request 层的 toast 可能已被 loading
+    // 吞掉，这里兜底再弹一次错误信息，宁可重复不可无反馈
+    uni.hideLoading();
+    const msg =
+      error instanceof Error && error.message ? error.message : "操作失败，请重试";
+    console.error("[task action]", action, msg);
+    setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
   } finally {
     acting.value = false;
-    uni.hideLoading();
   }
 }
 </script>
@@ -286,31 +294,29 @@ async function act(action: string) {
         @tap="act(action)"
       >
         {{ labels[action] || action }}</button
-      ><view v-if="!task.availableActions.length" class="muted"
-        >当前节点暂无可执行操作</view
-      ></view
+      ><!-- IK9U45：无可执行操作时直接不渲染该区域，去掉「当前节点暂无可执行操作」空文案 --></view
     ></view
   >
   <!-- 自绘输入弹层（IK9AX1）：扫码兜底 / 转单原因 / 异常备注 -->
-  <view v-if="dialog.visible" class="input-dialog"
+  <view v-if="dialogVisible" class="input-dialog"
     ><view class="input-dialog__mask" @tap="settleDialog(null)"></view
     ><view class="input-dialog__panel"
-      ><text class="input-dialog__title">{{ dialog.title }}</text
+      ><text class="input-dialog__title">{{ dialogTitle }}</text
       ><input
-        v-model="dialog.value"
+        v-model="dialogInput"
         class="input-dialog__input"
-        :placeholder="dialog.placeholder"
+        :placeholder="dialogPlaceholder"
         placeholder-class="input-dialog__placeholder"
-        :focus="dialog.visible"
+        :focus="dialogVisible"
         confirm-type="done"
-        @confirm="settleDialog(dialog.value.trim())"
+        @confirm="confirmDialog()"
       /><view class="input-dialog__actions"
       ><button class="input-dialog__btn" @tap="settleDialog(null)">
         取消
       </button
       ><button
         class="input-dialog__btn input-dialog__btn--primary"
-        @tap="settleDialog(dialog.value.trim())"
+        @tap="confirmDialog()"
       >
         确定
       </button></view

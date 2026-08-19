@@ -200,7 +200,7 @@ onShow(() => load());
             @tap.stop="grab(task)"
           >
             {{ grabbing === task.id ? "抢单中…" : "抢单" }}
-          </button><text v-else class="go">查看任务 →</text></view
+          </button><text v-else class="go">查看任务 <text class="chevron"/></text></view
         >
       </view>
       <!-- 分页脚标（IK9AWX）：抢单池不分页不显示 -->

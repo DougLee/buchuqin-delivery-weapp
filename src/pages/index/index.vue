@@ -11,8 +11,7 @@ const data = ref<Dashboard>();
 const shift = ref<Shift>();
 /** 加载失败标记（IK8W5V）：失败时展示重试入口，避免页面永久空白 */
 const error = ref(false);
-/** 当班卡按钮防重（IK8W5U） */
-const shiftBusy = ref(false);
+/** 状态切换按钮防重（IK8W5U） */
 const statusBusy = ref(false);
 const hour = new Date().getHours();
 const greeting = computed(() =>
@@ -48,20 +47,7 @@ async function load() {
     error.value = true;
   }
 }
-/** 签到 / 签退（IK8W5U）：签到会上线、签退会下线，本地同步徽章状态 */
-async function shiftAction() {
-  if (shiftBusy.value) return;
-  shiftBusy.value = true;
-  try {
-    const working = shift.value?.status === "working";
-    const next = working ? await api.checkOut() : await api.checkIn();
-    shift.value = next;
-    applyStatus(next.status === "working" ? "online" : "offline");
-    uni.showToast({ title: working ? "已签退" : "已签到", icon: "success" });
-  } finally {
-    shiftBusy.value = false;
-  }
-}
+// IK9U4F：签到/签退入口已隐藏（决策记录不做地理围栏签到），保留当班状态读取
 /** 上下线切换（IK8W5U）：真实 staff.status，三态切换 + 确认框 */
 function toggleStatus() {
   if (statusBusy.value || !data.value) return;
@@ -97,13 +83,6 @@ function toggleStatus() {
     },
   });
 }
-function applyStatus(s: StaffStatus) {
-  if (data.value)
-    data.value = {
-      ...data.value,
-      profile: { ...data.value.profile, status: s, online: s === "online" },
-    };
-}
 /** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
 const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
@@ -137,23 +116,8 @@ onShow(load);
       >
     </view>
 
-    <view class="shift-card card">
-      <view class="shift-card__info"
-        ><text class="shift-card__title">{{ shiftState.text }}</text
-        ><text class="shift-card__sub"
-          >{{ shift?.serviceArea || "湖北工业大学" }} ·
-          {{ shift?.startAt || "--:--" }}—{{ shift?.endAt || "--:--" }}</text
-        ></view
-      >
-      <button
-        class="shift-card__btn"
-        :class="{ 'shift-card__btn--outline': shiftState.working }"
-        :disabled="shiftBusy"
-        @tap="shiftAction"
-      >
-        {{ shiftBusy ? "处理中…" : shiftState.working ? "签退下班" : "签到上班" }}
-      </button>
-    </view>
+    <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
+         当班状态由下方 hero 徽章继续展示 -->
 
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -224,7 +188,7 @@ onShow(load);
         ><text
           class="section-title__sub"
           @tap="uni.switchTab({ url: '/pages/tasks/index' })"
-          >全部任务 →</text
+          >全部任务 <text class="chevron"/></text
         ></view
       >
       <view
@@ -259,7 +223,7 @@ onShow(load);
           ></view
         >
         <view class="task__action"
-          ><text>查看路线与操作</text><text>→</text></view
+          ><text>查看路线与操作</text><text class="chevron"/></view
         >
       </view>
     </template>
@@ -368,52 +332,6 @@ onShow(load);
 .online--offline .online__dot {
   background: #b7c4ba;
   box-shadow: none;
-}
-.shift-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  padding: 24rpx 28rpx;
-  margin: 30rpx 0 0;
-}
-.shift-card__info {
-  flex: 1;
-}
-.shift-card__title,
-.shift-card__sub {
-  display: block;
-}
-.shift-card__title {
-  font-size: 28rpx;
-  font-weight: 900;
-  color: $primary-dark;
-}
-.shift-card__sub {
-  font-size: 20rpx;
-  color: $muted;
-  margin-top: 4rpx;
-}
-.shift-card__btn {
-  flex: 0 0 auto;
-  min-height: 68rpx;
-  margin: 0;
-  padding: 0 34rpx;
-  border-radius: 999rpx;
-  background: $primary-dark;
-  color: #fff;
-  font-size: 24rpx;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-}
-.shift-card__btn--outline {
-  background: #fff;
-  color: $primary-dark;
-  border: 2rpx solid $primary;
-}
-.shift-card__btn[disabled] {
-  opacity: 0.6;
 }
 .hero {
   position: relative;
