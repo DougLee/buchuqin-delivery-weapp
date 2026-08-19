@@ -42,7 +42,13 @@ export async function request<T>(
             resolve(res.data.data);
             return;
           }
-          const msg = valid<T>(res.data) ? res.data.message : "请求失败";
+          // 错误信息兼容两种 body：业务信封 {code,message} 与 Nest 异常
+          // {message,error,statusCode}（如 404"未绑定员工账号"需透传给登录页展开绑定表单）
+          const body = res.data as { message?: string } | null;
+          const msg =
+            typeof body?.message === "string" && body.message
+              ? body.message
+              : "请求失败";
           uni.showToast({ title: msg, icon: "none" });
           reject(new Error(msg));
         },
