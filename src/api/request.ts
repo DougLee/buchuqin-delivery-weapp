@@ -53,8 +53,20 @@ export async function request<T>(
           reject(new Error(msg));
         },
         fail(err) {
-          uni.showToast({ title: "服务暂时不可用", icon: "none" });
-          reject(err);
+          // 网络层 fail（请求根本没到后端）：真实 errMsg 透出，别再用
+          // "服务暂时不可用" 一刀切——合法域名未配/证书/断网是三种完全不同
+          // 的修法，看不到 errMsg 只能瞎猜。reject 带原始信息供上层定位。
+          const raw =
+            (err as { errMsg?: string })?.errMsg || "request:fail 网络异常";
+          console.error("[request fail]", raw, "path:", path);
+          let msg = raw;
+          if (/domain|域名|合法|url not in/i.test(raw))
+            msg = "域名未配合法域名";
+          else if (/ssl|证书|certificate|handshake/i.test(raw))
+            msg = "HTTPS 证书校验失败";
+          else if (/timeout|超时/i.test(raw)) msg = "网络请求超时，请重试";
+          uni.showToast({ title: msg, icon: "none" });
+          reject(new Error(msg));
         },
       }),
     );
