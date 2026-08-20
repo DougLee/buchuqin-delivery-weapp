@@ -11,6 +11,8 @@ const session = useSessionStore(),
   task = ref<Task>();
 /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
 const error = ref(false);
+/** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
+const loading = ref(false);
 const taskId = ref("");
 /** 动作进行中防重复提交 */
 const acting = ref(false);
@@ -41,11 +43,14 @@ function stepTitle(key: string, title: string): string {
 async function load(id: string) {
   taskId.value = id;
   error.value = false;
+  loading.value = true;
   try {
     await session.ensure();
     task.value = await api.task(session.role, id);
   } catch {
     error.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 onLoad((q) => load(String(q?.id ?? "")));
@@ -192,6 +197,8 @@ async function act(action: string) {
     uni.hideLoading();
     const msg =
       error instanceof Error && error.message ? error.message : "操作失败，请重试";
+    // 用户主动取消（选图/扫码取消 reject「已取消」）不是错误，静默返回（IK9VF8）
+    if (/cancel|已取消/i.test(msg)) return;
     console.error("[task action]", action, msg);
     setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
   } finally {
@@ -205,6 +212,12 @@ async function act(action: string) {
       ><text class="retry__title">任务加载失败</text
       ><text class="retry__sub">网络异常或任务不存在，点击重试</text></view
     ></view
+  >
+  <!-- 首屏骨架（IK9VF8）：摘要 + 商品 + 进度占位 -->
+  <view v-else-if="loading" class="page"
+    ><view class="detail-skeleton__summary" /><view class="detail-skeleton__block" /><view
+      class="detail-skeleton__timeline"
+    /></view
   >
   <view v-else-if="task" class="page"
     ><view class="summary"
@@ -556,19 +569,36 @@ async function act(action: string) {
   gap: 16rpx;
   margin-top: 26rpx;
 }
-.secondary,
 .danger {
   min-height: 88rpx;
   border-radius: 44rpx;
   background: #fff;
   font-weight: 800;
-}
-.secondary {
-  color: $primary-dark;
-  border: 2rpx solid $primary;
-}
-.danger {
   color: #a74432;
   border: 2rpx solid #efc9c1;
+}
+/* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
+.detail-skeleton__summary,
+.detail-skeleton__block,
+.detail-skeleton__timeline {
+  border-radius: 32rpx;
+  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  animation: detail-pulse 1.2s infinite;
+}
+.detail-skeleton__summary {
+  height: 240rpx;
+}
+.detail-skeleton__block {
+  height: 160rpx;
+  margin-top: 22rpx;
+}
+.detail-skeleton__timeline {
+  height: 380rpx;
+  margin-top: 22rpx;
+}
+@keyframes detail-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 </style>

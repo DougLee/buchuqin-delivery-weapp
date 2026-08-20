@@ -8,7 +8,9 @@ const session = useSessionStore(),
   profile = ref<StaffProfile>(),
   performance = ref<Performance>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
-  error = ref(false);
+  error = ref(false),
+  /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
+  loading = ref(false);
 const statusDesc: Record<StaffStatus, string> = {
   online: "当前可接收新任务",
   paused: "暂停中，暂不派新单",
@@ -25,12 +27,15 @@ const excellent = computed(
 );
 async function load() {
   error.value = false;
+  loading.value = true;
   try {
     await session.ensure();
     profile.value = await api.profile(session.role);
     performance.value = await api.performance(session.role);
   } catch {
     error.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 onShow(load);
@@ -64,6 +69,12 @@ function logout() {
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     ></view
+  >
+  <!-- 首屏骨架（IK9VF8）：profile 卡 + KPI + 菜单占位 -->
+  <view v-else-if="loading" class="page profile"
+    ><view class="profile-skeleton__card" /><view class="profile-skeleton__kpi" /><view
+      class="profile-skeleton__menu"
+    /></view
   >
   <view v-else-if="profile" class="page profile"
     ><view class="profile-card"
@@ -254,32 +265,93 @@ function logout() {
   background: $soft;
   position: relative;
 }
-.calendar:before,
-.building:before,
-.pulse:before,
-.help:before {
+/* 菜单图标 CSS 绘制（IK9VF8）：替代 "31"/"5F"/"ON" 文本假图标 */
+/* 日历：圆角外框 + 顶部双穿孔针 */
+.calendar:before {
+  content: "";
   position: absolute;
-  inset: 0;
+  left: 13rpx;
+  right: 13rpx;
+  top: 17rpx;
+  bottom: 9rpx;
+  border: 4rpx solid $primary-dark;
+  border-radius: 8rpx;
+}
+.calendar:after {
+  content: "";
+  position: absolute;
+  left: 21rpx;
+  right: 21rpx;
+  top: 11rpx;
+  height: 12rpx;
+  border-left: 4rpx solid $primary-dark;
+  border-right: 4rpx solid $primary-dark;
+  border-radius: 2rpx;
+}
+/* 楼栋：高矮双楼剪影 */
+.building:before {
+  content: "";
+  position: absolute;
+  left: 12rpx;
+  top: 12rpx;
+  width: 20rpx;
+  height: 36rpx;
+  border: 4rpx solid $primary-dark;
+  border-radius: 6rpx 6rpx 0 0;
+}
+.building:after {
+  content: "";
+  position: absolute;
+  right: 11rpx;
+  bottom: 12rpx;
+  width: 14rpx;
+  height: 24rpx;
+  border: 4rpx solid $primary-dark;
+  border-radius: 6rpx 6rpx 0 0;
+}
+/* 工作状态：实心点 + 扩散环（与首页 online__dot 同语义） */
+.pulse:before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18rpx;
+  height: 18rpx;
+  margin: -9rpx 0 0 -9rpx;
+  border-radius: 50%;
+  background: $primary;
+}
+.pulse:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34rpx;
+  height: 34rpx;
+  margin: -17rpx 0 0 -17rpx;
+  border-radius: 50%;
+  border: 4rpx solid rgba(7, 136, 59, 0.28);
+}
+/* 帮助/退出：ASCII 字形全机型稳定，圆环包裹成 icon 观感 */
+.help:before,
+.logout:before {
+  position: absolute;
+  inset: 8rpx;
   display: grid;
   place-items: center;
-  color: $primary-dark;
+  border-radius: 50%;
+  border: 4rpx solid $primary-dark;
   font-size: 24rpx;
   font-weight: 900;
-}
-.calendar:before {
-  content: "31";
-}
-.building:before {
-  content: "5F";
-}
-.pulse:before {
-  content: "ON";
+  color: $primary-dark;
 }
 .help:before {
   content: "?";
 }
 .logout:before {
   content: "×";
+  border-color: #a74432;
+  color: #a74432;
 }
 .menu__logout {
   color: #a74432;
@@ -304,6 +376,31 @@ function logout() {
   color: $muted;
   margin-top: 8rpx;
 }
+/* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
+.profile-skeleton__card,
+.profile-skeleton__kpi,
+.profile-skeleton__menu {
+  border-radius: 34rpx;
+  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  animation: profile-pulse 1.2s infinite;
+}
+.profile-skeleton__card {
+  height: 168rpx;
+}
+.profile-skeleton__kpi {
+  height: 150rpx;
+  margin-top: 22rpx;
+}
+.profile-skeleton__menu {
+  height: 480rpx;
+  margin-top: 22rpx;
+  border-radius: 30rpx;
+}
+@keyframes profile-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
 .menu__body {
   flex: 1;
 }
@@ -318,23 +415,9 @@ function logout() {
   color: $muted;
   margin-top: 3rpx;
 }
-.arrow {
-  color: $muted;
-}
 .online-text {
   color: $primary;
   font-size: 22rpx;
   font-weight: 900;
-}
-.service {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 22rpx;
-  padding: 24rpx 8rpx;
-  color: $muted;
-  font-size: 21rpx;
-}
-.service strong {
-  color: $primary-dark;
 }
 </style>

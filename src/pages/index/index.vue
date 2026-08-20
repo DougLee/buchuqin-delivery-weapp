@@ -11,6 +11,8 @@ const data = ref<Dashboard>();
 const shift = ref<Shift>();
 /** 加载失败标记（IK8W5V）：失败时展示重试入口，避免页面永久空白 */
 const error = ref(false);
+/** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
+const loading = ref(false);
 /** 状态切换按钮防重（IK8W5U） */
 const statusBusy = ref(false);
 const hour = new Date().getHours();
@@ -35,6 +37,7 @@ const shiftState = computed(() => {
 
 async function load() {
   error.value = false;
+  loading.value = true;
   try {
     await session.ensure();
     const [d, s] = await Promise.all([
@@ -45,6 +48,8 @@ async function load() {
     shift.value = s;
   } catch {
     error.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 // IK9U4F：签到/签退入口已隐藏（决策记录不做地理围栏签到），保留当班状态读取
@@ -88,6 +93,11 @@ const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
   return typeof v === "number" ? v : null;
 });
+/** 准时率（IK9VF8）：同 averageMinutes 的 null 防御，缺字段显示"—"不带空百分比 */
+const onTimeRate = computed(() => {
+  const v = data.value?.stats.onTimeRate;
+  return typeof v === "number" ? `${v}%` : "—";
+});
 const open = (id: string) =>
   uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
 onShow(load);
@@ -124,7 +134,14 @@ onShow(load);
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     >
 
-    <template v-if="data">
+    <!-- 首屏骨架（IK9VF8）：hero + 统计 + 任务卡占位 -->
+    <view v-else-if="loading" class="home-skeleton"
+      ><view class="home-skeleton__hero" /><view class="home-skeleton__stats" /><view
+        class="home-skeleton__task"
+      /><view class="home-skeleton__task" /></view
+    >
+
+    <template v-else-if="data">
       <view class="hero">
         <view class="hero__glow"></view>
         <view class="hero__top"
@@ -155,7 +172,8 @@ onShow(load);
       </view>
 
       <view class="announcement"
-        ><view class="announcement__mark">i</view
+        ><!-- info 图标 CSS 化（IK9VF8）：圆底 + 点/竖条，替代字母 i -->
+        ><view class="announcement__mark"></view
         ><text>{{ data.announcement }}</text></view
       >
 
@@ -169,7 +187,7 @@ onShow(load);
           ><text class="stats__label">今日收入</text></view
         >
         <view
-          ><text class="stats__value">{{ data.stats.onTimeRate }}%</text
+          ><text class="stats__value">{{ onTimeRate }}</text
           ><text class="stats__label">准时率</text></view
         >
         <view
@@ -226,6 +244,14 @@ onShow(load);
           ><text>查看路线与操作</text><text class="chevron"/></view
         >
       </view>
+      <!-- 优先任务空态（IK9VF8）：无待处理时引导去任务看板，不留空白 -->
+      <view
+        v-if="!data.tasks.length"
+        class="empty card"
+        role="button"
+        @tap="uni.switchTab({ url: '/pages/tasks/index' })"
+        >暂无待处理任务，去任务看板看看</view
+      >
     </template>
   </view>
 </template>
@@ -474,10 +500,30 @@ onShow(load);
   height: 34rpx;
   border-radius: 50%;
   background: $accent;
-  color: #fff;
-  display: grid;
-  place-items: center;
-  font-weight: 900;
+  position: relative;
+}
+/* info 图标（IK9VF8）：上点下竖，替代字母 i 字符 */
+.announcement__mark:before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 19rpx;
+  width: 4rpx;
+  height: 10rpx;
+  margin-left: -2rpx;
+  border-radius: 2rpx;
+  background: #fff;
+}
+.announcement__mark:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 9rpx;
+  width: 5rpx;
+  height: 5rpx;
+  margin-left: -2.5rpx;
+  border-radius: 50%;
+  background: #fff;
 }
 .stats {
   display: grid;
@@ -600,5 +646,29 @@ onShow(load);
   color: $primary-dark;
   font-size: 22rpx;
   font-weight: 800;
+}
+/* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
+.home-skeleton__hero,
+.home-skeleton__stats,
+.home-skeleton__task {
+  border-radius: 36rpx;
+  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  animation: home-pulse 1.2s infinite;
+}
+.home-skeleton__hero {
+  height: 320rpx;
+}
+.home-skeleton__stats {
+  height: 130rpx;
+  margin-top: 22rpx;
+}
+.home-skeleton__task {
+  height: 240rpx;
+  margin-top: 20rpx;
+}
+@keyframes home-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 </style>

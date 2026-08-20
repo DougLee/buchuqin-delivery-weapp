@@ -279,9 +279,16 @@ function cancelRequest(id: string) {
   font-weight: 800;
   color: $primary-dark;
 }
+/* 选中勾 CSS 绘制（IK9VF8）：✓ 为特殊 Unicode，安卓部分机型缺字形渲染方框 */
 .dispatch-opt--active .dispatch-opt__title::after {
-  content: " ✓";
-  color: $primary;
+  content: "";
+  display: inline-block;
+  width: 15rpx;
+  height: 9rpx;
+  margin-left: 10rpx;
+  border-left: 4rpx solid $primary;
+  border-bottom: 4rpx solid $primary;
+  transform: rotate(-45deg) translateY(-2rpx);
 }
 .leave {
   padding: 28rpx;
