@@ -142,14 +142,18 @@ const week = computed(() => {
 <text class="section-title__sub"
         >共 {{ bill.total ?? bill.records.length }} 笔</text
       ></view
-    ><view v-for="r in bill.records" :key="r.id" class="record card"
-      ><view class="record__mark"></view
-      ><view class="record__content"
-        ><text class="record__title">{{ r.building }} 配送</text
-        ><text class="muted"
-          >{{ r.orderNo }} · {{ formatShort(r.createdAt) }}</text
-        ></view
-      ><text class="money">+¥{{ fenToYuan(r.amount) }}</text></view
+    ><view class="records card"
+      ><view v-for="r in bill.records" :key="r.id" class="record"
+        ><view class="record__icon"></view
+        ><view class="record__content"
+          ><text class="record__title">{{ r.building }} 配送</text
+          ><text class="muted"
+            >{{ r.orderNo }} · {{ formatShort(r.createdAt) }}</text
+          ></view
+        ><text class="money">+¥{{ fenToYuan(r.amount) }}</text></view
+      ><view v-if="!bill.records.length" class="records__empty"
+        >本月暂无提成记录</view
+      ></view
     ></view
   >
 </template>
@@ -279,18 +283,39 @@ const week = computed(() => {
   color: $muted;
   margin-top: 8rpx;
 }
+/* 提成明细（IK9W4V）：与履约设置 menu 同构——单卡、分隔线、图标格 */
+.records {
+  padding: 2rpx 24rpx;
+}
 .record {
+  min-height: 110rpx;
   display: flex;
   align-items: center;
-  padding: 24rpx;
-  margin-bottom: 16rpx;
+  gap: 18rpx;
+  border-bottom: 2rpx solid $line;
 }
-.record__mark {
-  width: 12rpx;
-  height: 54rpx;
-  border-radius: 8rpx;
-  background: $lime;
-  margin-right: 18rpx;
+.records > view:last-child {
+  border-bottom: none;
+}
+.record__icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 19rpx;
+  background: $soft;
+  display: grid;
+  place-items: center;
+  color: $primary-dark;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+.record__icon:before {
+  content: "¥";
+}
+.records__empty {
+  padding: 70rpx 0;
+  text-align: center;
+  color: $muted;
+  font-size: 24rpx;
 }
 .record__content {
   flex: 1;
