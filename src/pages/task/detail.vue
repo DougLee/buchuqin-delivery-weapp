@@ -19,10 +19,10 @@ const taskId = ref("");
 const acting = ref(false);
 const labels: Record<string, string> = {
   accept: "接收任务",
-  pickup: "扫码取货",
-  depart: "确认从校园仓出发",
+  // IKA0UM：去扫码取货——按钮直接置「配送中」
+  depart: "开始配送",
   arrive: "到达楼下",
-  handover: "确认交接楼长",
+  handover: "拍照交接楼长",
   receive: "确认楼下接货",
   "start-delivery": "开始送往寝室",
   delivered: "上传凭证并送达",
@@ -33,7 +33,7 @@ const labels: Record<string, string> = {
 /** timeline 节点 key → 展示标题（老数据 title 存的是原始 key，IK8W5V） */
 const stepTitles: Record<string, string> = {
   paid: "支付成功",
-  picking: "仓库拣货",
+  picking: "仓库出库",
   "first-mile": "送往楼下",
   "waiting-handover": "楼下待交接",
   "last-mile": "送到寝室",
@@ -87,21 +87,7 @@ function settleDialog(result: string | null) {
 function confirmDialog() {
   settleDialog(dialogInput.value.trim());
 }
-/** 扫码取码值；扫码取消/失败时允许手动输入兜底 */
-function scanOrInput(title: string): Promise<string> {
-  // TODO(真机验证): uni.scanCode 在真机的扫码回调与取消路径
-  return new Promise((resolve, reject) => {
-    uni.scanCode({
-      scanType: ["qrCode", "barCode"],
-      success: (res) => resolve(res.result),
-      fail: async () => {
-        const input = await promptDialog(title, "扫码失败时可手动输入编号");
-        if (input) resolve(input);
-        else reject(new Error("已取消"));
-      },
-    });
-  });
-}
+/** IKA0UM：扫码取货/交接扫码已随「去扫码」简化移除，包裹/寝室二维码不再使用。 */
 /** 弹文本输入框（IK8W5U 异常上报/转单）：确认返回输入值（可为空串），取消返回 null */
 function promptText(title: string, placeholder: string): Promise<string | null> {
   return promptDialog(title, placeholder);
@@ -138,6 +124,36 @@ async function chooseUploadedImages(count: number): Promise<string[]> {
     uni.hideLoading();
   }
 }
+/** 交接凭证（IKA0UP）：拍照上传取代扫寝室二维码；距上次成功上传
+ *  不超过 1 分钟时先问一句，默认复用上次照片免重复拍（同楼长连续交接场景）。 */
+const LAST_PROOF_KEY = "lastHandoverProof";
+async function handoverProofPhoto(): Promise<string> {
+  const last = uni.getStorageSync(LAST_PROOF_KEY) as
+    | { url: string; ts: number }
+    | "";
+  if (last && last.url && Date.now() - last.ts < 60_000) {
+    const reuse = await new Promise<boolean>((resolve) => {
+      uni.showModal({
+        title: "复用上次照片",
+        content: "1 分钟内拍过交接照片，直接用上次那张？",
+        confirmText: "用上次",
+        cancelText: "重新拍",
+        success: (r) => resolve(r.confirm),
+        fail: () => resolve(false),
+      });
+    });
+    if (reuse) return last.url;
+  }
+  const chosen = await uni.chooseImage({ count: 1, sizeType: ["compressed"] });
+  const path = Array.isArray(chosen.tempFilePaths)
+    ? chosen.tempFilePaths[0]
+    : chosen.tempFilePaths;
+  if (!path) throw new Error("已取消");
+  uni.showLoading({ title: "凭证上传中", mask: true });
+  const url = await uploadImage(path);
+  uni.setStorageSync(LAST_PROOF_KEY, { url, ts: Date.now() });
+  return url;
+}
 /** 取真实 gcj02 定位，失败直接报错并中断动作 */
 function locate(): Promise<{ latitude: number; longitude: number }> {
   // TODO(真机验证): 真机定位授权与精度
@@ -158,10 +174,9 @@ async function act(action: string) {
   acting.value = true;
   let payload: Record<string, unknown> = {};
   try {
-    if (action === "pickup")
-      payload = { packageCode: await scanOrInput("输入包裹编号") };
+    // 交接凭证（IKA0UP）：拍照上传；取消拍照（已取消）走 catch 静默返回
     if (action === "handover")
-      payload = { handoverCode: await scanOrInput("输入交接码") };
+      payload = { images: [await handoverProofPhoto()] };
     // 转单（IK8W5U）：原因必填
     if (action === "transfer") {
       const reason = await promptText("申请转单", "请填写转单原因（必填）");
