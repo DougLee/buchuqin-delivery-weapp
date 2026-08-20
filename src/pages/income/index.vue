@@ -191,10 +191,16 @@ const week = computed(() => {
   justify-content: space-between;
 }
 .kicker {
+  /* IK9W4V 补充：与履约设置一致，kicker 独占一行（DETAILS 在上、提成明细在下） */
+  display: block;
   font-size: 20rpx;
   letter-spacing: 3rpx;
   color: $lime;
   font-weight: 900;
+}
+/* 主标题独立成行（同首页/我的页写法） */
+.section-title__main {
+  display: block;
 }
 .label {
   font-size: 24rpx;
