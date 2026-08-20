@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
@@ -26,8 +27,9 @@ async function load(m = month.value) {
     await session.ensure();
     bill.value = await api.commissions(session.role, m || undefined);
     if (!m) month.value = nowMonth();
-  } catch {
-    error.value = true;
+  } catch (e) {
+    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }

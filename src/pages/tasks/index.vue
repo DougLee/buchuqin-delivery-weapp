@@ -6,6 +6,7 @@ import {
   onShow,
 } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import type { Task } from "../../types";
@@ -52,8 +53,9 @@ async function load(s = active.value) {
       items.value = res.items;
       total.value = res.total;
     }
-  } catch {
-    error.value = true;
+  } catch (e) {
+    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }

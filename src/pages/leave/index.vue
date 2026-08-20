@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
@@ -22,8 +23,9 @@ async function load() {
   try {
     await session.ensure();
     items.value = await api.leave();
-  } catch {
-    error.value = true;
+  } catch (e) {
+    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isRetryable(e)) error.value = true;
   }
 }
 onShow(load);
@@ -89,9 +91,13 @@ function reject(id: string) {
     content: "确定拒绝该跨楼调配邀请吗？",
     success: async (m) => {
       if (!m.confirm) return;
-      await api.rejectDispatch(id);
-      await load();
-      uni.showToast({ title: "已拒绝调配", icon: "success" });
+      try {
+        await api.rejectDispatch(id);
+        await load();
+        uni.showToast({ title: "已拒绝调配", icon: "success" });
+      } catch {
+        // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
+      }
     },
   });
 }
@@ -102,9 +108,13 @@ function cancelRequest(id: string) {
     content: "确定撤销这条请假申请吗？",
     success: async (m) => {
       if (!m.confirm) return;
-      await api.cancelLeave(id);
-      await load();
-      uni.showToast({ title: "已撤销", icon: "success" });
+      try {
+        await api.cancelLeave(id);
+        await load();
+        uni.showToast({ title: "已撤销", icon: "success" });
+      } catch {
+        // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
+      }
     },
   });
 }

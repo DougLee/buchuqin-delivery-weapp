@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import type { Dashboard, Shift, StaffRole, StaffStatus } from "../../types";
@@ -46,8 +47,9 @@ async function load() {
     ]);
     data.value = d;
     shift.value = s;
-  } catch {
-    error.value = true;
+  } catch (e) {
+    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
@@ -80,6 +82,8 @@ function toggleStatus() {
                 profile: { ...data.value.profile, ...profile },
               };
             uni.showToast({ title: `已${next[1]}`, icon: "success" });
+          } catch {
+            // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
           } finally {
             statusBusy.value = false;
           }

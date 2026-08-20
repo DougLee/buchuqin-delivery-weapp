@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { api } from "../../api";
+import { ApiError, isRetryable } from "../../api/request";
 import { uploadImage } from "../../api/upload";
 import { useSessionStore } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
@@ -47,8 +48,9 @@ async function load(id: string) {
   try {
     await session.ensure();
     task.value = await api.task(session.role, id);
-  } catch {
-    error.value = true;
+  } catch (e) {
+    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
@@ -200,7 +202,10 @@ async function act(action: string) {
     // 用户主动取消（选图/扫码取消 reject「已取消」）不是错误，静默返回（IK9VF8）
     if (/cancel|已取消/i.test(msg)) return;
     console.error("[task action]", action, msg);
-    setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
+    // ADR-0005(IKA00R)：ApiError 调 request 层时已 toast（调 api 前 loading
+    // 已收，不会被吞）；这里只兜本地失败（定位/选图等），不再重复弹
+    if (!(error instanceof ApiError))
+      setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
   } finally {
     acting.value = false;
   }
