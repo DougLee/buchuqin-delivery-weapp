@@ -200,7 +200,7 @@ onShow(() => load());
             @tap.stop="grab(task)"
           >
             {{ grabbing === task.id ? "抢单中…" : "抢单" }}
-          </button><text v-else class="go">查看任务 <text class="chevron"/></text></view
+          </button><text v-else class="link-chip">查看任务</text></view
         >
       </view>
       <!-- 分页脚标（IK9AWX）：抢单池不分页不显示 -->
@@ -423,11 +423,6 @@ onShow(() => load());
 .time {
   font-size: 20rpx;
   color: #9a5b20;
-}
-.go {
-  font-size: 22rpx;
-  color: $primary-dark;
-  font-weight: 900;
 }
 .grab-btn {
   min-height: 62rpx;

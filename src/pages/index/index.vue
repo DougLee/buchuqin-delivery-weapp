@@ -206,7 +206,8 @@ onShow(load);
         ><text
           class="section-title__sub"
           @tap="uni.switchTab({ url: '/pages/tasks/index' })"
-          >全部任务 <text class="chevron"/></text
+          ><!-- IK9VQ2：chevron 形状即 >，改 chip 胶囊暗示可点 -->
+          <text class="link-chip">全部任务</text></text
         ></view
       >
       <view
@@ -241,7 +242,8 @@ onShow(load);
           ></view
         >
         <view class="task__action"
-          ><text>查看路线与操作</text><text class="chevron"/></view
+          ><!-- IK9VQ2：整卡可点，行尾箭头改 chip -->
+          <text class="link-chip">查看路线与操作</text></view
         >
       </view>
       <!-- 优先任务空态（IK9VF8）：无待处理时引导去任务看板，不留空白 -->
@@ -639,7 +641,7 @@ onShow(load);
   font-weight: 900;
 }
 .task__action {
-  justify-content: space-between;
+  justify-content: flex-end;
   border-top: 2rpx dashed $line;
   margin-top: 22rpx;
   padding-top: 18rpx;

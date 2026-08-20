@@ -101,7 +101,7 @@ const week = computed(() => {
           :value="month"
           @change="onMonthChange"
           ><text class="bill-tag">{{ month }}
-            <text class="chevron chevron--down"/></text></picker
+            <text class="chevron--down"/></text></picker
         ></view
       ><text class="amount"><small>¥</small>{{ fenToYuan(bill.payable) }}</text
       ><view class="trend"

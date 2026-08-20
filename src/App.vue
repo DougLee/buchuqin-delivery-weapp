@@ -41,21 +41,32 @@ view[role="button"] {
 .muted {
   color: $muted;
 }
-/* CSS 箭头（IK9U43/45/48）：替代 →/▾ 字符——安卓部分机型字体缺该字形，
-   渲染为方框异常符号。两条边旋转画 chevron，全机型一致 */
-.chevron {
+/* 向下小箭头（IK9U43/45/48）：仅月份 picker ▾ 提示用。右向 chevron 已
+   全量移除（IK9VQ2）——两条边旋转出来的形状就是 >，道哥要求页面
+   不再出现任何 > 形标记，可点暗示一律改用 .link-chip */
+.chevron--down {
   display: inline-block;
   width: 14rpx;
   height: 14rpx;
   border-top: 3rpx solid currentColor;
   border-right: 3rpx solid currentColor;
-  transform: rotate(45deg);
-  opacity: 0.55;
-}
-/* 向下变体（月份切换▾等） */
-.chevron--down {
   transform: rotate(135deg);
+  opacity: 0.55;
   margin-bottom: 4rpx;
+}
+/* 可点暗示 chip（IK9VQ2）：绿底胶囊，无任何箭头形状 */
+.link-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(24, 169, 87, 0.12);
+  color: $primary-dark;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+.link-chip:active {
+  opacity: 0.8;
 }
 .primary-btn {
   min-height: 96rpx;

@@ -117,7 +117,8 @@ function logout() {
         ><view class="menu__body"
           ><text>请假与跨楼调配</text
           ><text>排班、请假、接受临时调配</text></view
-        ><text class="chevron"/></view
+        ><!-- IK9VQ2：chevron 形状即 >，改 chip 动作暗示 -->
+        ><text class="link-chip">去申请</text></view
       ><!-- IK9AX0：服务楼栋是信息展示行，去掉误导导航的箭头 -->
       ><view
         ><view class="menu__icon building"></view
@@ -135,7 +136,7 @@ function logout() {
         ><view class="menu__icon help"></view
         ><view class="menu__body"
           ><text>履约规范与帮助</text><text>标准流程速览</text></view
-        ><text class="chevron"/></view
+        ><text class="link-chip">查看</text></view
       ><!-- IK9U4H：退出登录入口 -->
       ><view role="button" class="menu__logout" @tap="logout"
         ><view class="menu__icon logout"></view
