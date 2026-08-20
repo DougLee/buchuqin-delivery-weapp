@@ -81,7 +81,7 @@ const week = computed(() => {
   >
   <view v-else-if="loading" class="page income-page"
     ><!-- 加载骨架（IK9AWY） -->
-    ><view class="income-skeleton__hero" /><view
+<view class="income-skeleton__hero" /><view
       class="income-skeleton__break"
     /><view v-for="n in 3" :key="n" class="income-skeleton__record" />
   </view>
@@ -90,12 +90,12 @@ const week = computed(() => {
       ><view class="income-hero__top"
         ><view
           ><!-- IK9U48：月份只保留右上角切换入口，左上角不再重复展示 -->
-          ><text class="kicker">INCOME</text
+<text class="kicker">INCOME</text
           ><text class="label">{{
             isCurrent ? "本月预计收入" : "当月收入"
           }}</text></view
         ><!-- 月份切换（IK9AWZ）：picker 月份粒度，选中即重查 -->
-        ><picker
+<picker
           mode="date"
           fields="month"
           :value="month"
@@ -107,7 +107,7 @@ const week = computed(() => {
       ><view class="trend"
         ><!-- IK8W5V：柱状图由近 7 天提成记录驱动，无数据显示空态文案；
             非当月视图不画「近 7 日」柱（数据是整月记录，画了必错） -->
-        ><view v-if="isCurrent" class="trend__bars"
+<view v-if="isCurrent" class="trend__bars"
           ><view
             v-for="d in week.days"
             :key="d.label"
@@ -139,7 +139,7 @@ const week = computed(() => {
         ><text class="kicker green">DETAILS</text
         ><text class="section-title__main">提成明细</text></view
       ><!-- 笔数用信封 total（IK9AWX）：records 上限 100，超了不再少报 -->
-      ><text class="section-title__sub"
+<text class="section-title__sub"
         >共 {{ bill.total ?? bill.records.length }} 笔</text
       ></view
     ><view v-for="r in bill.records" :key="r.id" class="record card"

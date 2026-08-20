@@ -151,7 +151,7 @@ function cancelRequest(id: string) {
         maxlength="200"
       ></textarea></view
       ><!-- IK9U4B（反馈#9）：请假期间本楼订单处理方式二选一 -->
-      ><view class="field field--column"
+<view class="field field--column"
         ><text class="field__label">请假期间本楼订单如何处理?</text
         ><view
           class="dispatch-opt"
@@ -183,11 +183,11 @@ function cancelRequest(id: string) {
       ><text class="time"
         >{{ formatShort(item.startAt) }} 至 {{ formatShort(item.endAt) }}</text
       >
-      ><text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
+<text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
       ><text v-if="item.reward" class="reward"
         >调配奖励 ¥{{ fenToYuan(item.reward) }}</text
       >
-      ><view v-if="item.status === 'invited'" class="leave__ops"
+<view v-if="item.status === 'invited'" class="leave__ops"
         ><button
           class="primary-btn"
           :disabled="accepting === item.id"

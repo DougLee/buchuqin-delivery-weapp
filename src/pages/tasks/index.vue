@@ -165,7 +165,7 @@ onShow(() => load());
         >
         <view class="route-row"
           ><!-- 路线点语义：取/送两段显式标注，单图钉不再歧义 -->
-          ><view class="pin"><view></view></view
+<view class="pin"><view></view></view
           ><view class="route"
             ><view class="route__leg"
               ><text class="route__tag route__tag--to">送</text

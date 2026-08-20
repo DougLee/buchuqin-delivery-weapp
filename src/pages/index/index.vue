@@ -151,7 +151,7 @@ onShow(load);
               >{{ greeting }}，{{ data.profile.name }}</text
             ></view
           ><!-- IK8W5V：当班徽章接 shifts/current 真实状态 -->
-          ><view class="shift" :class="{ 'shift--off': !shiftState.working }">{{
+<view class="shift" :class="{ 'shift--off': !shiftState.working }">{{
             shiftState.working ? "当班" : "未当班"
           }}</view></view
         >
@@ -173,7 +173,7 @@ onShow(load);
 
       <view class="announcement"
         ><!-- info 图标 CSS 化（IK9VF8）：圆底 + 点/竖条，替代字母 i -->
-        ><view class="announcement__mark"></view
+<view class="announcement__mark"></view
         ><text>{{ data.announcement }}</text></view
       >
 

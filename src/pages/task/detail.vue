@@ -247,7 +247,7 @@ async function act(action: string) {
         ><text class="income">¥{{ fenToYuan(task.commission) }}</text></view
       ></view
     ><!-- 收件人联系（IK9AWW）：脱敏展示 + 一键拨真实号 -->
-    ><view
+<view
       v-if="task.recipientName || task.recipientPhone"
       class="contact card"
       ><view
