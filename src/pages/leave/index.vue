@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -17,12 +17,35 @@ const startDate = ref(""),
   endTime = ref(""),
   reason = ref(""),
   /** 请假期间订单调配方式（IK9U4B 反馈#9）：self=自己联系代班楼长，platform=平台自动派单 */
-  dispatchMode = ref<"self" | "platform">("platform");
+  dispatchMode = ref<"self" | "platform">("platform"),
+  /** IKA57Y：自己调配时选的代班楼长 */
+  substituteId = ref(""),
+  managers = ref<Array<{ id: string; name: string; building: string }>>([]);
+/** 楼长候选下拉展示：姓名 · 负责楼栋 */
+const managerLabels = computed(() =>
+  managers.value.map((m) => `${m.name} · ${m.building}`),
+);
+const substituteIndex = computed(() =>
+  managers.value.findIndex((m) => m.id === substituteId.value),
+);
+const substituteLabel = computed(
+  () => managers.value.find((m) => m.id === substituteId.value)?.name ?? "",
+);
+function pickSubstitute(e: { detail: { value: number } }) {
+  const m = managers.value[Number(e.detail.value)];
+  substituteId.value = m?.id ?? "";
+}
 async function load() {
   error.value = false;
   try {
     await session.ensure();
-    items.value = await api.leave();
+    const [leaves, list] = await Promise.all([
+      api.leave(),
+      // IKA57Y：楼长候选随页面加载（失败静默，提交时后端仍兜底校验）
+      api.managers().catch(() => []),
+    ]);
+    items.value = leaves;
+    managers.value = list;
   } catch (e) {
     // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
     if (isRetryable(e)) error.value = true;
@@ -44,6 +67,11 @@ async function apply() {
     uni.showToast({ title: "请填写请假原因", icon: "none" });
     return;
   }
+  // IKA57Y：自己调配必须选定代班楼长（后端同规则兜底）
+  if (dispatchMode.value === "self" && !substituteId.value) {
+    uni.showToast({ title: "请选择代班楼长", icon: "none" });
+    return;
+  }
   const startAt = new Date(`${startDate.value}T${startTime.value}:00`);
   const endAt = new Date(`${endDate.value}T${endTime.value}:00`);
   if (endAt.getTime() <= startAt.getTime()) {
@@ -58,9 +86,14 @@ async function apply() {
       reason: reason.value.trim(),
       // IK9U4B：调配方式随请假单提交（后端落库供后台核对，平台模式才会自动派单）
       dispatchMode: dispatchMode.value,
+      // IKA57Y：自己调配带上代班楼长 id（姓名快照由后端落库）
+      ...(dispatchMode.value === "self"
+        ? { substituteStaffId: substituteId.value }
+        : {}),
     });
     startDate.value = startTime.value = endDate.value = endTime.value = "";
     reason.value = "";
+    substituteId.value = "";
     items.value = await api.leave();
     uni.showToast({ title: "请假申请已提交", icon: "success" });
   } catch {
@@ -171,6 +204,20 @@ function cancelRequest(id: string) {
           ><text class="dispatch-opt__title">自己联系调配楼长</text
           ><text class="muted">我已联系好其他楼长代班，平台展示姓名供核对</text
           ></view
+        ><!-- IKA57Y：self 模式展开代班楼长下拉（同校园楼长，排除自己） --><view
+          v-if="dispatchMode === 'self'"
+          class="substitute"
+          ><text class="substitute__label">代班楼长</text
+          ><picker
+            mode="selector"
+            :range="managerLabels"
+            :value="substituteIndex < 0 ? 0 : substituteIndex"
+            @change="pickSubstitute"
+            ><text :class="{ placeholder: !substituteLabel }">{{
+              substituteLabel ||
+              (managers.length ? "请选择代班楼长" : "楼长列表加载中")
+            }}</text></picker
+          ></view
         ><view
           class="dispatch-opt"
           :class="{ 'dispatch-opt--active': dispatchMode === 'platform' }"
@@ -194,6 +241,9 @@ function cancelRequest(id: string) {
         >{{ formatShort(item.startAt) }} 至 {{ formatShort(item.endAt) }}</text
       >
 <text v-if="item.reason" class="muted">原因：{{ item.reason }}</text
+      ><!-- IKA57Y：自己调配显示指定代班 -->
+<text v-if="item.substituteName" class="muted"
+        >代班楼长：{{ item.substituteName }}</text
       ><text v-if="item.reward" class="reward"
         >调配奖励 ¥{{ fenToYuan(item.reward) }}</text
       >
@@ -303,6 +353,28 @@ function cancelRequest(id: string) {
 .leave {
   padding: 28rpx;
   margin-bottom: 20rpx;
+}
+/* 代班楼长选择（IKA57Y）：与调配方式卡片同组的下拉行 */
+.substitute {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 14rpx;
+}
+.substitute__label {
+  font-weight: 800;
+  color: $ink;
+  flex-shrink: 0;
+}
+.substitute picker {
+  flex: 1;
+  padding: 14rpx 20rpx;
+  background: $soft;
+  border-radius: 16rpx;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .head {
   display: flex;

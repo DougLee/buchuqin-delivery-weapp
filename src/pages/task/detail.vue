@@ -24,8 +24,8 @@ const labels: Record<string, string> = {
   arrive: "到达楼下",
   handover: "拍照交接楼长",
   receive: "确认楼下接货",
-  "start-delivery": "开始送往寝室",
-  delivered: "上传凭证并送达",
+  // IKA580：去「开始送往寝室」，接货后直接送达（弹窗凭证+备注）
+  delivered: "已送到寝室",
   absent: "用户不在",
   refused: "用户拒收",
   transfer: "申请转单",
@@ -36,6 +36,7 @@ const stepTitles: Record<string, string> = {
   picking: "仓库出库",
   "first-mile": "送往楼下",
   "waiting-handover": "楼下待交接",
+  "ready-to-deliver": "待送到寝室",
   "last-mile": "送到寝室",
 };
 function stepTitle(key: string, title: string): string {
@@ -154,26 +155,56 @@ async function handoverProofPhoto(): Promise<string> {
   uni.setStorageSync(LAST_PROOF_KEY, { url, ts: Date.now() });
   return url;
 }
-/** 取真实 gcj02 定位，失败直接报错并中断动作 */
-function locate(): Promise<{ latitude: number; longitude: number }> {
-  // TODO(真机验证): 真机定位授权与精度
-  return new Promise((resolve, reject) => {
+/** 取真实 gcj02 定位，尽力而为（IKA580：送达不再强制定位，失败不阻断） */
+function locateQuiet(): Promise<{ latitude: number; longitude: number } | null> {
+  return new Promise((resolve) => {
     uni.getLocation({
       type: "gcj02",
       isHighAccuracy: true,
       success: (res) => resolve({ latitude: res.latitude, longitude: res.longitude }),
-      fail: () => {
-        uni.showToast({ title: "定位失败，请检查定位授权", icon: "none" });
-        reject(new Error("定位失败"));
-      },
+      fail: () => resolve(null),
     });
   });
+}
+/* ---------- 送达确认弹窗（IKA580）：凭证照片（选填）+ 备注（选填），二选一 ---------- */
+const deliverDialogOpen = ref(false),
+  deliverProofImages = ref<string[]>([]),
+  deliverRemark = ref(""),
+  deliverUploading = ref(false);
+async function addDeliverProof() {
+  if (deliverUploading.value) return;
+  try {
+    const chosen = await uni.chooseImage({ count: 3, sizeType: ["compressed"] });
+    const paths = Array.isArray(chosen.tempFilePaths)
+      ? chosen.tempFilePaths
+      : [chosen.tempFilePaths];
+    if (!paths.length) return;
+    deliverUploading.value = true;
+    uni.showLoading({ title: "照片上传中", mask: true });
+    const urls = await Promise.all(paths.map((p) => uploadImage(p)));
+    deliverProofImages.value = [...deliverProofImages.value, ...urls].slice(0, 3);
+  } catch {
+    /* 取消/失败不阻断，可重选 */
+  } finally {
+    deliverUploading.value = false;
+    uni.hideLoading();
+  }
+}
+function removeDeliverProof(index: number) {
+  deliverProofImages.value = deliverProofImages.value.filter((_, i) => i !== index);
 }
 async function act(action: string) {
   if (!task.value || acting.value) return;
   acting.value = true;
   let payload: Record<string, unknown> = {};
   try {
+    // 送达确认（IKA580）：先弹窗收集凭证/备注，确认后由 confirmDeliver 提交
+    if (action === "delivered") {
+      deliverProofImages.value = [];
+      deliverRemark.value = "";
+      deliverDialogOpen.value = true;
+      return;
+    }
     // 交接凭证（IKA0UP）：拍照上传；取消拍照（已取消）走 catch 静默返回
     if (action === "handover")
       payload = { images: [await handoverProofPhoto()] };
@@ -193,16 +224,6 @@ async function act(action: string) {
       if (remark === null) return;
       payload = { reason: remark, images: await chooseUploadedImages(3) };
     }
-    if (action === "delivered") {
-      const chosen = await uni.chooseImage({ count: 1, sizeType: ["compressed"] });
-      const paths = Array.isArray(chosen.tempFilePaths)
-        ? chosen.tempFilePaths
-        : [chosen.tempFilePaths];
-      uni.showLoading({ title: "凭证上传中", mask: true });
-      const images = await Promise.all(paths.map((p) => uploadImage(p)));
-      const coords = await locate();
-      payload = { images, ...coords };
-    }
     // 微信端 showLoading 与 showToast 共用单例：必须先收 loading 再弹结果，
     // 否则 toast 被 loading 遮罩吞掉——真机上表现为「点了没反应」（IK9U4I/J）
     uni.hideLoading();
@@ -221,6 +242,40 @@ async function act(action: string) {
     // 已收，不会被吞）；这里只兜本地失败（定位/选图等），不再重复弹
     if (!(error instanceof ApiError))
       setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
+  } finally {
+    acting.value = false;
+  }
+}
+/** 送达确认弹窗提交（IKA580）：凭证或备注二选一，定位尽力而为 */
+async function confirmDeliver() {
+  if (!task.value || acting.value) return;
+  if (!deliverProofImages.value.length && !deliverRemark.value.trim()) {
+    uni.showToast({ title: "请上传凭证照片或填写备注", icon: "none" });
+    return;
+  }
+  acting.value = true;
+  try {
+    const coords = await locateQuiet();
+    task.value = await api.action(
+      session.role,
+      task.value.id,
+      "delivered",
+      {
+        images: deliverProofImages.value,
+        reason: deliverRemark.value.trim() || undefined,
+        ...(coords ?? {}),
+      },
+    );
+    deliverDialogOpen.value = false;
+    uni.showToast({ title: "已送达寝室", icon: "success" });
+  } catch (error) {
+    const msg =
+      error instanceof Error && error.message ? error.message : "操作失败，请重试";
+    if (!/cancel|已取消/i.test(msg)) {
+      console.error("[task delivered]", msg);
+      if (!(error instanceof ApiError))
+        setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
+    }
   } finally {
     acting.value = false;
   }
@@ -245,7 +300,7 @@ async function act(action: string) {
       ><text class="destination"
         >{{ task.building }} · {{ task.floor }} 楼 · {{ task.room }}</text
       ><text class="muted-light"
-        >{{ task.packageNo }}　{{ task.modeText }}</text
+        >{{ task.orderNo }}　{{ task.modeText }}</text
       ></view
     ><view class="section-title"
       ><text class="section-title__main">包裹商品</text
@@ -352,6 +407,46 @@ async function act(action: string) {
         @tap="confirmDialog()"
       >
         确定
+      </button></view
+    ></view
+  ></view
+  >
+  <!-- 送达确认弹窗（IKA580）：凭证照片 + 备注，二选一 -->
+  <view v-if="deliverDialogOpen" class="input-dialog"
+    ><view class="input-dialog__mask"></view
+    ><view class="input-dialog__panel deliver-panel"
+      ><text class="input-dialog__title">已送到寝室</text
+      ><text class="deliver-hint"
+        >上传凭证照片或填写备注（用户不在、放某地等情况留证），至少完成一项</text
+      ><view class="deliver-photos"
+        ><view
+          v-for="(img, i) in deliverProofImages"
+          :key="img"
+          class="deliver-photo"
+          ><image :src="img" mode="aspectFill" @tap="removeDeliverProof(i)"
+        /></view
+        ><view
+          v-if="deliverProofImages.length < 3"
+          class="deliver-photo deliver-photo--add"
+          @tap="addDeliverProof"
+          ><text>＋<text class="deliver-photo--sub">凭证</text></text></view
+        ></view
+      ><input
+        v-model="deliverRemark"
+        class="input-dialog__input"
+        maxlength="100"
+        placeholder="备注（选填）：如放门口 / 用户不在"
+        placeholder-class="input-dialog__placeholder"
+      /><view class="input-dialog__actions"
+      ><button class="input-dialog__btn" @tap="deliverDialogOpen = false">
+        取消
+      </button
+      ><button
+        class="input-dialog__btn input-dialog__btn--primary"
+        :disabled="acting"
+        @tap="confirmDeliver"
+      >
+        确认送达
       </button></view
     ></view
   ></view
@@ -588,6 +683,46 @@ async function act(action: string) {
   display: grid;
   gap: 16rpx;
   margin-top: 26rpx;
+}
+/* 送达确认弹窗（IKA580）：凭证缩略图 + 备注 */
+.deliver-panel {
+  width: 640rpx;
+}
+.deliver-hint {
+  display: block;
+  font-size: 22rpx;
+  color: $muted;
+  margin-bottom: 20rpx;
+}
+.deliver-photos {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 22rpx;
+}
+.deliver-photo {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 18rpx;
+  overflow: hidden;
+  background: $soft;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: $primary-dark;
+  font-size: 40rpx;
+}
+.deliver-photo image {
+  width: 100%;
+  height: 100%;
+}
+.deliver-photo--add {
+  border: 2rpx dashed $line;
+  background: $paper;
+}
+.deliver-photo--sub {
+  font-size: 22rpx;
+  margin-left: 6rpx;
 }
 .danger {
   min-height: 88rpx;

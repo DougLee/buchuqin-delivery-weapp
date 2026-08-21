@@ -14,8 +14,7 @@ const shift = ref<Shift>();
 const error = ref(false);
 /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
 const loading = ref(false);
-/** 状态切换按钮防重（IK8W5U） */
-const statusBusy = ref(false);
+/** 状态切换按钮防重（IK8W5U）——IKA57R：切换入口已移「我的」页，此标记随迁 */
 const hour = new Date().getHours();
 const greeting = computed(() =>
   hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好",
@@ -55,43 +54,7 @@ async function load() {
   }
 }
 // IK9U4F：签到/签退入口已隐藏（决策记录不做地理围栏签到），保留当班状态读取
-/** 上下线切换（IK8W5U）：真实 staff.status，三态切换 + 确认框 */
-function toggleStatus() {
-  if (statusBusy.value || !data.value) return;
-  const options: Array<[StaffStatus, string]> = [
-    ["online", "上线接单"],
-    ["paused", "暂停接单"],
-    ["offline", "下线休息"],
-  ];
-  uni.showActionSheet({
-    itemList: options.map((o) => o[1]),
-    success: ({ tapIndex }) => {
-      const next = options[tapIndex];
-      if (!next || next[0] === staffStatus.value) return;
-      uni.showModal({
-        title: "切换工作状态",
-        content: `确定切换为「${next[1]}」吗？`,
-        success: async (m) => {
-          if (!m.confirm || statusBusy.value) return;
-          statusBusy.value = true;
-          try {
-            const profile = await api.updateStatus(next[0]);
-            if (data.value)
-              data.value = {
-                ...data.value,
-                profile: { ...data.value.profile, ...profile },
-              };
-            uni.showToast({ title: `已${next[1]}`, icon: "success" });
-          } catch {
-            // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
-          } finally {
-            statusBusy.value = false;
-          }
-        },
-      });
-    },
-  });
-}
+// IKA57R：状态切换入口移至「我的」页（原位置被状态栏/胶囊遮挡），首页仅展示
 /** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
 const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
@@ -123,8 +86,6 @@ onShow(load);
           'online--paused': staffStatus === 'paused',
           'online--offline': staffStatus === 'offline',
         }"
-        role="button"
-        @tap="toggleStatus"
         ><view class="online__dot"></view
         ><text>{{ statusText[staffStatus] }}</text></view
       >
@@ -226,7 +187,8 @@ onShow(load);
           :class="{ 'task__accent--orange': index === 0 }"
         ></view>
         <view class="task__head"
-          ><text class="package">{{ task.packageNo }}</text
+          ><!-- IKA57O：配送单号已下线，统一显订单号 -->
+          <text class="package">{{ task.orderNo }}</text
           ><text class="status">{{ task.statusText }}</text></view
         >
         <view class="task__destination"
@@ -265,7 +227,9 @@ onShow(load);
 <style scoped lang="scss">
 @import "../../styles/theme.scss";
 .home {
-  padding-top: calc(30rpx + env(safe-area-inset-top));
+  /* IKA57R：微信 env(safe-area-inset-top) 在 page 级常取 0，用平台注入的
+     --status-bar-height 才躲得开状态栏；胶囊带另在 .online 避让 */
+  padding-top: calc(24rpx + var(--status-bar-height, 0px));
   background:
     radial-gradient(
       circle at 92% 8%,
@@ -287,6 +251,10 @@ onShow(load);
 }
 .nav {
   justify-content: space-between;
+}
+.online {
+  /* IKA57R：右侧避让小程序胶囊（约 87px + 边距），防点击/视觉重叠 */
+  margin-right: 196rpx;
 }
 .identity {
   gap: 16rpx;

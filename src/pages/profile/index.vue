@@ -41,6 +41,41 @@ async function load() {
   }
 }
 onShow(load);
+/** 上下线切换（IKA57R，自首页迁入）：三态 ActionSheet + 确认，真实 staff.status */
+const statusBusy = ref(false);
+function toggleStatus() {
+  if (statusBusy.value || !profile.value) return;
+  const options: Array<[StaffStatus, string]> = [
+    ["online", "上线接单"],
+    ["paused", "暂停接单"],
+    ["offline", "下线休息"],
+  ];
+  uni.showActionSheet({
+    itemList: options.map((o) => o[1]),
+    success: ({ tapIndex }) => {
+      const next = options[tapIndex];
+      if (!next || next[0] === profile.value?.status) return;
+      uni.showModal({
+        title: "切换工作状态",
+        content: `确定切换为「${next[1]}」吗？`,
+        success: async (m) => {
+          if (!m.confirm || statusBusy.value) return;
+          statusBusy.value = true;
+          try {
+            const updated = await api.updateStatus(next[0]);
+            if (profile.value)
+              profile.value = { ...profile.value, ...updated };
+            uni.showToast({ title: `已${next[1]}`, icon: "success" });
+          } catch {
+            // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
+          } finally {
+            statusBusy.value = false;
+          }
+        },
+      });
+    },
+  });
+}
 /** 履约规范（IK9AX0）：原「帮助」行是带箭头的死菜单，点开真内容 */
 function help() {
   uni.showModal({
@@ -127,11 +162,13 @@ function logout() {
         ><view class="menu__body"
           ><text>服务楼栋</text><text>{{ profile.building }}</text></view
         ></view
-      ><view
+      ><!-- IKA57R：状态设置入口移到本页，点击直接切换（原首页入口被胶囊遮挡） --><view
+        role="button"
+        @tap="toggleStatus"
         ><view class="menu__icon pulse"></view
         ><view class="menu__body"
           ><text>工作状态</text
-          ><text>{{ statusDesc[profile.status] }}</text></view
+          ><text>{{ statusDesc[profile.status] }}，点击切换</text></view
         ><text class="online-text">{{ statusText[profile.status] }}</text></view
       ><!-- IK9AX0：帮助行接真内容（规范速览弹窗），不再是死箭头 -->
 <view role="button" @tap="help"

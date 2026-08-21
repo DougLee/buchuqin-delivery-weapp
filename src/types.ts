@@ -26,7 +26,9 @@ export interface Shift {
 export interface Task {
   id: string;
   orderId: string;
-  packageNo: string;
+  /** IKA57O：配送单号已下线，展示改用订单号 */
+  packageNo?: string;
+  orderNo: string;
   status: string;
   statusText: string;
   building: string;
@@ -110,4 +112,6 @@ export interface LeaveItem {
   reason?: string;
   /** 调配奖励，源自 DispatchInvitation.reward（单位:分） */
   reward?: number;
+  /** 自己调配指定的代班楼长姓名（IKA57Y） */
+  substituteName?: string | null;
 }

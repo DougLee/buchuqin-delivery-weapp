@@ -161,7 +161,8 @@ onShow(() => load());
             String(index + 1).padStart(2, "0")
           }}</view
           ><view class="head"
-            ><text class="package">{{ task.packageNo }}</text
+            ><!-- IKA57O：配送单号概念移除，改显订单号 -->
+            <text class="package">{{ task.orderNo }}</text
             ><text class="status">{{ task.statusText }}</text></view
           ></view
         >

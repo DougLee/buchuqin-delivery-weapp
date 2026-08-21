@@ -69,6 +69,11 @@ export const api = {
   leave: () => request<LeaveItem[]>("/fulfillment/leave-dispatch"),
   createLeave: (data: Record<string, unknown>) =>
     request<LeaveItem>("/fulfillment/leave-requests", { method: "POST", data }),
+  /** 代班楼长候选（IKA57Y）：请假「自己调配」时的选择列表 */
+  managers: () =>
+    request<Array<{ id: string; name: string; building: string }>>(
+      "/fulfillment/managers",
+    ),
   acceptDispatch: (id: string) =>
     request<LeaveItem>(`/fulfillment/dispatch-invitations/${id}/accept`, {
       method: "POST",
