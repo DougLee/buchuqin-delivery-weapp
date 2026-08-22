@@ -25,15 +25,26 @@ const session = useSessionStore(),
   loadingMore = ref(false);
 // 抢单池仅骑手角色可见（IK8W5U，后端对楼长返回 403）
 const isRider = computed(() => session.role !== "building-manager");
-const baseTabs: Array<[string, string]> = [
+/** 骑手 tab（IKAFP5 保持不变）：待处理/待接单/进行中沿用骑手派生状态 */
+const riderTabs: Array<[string, string]> = [
   ["all", "全部"],
   ["waiting", "待处理"],
   ["available", "待接单"],
   ["delivering", "进行中"],
   ["completed", "已完成"],
 ];
+/** 楼长专属 tab（IKAFP5）：与后端楼长派生状态一一对应——
+ *  待接货=已到楼下、待送到寝室=已接货在送、异常单可单独筛出；
+ *  骑手在途的「待到楼」单归「全部」可见，不单独设 tab */
+const managerTabs: Array<[string, string]> = [
+  ["all", "全部"],
+  ["waiting", "待接货"],
+  ["delivering", "待送到寝室"],
+  ["completed", "已完成"],
+  ["exception", "异常"],
+];
 const tabs = computed<Array<[string, string]>>(() =>
-  isRider.value ? [["pool", "抢单池"], ...baseTabs] : baseTabs,
+  isRider.value ? [["pool", "抢单池"], ...riderTabs] : managerTabs,
 );
 /** 首屏加载（IK9AWX/Y）：pool 走抢单池接口，其余走分页接口取第一页 */
 async function load(s = active.value) {
