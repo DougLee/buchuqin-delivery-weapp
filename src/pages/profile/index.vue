@@ -157,6 +157,18 @@ function logout() {
         ><!-- IK9VQ2：chevron 形状即 >，改 chip 动作暗示 -->
 <text class="link-chip">去申请</text></view
       ><!-- IK9AX0：服务楼栋是信息展示行，去掉误导导航的箭头 -->
+<!-- IKAJT4：归属校区信息行（接口下发，楼栋归属校区一并可见） -->
+<view
+        ><view class="menu__icon building"></view
+        ><view class="menu__body"
+          ><text>归属校区</text
+          ><text>{{
+            [profile.campusName, profile.campusWarehouseName]
+              .filter(Boolean)
+              .join(' · ') || '—'
+          }}</text></view
+        ></view
+      >
 <view
         ><view class="menu__icon building"></view
         ><view class="menu__body"

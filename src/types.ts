@@ -11,6 +11,9 @@ export interface StaffProfile {
   building: string;
   online: boolean;
   status: StaffStatus;
+  /** 归属校区（IKAJT4 去硬编码）：顶部「校区 · 仓名」接口下发 */
+  campusName?: string;
+  campusWarehouseName?: string;
 }
 /** 当班卡（IK8W5U）：GET /fulfillment/shifts/current */
 export interface Shift {

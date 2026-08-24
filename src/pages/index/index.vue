@@ -67,6 +67,11 @@ const onTimeRate = computed(() => {
 });
 const open = (id: string) =>
   uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
+/** 顶部校区行（IKAJT4 去硬编码）：归属校区 · 仓名随 profile 接口下发 */
+const campusLine = computed(() => {
+  const p = data.value?.profile;
+  return [p?.campusName, p?.campusWarehouseName].filter(Boolean).join(" · ");
+});
 onShow(load);
 </script>
 
@@ -77,7 +82,8 @@ onShow(load);
         <view class="logo"><view class="logo__route"></view></view>
         <view
           ><text class="brand">不出寝履约</text
-          ><text class="campus">湖北工业大学 · 湖工大校园仓</text></view
+          ><!-- IKAJT4：校区信息接口下发，多校区不再硬编码湖工大 -->
+          <text v-if="campusLine" class="campus">{{ campusLine }}</text></view
         >
       </view>
       <view
