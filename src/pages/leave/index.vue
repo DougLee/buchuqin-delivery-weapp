@@ -11,6 +11,8 @@ const items = ref<LeaveItem[]>([]);
 const session = useSessionStore();
 /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
 const error = ref(false);
+/** 记录区首拉中（2026-08-24 骨架屏）：与其余五页对齐，列表不突兀弹入 */
+const loading = ref(true);
 const startDate = ref(""),
   startTime = ref(""),
   endDate = ref(""),
@@ -37,6 +39,7 @@ function pickSubstitute(e: { detail: { value: number } }) {
 }
 async function load() {
   error.value = false;
+  loading.value = true;
   try {
     await session.ensure();
     const [leaves, list] = await Promise.all([
@@ -49,6 +52,8 @@ async function load() {
   } catch (e) {
     // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
     if (isRetryable(e)) error.value = true;
+  } finally {
+    loading.value = false;
   }
 }
 onShow(load);
@@ -233,6 +238,10 @@ function cancelRequest(id: string) {
     ><view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
+    ><!-- 记录区骨架（2026-08-24）：请假卡同构占位 --><view
+      v-else-if="loading && !items.length"
+      class="leave-skeleton"
+      ><view v-for="n in 2" :key="n" class="leave-skeleton__card" /></view
     ><view v-for="item in items" :key="item.id" class="leave card"
       ><view class="head"
         ><text>{{ item.building || "请假申请" }}</text
@@ -427,6 +436,19 @@ function cancelRequest(id: string) {
   text-align: center;
   padding: 100rpx 30rpx;
   margin-bottom: 20rpx;
+}
+/* 记录区骨架（2026-08-24）：与 .leave 卡同构，shimmer 与全端同款 */
+.leave-skeleton__card {
+  height: 260rpx;
+  border-radius: 24rpx;
+  margin-bottom: 20rpx;
+  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  animation: leave-pulse 1.2s infinite;
+}
+@keyframes leave-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 .retry__title,
 .retry__sub {
