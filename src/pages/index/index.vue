@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
-import type { Dashboard, Shift, StaffRole, StaffStatus } from "../../types";
+import { quickAction, slaText, type QuickAction } from "../../utils/task-actions";
+import type { Dashboard, Shift, StaffRole, StaffStatus, Task } from "../../types";
 
 const session = useSessionStore();
 const data = ref<Dashboard>();
@@ -67,6 +68,32 @@ const onTimeRate = computed(() => {
 });
 const open = (id: string) =>
   uni.navigateTo({ url: `/pages/task/detail?id=${id}` });
+/** 下拉刷新（IKBW0F）：首页此前无刷新入口 */
+onPullDownRefresh(async () => {
+  await load();
+  uni.stopPullDownRefresh();
+});
+/** 列表行快捷操作（IKBW0H）：标准下一步行内一键完成，需拍照/弹窗的跳详情 */
+const acting = ref<string | null>(null);
+const qaOf = (task: Task): QuickAction | null => quickAction(task);
+async function runAction(task: Task) {
+  const qa = quickAction(task);
+  if (!qa || acting.value) return;
+  if (qa.kind === "detail") {
+    uni.navigateTo({ url: `/pages/task/detail?id=${task.id}` });
+    return;
+  }
+  acting.value = task.id;
+  try {
+    await api.action(session.role, task.id, qa.key, {});
+    uni.showToast({ title: "操作成功", icon: "success" });
+  } finally {
+    acting.value = null;
+    // 成功/失败都静默重拉纠偏（被抢冲突、状态已变时行内按钮随之消失）；
+    // 失败提示由 request 层统一 toast
+    load().catch(() => {});
+  }
+}
 /** 顶部校区行（IKAJT4 去硬编码）：归属校区 · 仓名随 profile 接口下发 */
 const campusLine = computed(() => {
   const p = data.value?.profile;
@@ -203,7 +230,8 @@ onShow(load);
             ><text>F</text></view
           ><view
             ><text class="building">{{ task.building }} · {{ task.room }}</text
-            ><text class="deadline">履约时效：{{ task.deadline }}</text></view
+            ><!-- IKBW0H：时效固定文案，与后台订单列表口径一致 -->
+            <text class="deadline">履约时效：{{ slaText(task) }}</text></view
           ></view
         >
         <view class="task__meta"
@@ -215,7 +243,16 @@ onShow(load);
         >
         <view class="task__action"
           ><!-- IK9VQ2：整卡可点，行尾箭头改 chip -->
-          <text class="link-chip">查看路线与操作</text></view
+          <!-- IKBW0H：标准下一步直接行内完成，无则保持查看入口 -->
+          <button
+            v-if="qaOf(task)"
+            class="quick-btn"
+            :disabled="acting === task.id"
+            @tap.stop="runAction(task)"
+          >
+            {{ acting === task.id ? "处理中…" : qaOf(task)?.label }}
+          </button>
+          <text v-else class="link-chip">查看路线与操作</text></view
         >
       </view>
       <!-- 优先任务空态（IK9VF8）：无待处理时引导去任务看板，不留空白 -->
@@ -626,6 +663,22 @@ onShow(load);
   color: $primary-dark;
   font-size: 22rpx;
   font-weight: 800;
+}
+/* IKBW0H：行内快捷操作按钮，与任务页 grab-btn 同款视觉 */
+.quick-btn {
+  min-height: 62rpx;
+  margin: 0;
+  padding: 0 36rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: $lime;
+  font-size: 24rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+}
+.quick-btn[disabled] {
+  opacity: 0.6;
 }
 /* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
 .home-skeleton__hero,

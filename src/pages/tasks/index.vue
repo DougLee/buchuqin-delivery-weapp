@@ -9,12 +9,15 @@ import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
+import { quickAction, slaText } from "../../utils/task-actions";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
   active = ref("all"),
   /** 抢单防重：当前正在抢的任务 id（IK8W5U） */
   grabbing = ref<string | null>(null),
+  /** 列表行快捷操作防重（IKBW0H） */
+  acting = ref<string | null>(null),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
   error = ref(false),
   /** 首屏加载中（IK9AWY）：驱动骨架屏 */
@@ -118,6 +121,26 @@ async function grab(task: Task) {
     grabbing.value = null;
   }
 }
+/** 列表行快捷操作（IKBW0H）：标准下一步一键完成；需拍照/弹窗的（交接/送达）
+ *  跳详情走既有流程。抢单池已有 grab 流程，不在此覆盖。 */
+const qaOf = (task: Task) => quickAction(task);
+async function runAction(task: Task) {
+  const qa = quickAction(task);
+  if (!qa || acting.value) return;
+  if (qa.kind === "detail") {
+    uni.navigateTo({ url: `/pages/task/detail?id=${task.id}` });
+    return;
+  }
+  acting.value = task.id;
+  try {
+    await api.action(session.role, task.id, qa.key, {});
+    uni.showToast({ title: "操作成功", icon: "success" });
+  } finally {
+    acting.value = null;
+    // 成功/失败都静默重拉当前 tab 纠偏；失败提示由 request 层统一 toast
+    load(active.value).catch(() => {});
+  }
+}
 onShow(() => load());
 </script>
 <template>
@@ -206,7 +229,8 @@ onShow(() => load());
           ></view
         >
         <view class="footer"
-          ><text class="time">{{ task.deadline }} 前完成</text
+          ><!-- IKBW0H：时效固定文案，与后台订单列表口径一致 -->
+          <text class="time">{{ slaText(task) }}</text
           ><button
             v-if="active === 'pool'"
             class="grab-btn"
@@ -214,6 +238,13 @@ onShow(() => load());
             @tap.stop="grab(task)"
           >
             {{ grabbing === task.id ? "抢单中…" : "抢单" }}
+          </button><button
+            v-else-if="qaOf(task)"
+            class="grab-btn"
+            :disabled="acting === task.id"
+            @tap.stop="runAction(task)"
+          >
+            {{ acting === task.id ? "处理中…" : qaOf(task)?.label }}
           </button><text v-else class="link-chip">查看任务</text></view
         >
       </view>
