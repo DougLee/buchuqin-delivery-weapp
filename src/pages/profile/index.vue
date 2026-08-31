@@ -91,7 +91,8 @@ function help() {
     confirmText: "知道了",
   });
 }
-/** 退出登录（IK9U4H）：清登录态回登录页 */
+/** 退出登录（IK9U4H）：清登录态回首页访客引导态（IKC4IN：落地页保持
+ *  可浏览内容，登录由用户从首页「员工登录」入口自主进入，规避审核风险） */
 function logout() {
   uni.showModal({
     title: "退出登录",
@@ -100,7 +101,7 @@ function logout() {
     success: (m) => {
       if (!m.confirm) return;
       uni.removeStorageSync("staffToken");
-      uni.reLaunch({ url: "/pages/login/index" });
+      uni.reLaunch({ url: "/pages/index/index" });
     },
   });
 }
