@@ -25,6 +25,13 @@ function wxLoginCode(): Promise<string> {
     }),
   );
 }
+/** 游客标记（IKC4IN 追加）：未绑定判定一次后本会话不再重复静默登录——
+ *  切 tab/回页每次 onShow 都打 wechat-login 会把 10 次/分 限流烧光，
+ *  用户侧表现为「操作太频繁，请一分钟后再试」。进登录页即清除（主动登录意图）。 */
+const GUEST_FLAG = "staffGuestMode";
+export function clearGuestFlag() {
+  uni.removeStorageSync(GUEST_FLAG);
+}
 /**
  * 员工会话（IK8W5Q 正式通道）：微信直登，openid 未绑定 Staff 时由登录页
  * 承接工号绑定表单。H5 演示通道（test-login）已随 IK9JHP 后端端点删除
@@ -45,8 +52,12 @@ export const useSessionStore = defineStore("staff-session", () => {
     const code = await wxLoginCode();
     try {
       applyLogin(await api.wechatStaffLogin(code));
+      clearGuestFlag();
     } catch (e) {
-      if (isBindRequired(e)) throw new StaffBindRequiredError();
+      if (isBindRequired(e)) {
+        uni.setStorageSync(GUEST_FLAG, "1");
+        throw new StaffBindRequiredError();
+      }
       throw e;
     }
   }
@@ -54,12 +65,13 @@ export const useSessionStore = defineStore("staff-session", () => {
   async function bindByWechat(staffNo: string, name: string) {
     const code = await wxLoginCode();
     applyLogin(await api.staffBind(code, staffNo, name));
+    clearGuestFlag();
   }
   /**
    * 确保已登录（IKC4IN 微信审核整改）：去掉「未登录强制 reLaunch 登录页」
    * 副作用——打开小程序必须先可浏览（游客可看功能引导），登录改为用户
    * 自主点击「员工登录」后进登录页。未登录/未绑定时静默尝试直登一次，
-   * 失败仅抛错，由各页面展示各自的访客态。
+   * 失败仅抛错，由各页面展示各自的访客态；游客标记存在时不再重复请求。
    */
   async function ensure() {
     const token = uni.getStorageSync("staffToken");
@@ -67,6 +79,7 @@ export const useSessionStore = defineStore("staff-session", () => {
       role.value = (uni.getStorageSync("staffTokenRole") as StaffRole) || role.value;
       return;
     }
+    if (uni.getStorageSync(GUEST_FLAG)) throw new StaffBindRequiredError();
     try {
       await loginByWechat();
     } catch (e) {

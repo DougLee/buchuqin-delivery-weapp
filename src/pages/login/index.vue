@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useSessionStore } from "../../stores/session";
+import { onShow } from "@dcloudio/uni-app";
+import { useSessionStore, clearGuestFlag } from "../../stores/session";
 const session = useSessionStore(),
   loading = ref(false),
   binding = ref(false),
   needBind = ref(false),
   staffNo = ref(""),
   name = ref("");
+/** 进入登录页 = 主动登录意图（IKC4IN）：清游客标记，允许重新静默直登 */
+onShow(() => clearGuestFlag());
 /** 微信一键登录（IK8W5Q 正式通道）：未绑定 → 展开工号绑定表单 */
 async function login() {
   if (loading.value) return;
