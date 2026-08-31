@@ -3,28 +3,32 @@ import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useSessionStore, clearGuestFlag } from "../../stores/session";
 const session = useSessionStore(),
-  loading = ref(false),
+  /** 自动直登检测中（IKC4IN 优化）：进入登录页即静默尝试，已绑定秒进工作台 */
+  checking = ref(false),
   binding = ref(false),
-  needBind = ref(false),
   staffNo = ref(""),
   name = ref("");
-/** 进入登录页 = 主动登录意图（IKC4IN）：清游客标记，允许重新静默直登 */
-onShow(() => clearGuestFlag());
-/** 微信一键登录（IK8W5Q 正式通道）：未绑定 → 展开工号绑定表单 */
-async function login() {
-  if (loading.value) return;
-  loading.value = true;
+/**
+ * 进入登录页 = 用户已主动表达登录意图（IKC4IN 优化）：清游客标记后自动
+ * 尝试静默直登——已绑定员工秒进工作台；未绑定（新员工/审核新用户）留在
+ * 本页完成工号绑定，「微信一键登录」按钮随之取消（多一步无意义操作）。
+ */
+async function trySilentLogin() {
+  if (checking.value) return;
+  checking.value = true;
   try {
     await session.loginByWechat();
     uni.reLaunch({ url: "/pages/index/index" });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "";
-    if (message.includes("未绑定")) needBind.value = true;
-    // 其余错误（网络/服务）已由 request 层 toast，留在本页重试
+  } catch {
+    // 未绑定/网络失败：留在本页绑定（网络原因已由 request 层 toast）
   } finally {
-    loading.value = false;
+    checking.value = false;
   }
 }
+onShow(() => {
+  clearGuestFlag();
+  trySilentLogin();
+});
 /** 首次绑定：工号+姓名换绑 openid，成功即登录进工作台 */
 async function bind() {
   if (binding.value) return;
@@ -49,14 +53,21 @@ async function bind() {
     <view class="login__hero">
       <text class="login__eyebrow">不出寝食社 · 履约端</text>
       <text class="login__title">员工登录</text>
-      <text class="login__sub">使用微信登录你的员工账号</text>
+      <text class="login__sub"
+        >绑定工号与姓名，微信自动记住登录，下次打开免输入</text
+      >
     </view>
     <view class="card login__card">
-      <button class="primary-btn" :disabled="loading" @tap="login">
-        {{ loading ? "登录中…" : "微信一键登录" }}
-      </button>
-      <template v-if="needBind">
-        <view class="login__divider"><text>首次使用？绑定员工账号</text></view>
+      <!-- 自动直登检测（IKC4IN 优化）：有反馈不空白（UX：loading-states） -->
+      <view v-if="checking" class="login__checking"
+        ><view class="login__checking-dot"></view
+        ><text>正在检测登录状态…</text></view
+      >
+      <template v-else>
+        <text class="login__form-title">绑定员工账号</text>
+        <text class="login__form-sub"
+          >输入入职登记的工号与姓名，绑定后即可接单上岗</text
+        >
         <view class="login__field">
           <text class="login__label">工号</text>
           <input
@@ -73,12 +84,12 @@ async function bind() {
             placeholder-class="login__placeholder"
           />
         </view>
-        <button class="ghost-btn" :disabled="binding" @tap="bind">
+        <button class="primary-btn" :disabled="binding" @tap="bind">
           {{ binding ? "绑定中…" : "绑定并登录" }}
         </button>
       </template>
     </view>
-    <text class="login__tip">绑定遇到问题请联系站点管理员</text>
+    <text class="login__tip">绑定遇到问题？请联系站点管理员</text>
   </view>
 </template>
 <style scoped lang="scss">
@@ -114,11 +125,37 @@ async function bind() {
 .login__card {
   padding: 36rpx 32rpx;
 }
-.login__divider {
-  margin: 32rpx 0 6rpx;
-  text-align: center;
+/* 自动直登检测态：轻提示行 + 呼吸圆点，不阻塞页面（IKC4IN 优化） */
+.login__checking {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
   color: $muted;
-  font-size: 24rpx;
+  font-size: 25rpx;
+  padding: 14rpx 0 6rpx;
+}
+.login__checking-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: $primary;
+  animation: login-pulse 1.2s infinite;
+}
+@keyframes login-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.login__form-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+.login__form-sub {
+  display: block;
+  font-size: 22rpx;
+  color: $muted;
+  margin: 6rpx 0 8rpx;
 }
 .login__field {
   display: flex;
@@ -141,18 +178,8 @@ async function bind() {
   color: #8a938d;
   font-weight: 400;
 }
-.ghost-btn {
+.primary-btn {
   margin-top: 28rpx;
-  min-height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 44rpx;
-  background: #fff;
-  border: 2rpx solid $line;
-  color: $primary-dark;
-  font-size: 30rpx;
-  font-weight: 800;
 }
 .login__tip {
   display: block;
