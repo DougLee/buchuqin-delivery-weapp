@@ -3,13 +3,15 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
-import { useSessionStore } from "../../stores/session";
+import { useSessionStore, isBindRequired } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
 import type { CommissionBill } from "../../types";
 const session = useSessionStore(),
   bill = ref<CommissionBill & { total?: number }>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+  /** 访客态（IKC4IN）：未绑定员工先浏览引导，登录自主点击 */
+  guest = ref(false),
   error = ref(false),
   /** 首屏/切换加载中（IK9AWY）：驱动骨架屏 */
   loading = ref(false),
@@ -28,13 +30,16 @@ async function load(m = month.value) {
     bill.value = await api.commissions(session.role, m || undefined);
     if (!m) month.value = nowMonth();
   } catch (e) {
-    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
-    if (isRetryable(e)) error.value = true;
+    // IKC4IN：游客进引导态；ADR-0005(IKA00R)：网络/服务故障进整页错误态
+    if (isBindRequired(e)) guest.value = true;
+    else if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
 }
 onShow(load);
+/** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
+const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 /** 月份切换（IK9AWZ）：picker fields=month，回调即按月重查 */
 function onMonthChange(e: { detail: { value: string } }) {
   month.value = e.detail.value;
@@ -86,6 +91,12 @@ const week = computed(() => {
 <view class="income-skeleton__hero" /><view
       class="income-skeleton__break"
     /><view v-for="n in 3" :key="n" class="income-skeleton__record" />
+  </view>
+  <view v-else-if="guest" class="page income-page">
+    <view class="retry card" role="button" @tap="goLogin">
+      <text class="retry__title">员工专用 · 收入与结算</text>
+      <text class="retry__sub">工号绑定后可查看佣金与月度结算，点击登录</text>
+    </view>
   </view>
   <view v-else-if="bill" class="page income-page"
     ><view class="income-hero"

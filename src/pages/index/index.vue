@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
-import { useSessionStore } from "../../stores/session";
+import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction, slaText, type QuickAction } from "../../utils/task-actions";
 import type { Dashboard, Shift, StaffRole, StaffStatus, Task } from "../../types";
@@ -13,6 +13,8 @@ const data = ref<Dashboard>();
 const shift = ref<Shift>();
 /** 加载失败标记（IK8W5V）：失败时展示重试入口，避免页面永久空白 */
 const error = ref(false);
+/** 访客态（IKC4IN 审核整改）：未绑定员工时先浏览功能引导，登录由用户自主点击 */
+const guest = ref(false);
 /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
 const loading = ref(false);
 /** 状态切换按钮防重（IK8W5U）——IKA57R：切换入口已移「我的」页，此标记随迁 */
@@ -48,8 +50,10 @@ async function load() {
     data.value = d;
     shift.value = s;
   } catch (e) {
-    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
-    if (isRetryable(e)) error.value = true;
+    // IKC4IN：未绑定员工（游客）→ 功能引导态，不强制登录；
+    // ADR-0005(IKA00R)：网络/服务故障进整页错误态，业务拒绝由 request 层 toast
+    if (isBindRequired(e)) guest.value = true;
+    else if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
@@ -73,6 +77,8 @@ onPullDownRefresh(async () => {
   await load();
   uni.stopPullDownRefresh();
 });
+/** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
+const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 /** 列表行快捷操作（IKBW0H）：标准下一步行内一键完成，需拍照/弹窗的跳详情 */
 const acting = ref<string | null>(null);
 const qaOf = (task: Task): QuickAction | null => quickAction(task);
@@ -138,6 +144,45 @@ onShow(load);
         class="home-skeleton__task"
       /><view class="home-skeleton__task" /></view
     >
+
+    <!-- 访客引导态（IKC4IN 审核整改）：先浏览平台介绍，登录由用户自主点击 -->
+    <template v-else-if="guest">
+      <view class="card guest__hero">
+        <text class="guest__brand">不出寝食社 · 履约端</text>
+        <text class="guest__title">校园寝售 · 配送工作台</text>
+        <text class="guest__desc"
+          >零食饮料寝室直达的校园电商平台。本端为履约工作人员（配送员/楼长）专用工作台，员工工号绑定后即可上岗接单。</text
+        >
+      </view>
+      <view class="card guest__feats"
+        ><text class="guest__head">平台功能一览</text>
+        <view class="guest__feat"
+          ><text class="guest__no">01</text
+          ><view
+            ><text class="guest__ft">工作台 · 任务看板</text
+            ><text class="guest__fd">待处理任务按时效排序，行内一键接单、开始配送、确认送达</text></view
+          ></view
+        >
+        <view class="guest__feat"
+          ><text class="guest__no">02</text
+          ><view
+            ><text class="guest__ft">两段接力配送</text
+            ><text class="guest__fd">配送员仓到楼、楼长楼到寝，拍照交接全程留痕</text></view
+          ></view
+        >
+        <view class="guest__feat"
+          ><text class="guest__no">03</text
+          ><view
+            ><text class="guest__ft">收入与绩效</text
+            ><text class="guest__fd">每单佣金、准时率与月度结算，清晰可查</text></view
+          ></view
+        ></view
+      >
+      <button class="guest__login" @tap="goLogin">员工登录</button>
+      <text class="guest__tip"
+        >仅限不出寝食社在职员工使用 · 登录为微信静默授权，首次使用填写工号与姓名绑定</text
+      >
+    </template>
 
     <template v-else-if="data">
       <view class="hero">
@@ -679,6 +724,83 @@ onShow(load);
 }
 .quick-btn[disabled] {
   opacity: 0.6;
+}
+/* 访客引导态（IKC4IN）：品牌介绍 + 功能一览 + 自主登录入口 */
+.guest__hero,
+.guest__feats {
+  padding: 34rpx;
+  margin-bottom: 20rpx;
+}
+.guest__brand {
+  display: block;
+  font-size: 20rpx;
+  font-weight: 800;
+  letter-spacing: 2rpx;
+  color: $primary;
+}
+.guest__title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 900;
+  color: $ink;
+  margin-top: 10rpx;
+}
+.guest__desc,
+.guest__fd {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: $muted;
+}
+.guest__desc {
+  margin-top: 12rpx;
+}
+.guest__head {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 900;
+  color: $ink;
+  margin-bottom: 18rpx;
+}
+.guest__feat {
+  display: flex;
+  gap: 18rpx;
+  align-items: flex-start;
+  padding: 14rpx 0;
+}
+.guest__no {
+  font-size: 26rpx;
+  font-weight: 900;
+  color: $primary;
+  opacity: 0.55;
+}
+.guest__ft {
+  display: block;
+  font-size: 25rpx;
+  font-weight: 800;
+  color: $ink;
+}
+.guest__fd {
+  margin-top: 4rpx;
+}
+.guest__login {
+  min-height: 88rpx;
+  margin: 6rpx 0 16rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: $lime;
+  font-size: 28rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.guest__tip {
+  display: block;
+  text-align: center;
+  font-size: 19rpx;
+  color: $muted;
+  padding-bottom: 30rpx;
 }
 /* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
 .home-skeleton__hero,

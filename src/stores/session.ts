@@ -55,6 +55,12 @@ export const useSessionStore = defineStore("staff-session", () => {
     const code = await wxLoginCode();
     applyLogin(await api.staffBind(code, staffNo, name));
   }
+  /**
+   * 确保已登录（IKC4IN 微信审核整改）：去掉「未登录强制 reLaunch 登录页」
+   * 副作用——打开小程序必须先可浏览（游客可看功能引导），登录改为用户
+   * 自主点击「员工登录」后进登录页。未登录/未绑定时静默尝试直登一次，
+   * 失败仅抛错，由各页面展示各自的访客态。
+   */
   async function ensure() {
     const token = uni.getStorageSync("staffToken");
     if (token) {
@@ -64,8 +70,7 @@ export const useSessionStore = defineStore("staff-session", () => {
     try {
       await loginByWechat();
     } catch (e) {
-      // 未绑定 → 登录页承接（绑定表单）；其他失败也进登录页统一重试
-      uni.reLaunch({ url: "/pages/login/index" });
+      // 未绑定（游客）或其他失败：不再跳登录页，交页面 guest 态承接
       throw e;
     }
   }

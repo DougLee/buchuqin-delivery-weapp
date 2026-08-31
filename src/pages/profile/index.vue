@@ -3,12 +3,14 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
-import { useSessionStore } from "../../stores/session";
+import { useSessionStore, isBindRequired } from "../../stores/session";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
 const session = useSessionStore(),
   profile = ref<StaffProfile>(),
   performance = ref<Performance>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
+  /** 访客态（IKC4IN）：未绑定员工先浏览引导，登录自主点击 */
+  guest = ref(false),
   error = ref(false),
   /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
   loading = ref(false);
@@ -34,13 +36,16 @@ async function load() {
     profile.value = await api.profile(session.role);
     performance.value = await api.performance(session.role);
   } catch (e) {
-    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
-    if (isRetryable(e)) error.value = true;
+    // IKC4IN：游客进引导态；ADR-0005(IKA00R)：网络/服务故障进整页错误态
+    if (isBindRequired(e)) guest.value = true;
+    else if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
 }
 onShow(load);
+/** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
+const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 /** 上下线切换（IKA57R，自首页迁入）：三态 ActionSheet + 确认，真实 staff.status */
 const statusBusy = ref(false);
 function toggleStatus() {
@@ -113,6 +118,12 @@ function logout() {
       class="profile-skeleton__menu"
     /></view
   >
+  <view v-else-if="guest" class="page profile">
+    <view class="retry card" role="button" @tap="goLogin">
+      <text class="retry__title">员工专用 · 个人中心</text>
+      <text class="retry__sub">工号绑定后可查看个人信息与上下线状态，点击登录</text>
+    </view>
+  </view>
   <view v-else-if="profile" class="page profile"
     ><view class="profile-card"
       ><view class="person"

@@ -7,7 +7,7 @@ import {
 } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
-import { useSessionStore } from "../../stores/session";
+import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction, slaText } from "../../utils/task-actions";
 import type { Task } from "../../types";
@@ -18,6 +18,8 @@ const session = useSessionStore(),
   grabbing = ref<string | null>(null),
   /** 列表行快捷操作防重（IKBW0H） */
   acting = ref<string | null>(null),
+  /** 访客态（IKC4IN）：未绑定员工先浏览引导，登录自主点击 */
+  guest = ref(false),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
   error = ref(false),
   /** 首屏加载中（IK9AWY）：驱动骨架屏 */
@@ -68,8 +70,9 @@ async function load(s = active.value) {
       total.value = res.total;
     }
   } catch (e) {
-    // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
-    if (isRetryable(e)) error.value = true;
+    // IKC4IN：游客进引导态；ADR-0005(IKA00R)：网络/服务故障进整页错误态
+    if (isBindRequired(e)) guest.value = true;
+    else if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
@@ -142,6 +145,8 @@ async function runAction(task: Task) {
   }
 }
 onShow(() => load());
+/** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
+const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 </script>
 <template>
   <view class="page tasks-page">
@@ -177,6 +182,14 @@ onShow(() => load());
     >
     <view v-else-if="loading" class="tasks-skeleton"
       ><view v-for="n in 4" :key="n" class="tasks-skeleton__block" /></view
+    >
+    <view
+      v-else-if="guest"
+      class="empty card"
+      role="button"
+      @tap="goLogin"
+      ><view class="empty__mark"></view><text>员工专用 · 任务看板</text
+      ><text class="empty__sub">工号绑定后可查看今日任务并接单，点击登录</text></view
     >
     <view v-else-if="!items.length" class="empty card"
       ><view class="empty__mark"></view><text>当前分类没有任务</text
