@@ -43,6 +43,12 @@ export const api = {
       method: "POST",
       data: { code, staffNo, name, appid: DELIVERY_APPID },
     }),
+  /** 退出登录（IKC4IN）：解绑 openid——否则静默 wx.login 会自动登回原账号（假退出） */
+  wechatUnbind: () =>
+    request<{ unbound: boolean }>("/auth/wechat-unbind", {
+      method: "POST",
+      data: {},
+    }),
   profile: (_r: StaffRole) => request<StaffProfile>("/fulfillment/profile"),
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
   tasks: async (_r: StaffRole, s = "all") =>

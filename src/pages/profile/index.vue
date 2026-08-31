@@ -92,14 +92,22 @@ function help() {
   });
 }
 /** 退出登录（IK9U4H）：清登录态回首页访客引导态（IKC4IN：落地页保持
- *  可浏览内容，登录由用户从首页「员工登录」入口自主进入，规避审核风险） */
-function logout() {
+ *  可浏览内容，登录由用户从首页「员工登录」入口自主进入，规避审核风险）。
+ *  IKC4IN 追加：真退出需调后端解绑 openid——只清本地 token 是假退出，
+ *  回首页时静默 wx.login 会立即自动登回原账号（表现为「退出后仍有名字」）。 */
+async function logout() {
   uni.showModal({
     title: "退出登录",
-    content: "确定退出当前账号吗？",
+    content: "确定退出当前账号吗？退出后需重新使用工号绑定登录。",
     confirmColor: "#a74432",
-    success: (m) => {
+    success: async (m) => {
       if (!m.confirm) return;
+      // 解绑失败（网络等）也照常清本地态，避免卡在无法退出
+      try {
+        await api.wechatUnbind();
+      } catch {
+        /* request 层已 toast */
+      }
       uni.removeStorageSync("staffToken");
       uni.reLaunch({ url: "/pages/index/index" });
     },
