@@ -5,11 +5,7 @@ import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
-import {
-  quickAction,
-  slaText,
-  type QuickAction,
-} from "../../utils/task-actions";
+import { quickAction, type QuickAction } from "../../utils/task-actions";
 import {
   fetchQuota,
   grantTimes,
@@ -365,8 +361,8 @@ onShow(load);
             ><text>F</text></view
           ><view
             ><text class="building">{{ task.building }} · {{ task.room }}</text
-            ><!-- IKBW0H：时效固定文案，与后台订单列表口径一致 -->
-            <text class="deadline">履约时效：{{ slaText(task) }}</text></view
+            ><!-- 2026-09-07 道哥：时效固定文案与 meta「模式」格重复（同派生自
+               deliveryMode），删除；destination 行只留楼栋 · 寝室 --></view
           ></view
         >
         <view class="task__meta"
@@ -790,18 +786,10 @@ onShow(load);
 .floor text:last-child {
   font-size: 17rpx;
 }
-.building,
-.deadline {
-  display: block;
-}
 .building {
+  display: block;
   font-size: 34rpx;
   font-weight: 900;
-}
-.deadline {
-  font-size: 20rpx;
-  color: $muted;
-  margin-top: 3rpx;
 }
 .task__meta {
   gap: 14rpx;

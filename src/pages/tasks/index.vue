@@ -243,8 +243,7 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
         >
         <view class="footer"
           ><!-- 2026-09-07 道哥：时效文案与「模式」格重复（同派生自
-             deliveryMode），删除；footer 只留操作按钮 -->
-          ><button
+             deliveryMode），删除；footer 只留操作按钮 --><button
             v-if="active === 'pool'"
             class="grab-btn"
             :disabled="grabbing === task.id"
@@ -477,10 +476,6 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
   justify-content: space-between;
   align-items: center;
   padding: 22rpx 28rpx;
-}
-.time {
-  font-size: 20rpx;
-  color: #9a5b20;
 }
 .grab-btn {
   min-height: 62rpx;
