@@ -1004,6 +1004,19 @@ onShow(load);
   z-index: 998;
   animation: notify-fade 0.2s;
 }
+.notify-guide {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.notify-guide__mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 30, 18, 0.55);
+}
 .notify-guide__panel {
   position: relative;
   margin-top: auto;
