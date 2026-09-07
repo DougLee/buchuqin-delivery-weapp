@@ -105,7 +105,7 @@ const week = computed(() => {
           ><!-- IK9U48：月份只保留右上角切换入口，左上角不再重复展示 -->
 <text class="kicker">INCOME</text
           ><text class="label">{{
-            isCurrent ? "本月预计收入" : "当月收入"
+            isCurrent ? "本月已得 · 待结算" : "当月收入"
           }}</text></view
         ><!-- 月份切换（IK9AWZ）：picker 月份粒度，选中即重查 -->
 <picker
