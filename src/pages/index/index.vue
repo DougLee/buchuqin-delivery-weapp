@@ -997,13 +997,6 @@ onShow(load);
   }
 }
 /* 上岗引导半屏：mask + 底部圆角面板（同 input-dialog 层级口径），240ms 上滑 */
-.notify-guide__mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 30, 20, 0.5);
-  z-index: 998;
-  animation: notify-fade 0.2s;
-}
 .notify-guide {
   position: fixed;
   inset: 0;
@@ -1016,6 +1009,7 @@ onShow(load);
   position: absolute;
   inset: 0;
   background: rgba(10, 30, 18, 0.55);
+  animation: notify-fade 0.2s;
 }
 .notify-guide__panel {
   position: relative;
