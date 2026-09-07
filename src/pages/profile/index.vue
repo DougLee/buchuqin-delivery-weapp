@@ -199,7 +199,12 @@ async function logout() {
       ></view
     ><!-- IKDQP9 额度卡三轮（道哥：高级且简洁）：一行极简——icon+标题+
          右侧数字组（0 红）+ +1 圆钮；说明文字删（教学在引导弹窗完成） -->
-<view class="notify card"
+<!-- 道哥 2026-09-07：额度卡只对推送受众（全职/兼职骑手）放开，楼长不渲染 -->
+<view
+      v-if="
+        session.role === 'fulltime-rider' || session.role === 'parttime-rider'
+      "
+      class="notify card"
       ><view class="notify__icon"></view
       ><text class="notify__title">接单通知</text
       ><view class="notify__quota"

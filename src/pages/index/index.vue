@@ -133,10 +133,13 @@ const campusLine = computed(() => {
 /* ---------- IKDQP9 订阅消息通知交互层 ---------- */
 /** 低水位提示条（IKDQP9）：当天已有推送因额度耗尽失败且余额 <3 条才渲染 */
 const notifyLow = ref(false);
+/* 道哥 2026-09-07：低水位条同样只对骑手两角色（推送受众）生效 */
+const isRiderRole = () =>
+  session.role === "fulltime-rider" || session.role === "parttime-rider";
 async function refreshNotifyBar() {
   try {
     const q = await fetchQuota();
-    notifyLow.value = q.failedToday && q.quota < 3;
+    notifyLow.value = isRiderRole() && q.failedToday && q.quota < 3;
   } catch {
     notifyLow.value = false; // 额度接口异常不拦工作台，条不渲染
   }
