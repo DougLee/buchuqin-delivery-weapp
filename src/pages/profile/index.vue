@@ -197,21 +197,18 @@ async function logout() {
         ><text>{{ performance?.completed ?? 0 }}</text
         ><text>今日完成</text></view
       ></view
-    ><!-- IKDQP9 接单通知额度卡：常显，点「＋补充」一次攒 1 条（可连点），额度 0 红色警示 -->
+    ><!-- IKDQP9 额度卡三轮（道哥：高级且简洁）：一行极简——icon+标题+
+         右侧数字组（0 红）+ +1 圆钮；说明文字删（教学在引导弹窗完成） -->
 <view class="notify card"
       ><view class="notify__icon"></view
-      ><view class="notify__body"
-        ><text class="notify__title">接单通知</text
-        ><text class="notify__sub"
-          >微信推送新单 · 剩余
-          <text
-            class="notify__num"
-            :class="{ 'notify__num--zero': quota === 0 }"
-            >{{ quota == null ? "—" : quota }}</text
-          >
-          条</text
-        ></view
-      ><!-- +1 圆钮（道哥 2026-09-07）：一次攒一条可连点；::after 外扩命中区 --><button
+      ><text class="notify__title">接单通知</text
+      ><view class="notify__quota"
+        ><text
+          class="notify__num"
+          :class="{ 'notify__num--zero': quota === 0 }"
+          >{{ quota == null ? "—" : quota }}</text
+        ><text class="notify__unit">条</text></view
+      ><!-- +1 圆钮：一次攒一条可连点；::after 外扩命中区 --><button
         class="notify__add"
         :disabled="adding"
         :aria-label="adding ? '补充中' : '补充一条通知额度'"
@@ -557,6 +554,16 @@ async function logout() {
   margin: 0 0 22rpx;
   padding: 24rpx;
 }
+.notify__quota {
+  margin-left: auto;
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+.notify__unit {
+  font-size: 20rpx;
+  color: #667069;
+}
 /* 铃铛图形（CSS 绘制）：与工作台低水位条同语义，绿系 */
 .notify__icon {
   flex: 0 0 64rpx;
@@ -588,26 +595,16 @@ async function logout() {
   border-radius: 50%;
   background: $primary-dark;
 }
-.notify__body {
-  flex: 1;
-}
 .notify__title {
-  display: block;
-  font-size: 26rpx;
+  font-size: 28rpx;
   font-weight: 800;
   color: $ink;
 }
-.notify__sub {
-  display: block;
-  font-size: 20rpx;
-  color: $muted;
-  margin-top: 4rpx;
-}
 .notify__num {
-  font-size: 30rpx;
+  font-size: 40rpx;
   font-weight: 900;
   color: $primary-dark;
-  padding: 0 2rpx;
+  line-height: 1;
 }
 .notify__num--zero {
   color: $danger;
