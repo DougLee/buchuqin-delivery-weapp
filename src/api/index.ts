@@ -4,6 +4,7 @@ import type {
   CommissionRecord,
   Dashboard,
   LeaveItem,
+  NotifyQuotaInfo,
   Performance,
   Shift,
   StaffProfile,
@@ -133,4 +134,12 @@ export const api = {
     request<LeaveItem>(`/fulfillment/leave-requests/${id}/cancel`, {
       method: "POST",
     }),
+  /** 订阅授权上报（IKDQP9）：本次授权成功 count 条（1-10），服务端额度 +count */
+  notifyGrant: (count: number) =>
+    request<{ quota: number }>("/fulfillment/notify/grant", {
+      method: "POST",
+      data: { count },
+    }),
+  /** 订阅额度查询（IKDQP9）：lowWater=quota<5；failedToday=当天有推送因额度耗尽失败 */
+  notifyQuota: () => request<NotifyQuotaInfo>("/fulfillment/notify/quota"),
 };

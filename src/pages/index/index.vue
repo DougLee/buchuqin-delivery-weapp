@@ -6,24 +6,12 @@ import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction, slaText, type QuickAction } from "../../utils/task-actions";
-/* ---------- 订阅消息推送效果 demo（临时，验证后撤 2026-09-07）----------
- * 「新订单提醒」模板（履约端私有库）：授权一次 → 主会话脚本推一条到
- * 微信「服务通知」，肉眼验证卡片形态/通知强度/点击体验。 */
-const DEMO_TMPL = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
-function onDemoNotify() {
-  uni.requestSubscribeMessage({
-    tmplIds: [DEMO_TMPL],
-    success: (r) => {
-      const st = r[DEMO_TMPL];
-      uni.showToast({
-        title: st === "accept" ? "已授权，等我这边推送" : "未授权：" + st,
-        icon: "none",
-      });
-    },
-    fail: (e) =>
-      uni.showToast({ title: "授权失败：" + (e.errMsg || ""), icon: "none" }),
-  });
-}
+import {
+  fetchQuota,
+  grantTimes,
+  isGuideShown,
+  markGuideShown,
+} from "../../utils/notifyQuota";
 import type { Dashboard, Shift, StaffRole, StaffStatus, Task } from "../../types";
 
 const session = useSessionStore();
@@ -67,6 +55,14 @@ async function load() {
     ]);
     data.value = d;
     shift.value = s;
+    // IKDQP9：登录态下查订阅额度（低水位条）；骑手首次「接单中」→ 上岗引导半屏
+    void refreshNotifyBar();
+    if (
+      session.role !== "building-manager" &&
+      d.profile.status === "online" &&
+      !isGuideShown()
+    )
+      guideVisible.value = true;
   } catch (e) {
     // IKC4IN：未绑定员工（游客）→ 功能引导态，不强制登录；
     // ADR-0005(IKA00R)：网络/服务故障进整页错误态，业务拒绝由 request 层 toast
@@ -123,15 +119,53 @@ const campusLine = computed(() => {
   const p = data.value?.profile;
   return [p?.campusName, p?.campusWarehouseName].filter(Boolean).join(" · ");
 });
+/* ---------- IKDQP9 订阅消息通知交互层 ---------- */
+/** 低水位提示条（IKDQP9）：当天已有推送因额度耗尽失败且余额 <3 条才渲染 */
+const notifyLow = ref(false);
+async function refreshNotifyBar() {
+  try {
+    const q = await fetchQuota();
+    notifyLow.value = q.failedToday && q.quota < 3;
+  } catch {
+    notifyLow.value = false; // 额度接口异常不拦工作台，条不渲染
+  }
+}
+const toppingUp = ref(false);
+async function topUpTen() {
+  if (toppingUp.value) return;
+  toppingUp.value = true;
+  const ok = await grantTimes(10); // 低水位一次性连攒 10 条
+  toppingUp.value = false;
+  if (ok > 0) {
+    notifyLow.value = false; // 成功后条消失，下次 onShow 按条件重估
+    uni.showToast({ title: `已补充 ${ok} 条`, icon: "none" });
+  }
+}
+/** 上岗引导半屏（IKDQP9）：骑手首次切「接单中」回工作台弹一次（storage 标记） */
+const guideVisible = ref(false);
+const guideOpening = ref(false);
+async function openGuideNotify() {
+  if (guideOpening.value) return;
+  guideOpening.value = true;
+  markGuideShown();
+  const ok = await grantTimes(3); // 引导一次攒 3 条
+  guideOpening.value = false;
+  guideVisible.value = false;
+  uni.showToast({
+    title: ok > 0 ? `已开启，攒了 ${ok} 条提醒额度` : "未开启成功，可稍后在「我的」页补充",
+    icon: "none",
+  });
+}
+/** 「暂不」/点遮罩：同样写只弹一次标记，不再骚扰 */
+function dismissGuide() {
+  markGuideShown();
+  guideVisible.value = false;
+}
 onShow(load);
 </script>
 
 <template>
   <view class="page home">
-    <!-- 订阅消息推送效果 demo（临时）：授权后由脚本推送验证 -->
-    <view class="card demo-notify" role="button" @tap="onDemoNotify"
-      >测试接单通知（demo）</view
-    >
     <view class="nav">
       <view class="identity">
         <view class="logo"><view class="logo__route"></view></view>
@@ -151,6 +185,18 @@ onShow(load);
         ><text>{{ statusText[staffStatus] }}</text></view
       >
     </view>
+
+    <!-- IKDQP9 低水位提示条：当天有推送失败且余额 <3 条才出现，点击连攒 10 条 -->
+    <view
+      v-if="notifyLow"
+      class="notify-low"
+      role="button"
+      @tap="topUpTen"
+      ><view class="notify-low__mark"></view
+      ><text class="notify-low__text">通知额度不足，新单可能漏提醒</text
+      ><text class="notify-low__act">{{ toppingUp ? "补充中…" : "点此补充" }}</text
+      ></view
+    >
 
     <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
          当班状态由下方 hero 徽章继续展示 -->
@@ -331,6 +377,36 @@ onShow(load);
         >暂无待处理任务，去任务看板看看</view
       >
     </template>
+
+    <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」回工作台弹一次（storage 标记） -->
+    <view v-if="guideVisible" class="notify-guide"
+      ><view class="notify-guide__mask" @tap="dismissGuide"></view
+      ><view class="notify-guide__panel"
+        ><text class="notify-guide__title">新单微信秒通知</text
+        ><text class="notify-guide__desc"
+          >不用盯着小程序，出了单微信直接提醒你</text
+        ><!-- 微信授权弹窗示意：模拟系统「订阅消息」授权卡片 -->
+<view class="wx-demo"
+          ><view class="wx-demo__head"
+            ><view class="wx-demo__icon"></view
+            ><text class="wx-demo__app">不出寝履约</text></view
+          ><text class="wx-demo__body">申请向你发送「新订单提醒」</text
+          ><view class="wx-demo__btns"
+            ><text class="wx-demo__btn">取消</text
+            ><text class="wx-demo__btn wx-demo__btn--ok">允许</text></view
+          ></view
+        ><view class="notify-guide__actions"
+          ><button class="notify-guide__btn" @tap="dismissGuide">暂不</button
+          ><button
+            class="notify-guide__btn notify-guide__btn--primary"
+            :disabled="guideOpening"
+            @tap="openGuideNotify"
+          >
+            {{ guideOpening ? "开启中…" : "开启通知" }}
+          </button></view
+        ></view
+      ></view
+    >
   </view>
 </template>
 
@@ -848,13 +924,198 @@ onShow(load);
     opacity: 0.55;
   }
 }
-/* 订阅消息推送 demo（临时按钮样式） */
-.demo-notify {
+/* ---------- IKDQP9 订阅消息通知交互层 ---------- */
+/* 低水位提示条：橙系警示，整条可点（触控 ≥88rpx），200ms 滑入 */
+.notify-low {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  min-height: 88rpx;
   margin: 20rpx 0 0;
-  padding: 24rpx 28rpx;
-  border: 2rpx dashed rgba(7, 63, 45, 0.3);
+  padding: 14rpx 24rpx;
+  border-radius: 22rpx;
+  background: $warning;
+  animation: notify-drop 0.2s ease-out;
+}
+.notify-low__mark {
+  flex: 0 0 34rpx;
+  width: 34rpx;
+  height: 34rpx;
+  position: relative;
+}
+/* 铃铛图形（CSS 绘制）：弧形铃身 + 底部铃锤 */
+.notify-low__mark:before {
+  content: "";
+  position: absolute;
+  left: 7rpx;
+  right: 7rpx;
+  top: 5rpx;
+  height: 17rpx;
+  border: 4rpx solid $accent;
+  border-bottom: none;
+  border-radius: 12rpx 12rpx 3rpx 3rpx;
+}
+.notify-low__mark:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3rpx;
+  width: 9rpx;
+  height: 9rpx;
+  margin-left: -4.5rpx;
+  border-radius: 50%;
+  background: $accent;
+}
+.notify-low__text {
+  flex: 1;
+  font-size: 22rpx;
+  color: #7a4a12;
   font-weight: 700;
-  color: #07883b;
-  text-align: center;
+}
+.notify-low__act {
+  padding: 12rpx 24rpx;
+  border-radius: 999rpx;
+  background: $accent;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 800;
+}
+.notify-low:active .notify-low__act {
+  opacity: 0.85;
+}
+@keyframes notify-drop {
+  from {
+    transform: translateY(-14rpx);
+    opacity: 0;
+  }
+}
+/* 上岗引导半屏：mask + 底部圆角面板（同 input-dialog 层级口径），240ms 上滑 */
+.notify-guide__mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 20, 0.5);
+  z-index: 998;
+  animation: notify-fade 0.2s;
+}
+.notify-guide__panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #fff;
+  border-radius: 36rpx 36rpx 0 0;
+  padding: 46rpx 36rpx calc(26rpx + env(safe-area-inset-bottom));
+  animation: notify-up 0.24s ease-out;
+}
+.notify-guide__title {
+  font-size: 38rpx;
+  font-weight: 900;
+  color: $ink;
+}
+.notify-guide__desc {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  color: $muted;
+}
+/* 微信授权弹窗示意卡：模拟系统「订阅消息」授权卡片（简单图形示意） */
+.wx-demo {
+  width: 100%;
+  margin-top: 30rpx;
+  padding: 26rpx 30rpx 0;
+  border-radius: 24rpx;
+  background: $paper;
+  border: 2rpx solid $line;
+}
+.wx-demo__head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+  color: $ink;
+}
+.wx-demo__icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  background: $primary-dark;
+  position: relative;
+}
+/* 头像图形：lime 圆环缺一口（与首页 logo 同语义） */
+.wx-demo__icon:after {
+  content: "";
+  position: absolute;
+  inset: 11rpx;
+  border: 5rpx solid $lime;
+  border-radius: 50%;
+  border-left-color: transparent;
+}
+.wx-demo__body {
+  display: block;
+  margin-top: 18rpx;
+  font-size: 27rpx;
+  color: $ink;
+}
+.wx-demo__btns {
+  display: flex;
+  margin-top: 18rpx;
+  border-top: 2rpx solid $line;
+}
+.wx-demo__btn {
+  flex: 1;
+  min-height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27rpx;
+  font-weight: 700;
+  color: $muted;
+}
+.wx-demo__btn + .wx-demo__btn {
+  border-left: 2rpx solid $line;
+  color: $primary-dark;
+  font-weight: 800;
+}
+.notify-guide__actions {
+  display: flex;
+  gap: 18rpx;
+  width: 100%;
+  margin-top: 34rpx;
+}
+.notify-guide__btn {
+  flex: 1;
+  min-height: 96rpx;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  background: $paper;
+  color: $ink;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+.notify-guide__btn--primary {
+  background: $primary-dark;
+  color: $lime;
+  font-weight: 900;
+}
+.notify-guide__btn--primary[disabled] {
+  opacity: 0.6;
+}
+@keyframes notify-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes notify-up {
+  from {
+    transform: translateY(30%);
+    opacity: 0.4;
+  }
 }
 </style>

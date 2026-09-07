@@ -65,6 +65,13 @@ export interface Dashboard {
   announcement: string;
   tasks: Task[];
 }
+/** 订阅消息额度（IKDQP9）：GET /fulfillment/notify/quota
+ *  lowWater=quota<5（低水位）；failedToday=当天有推送因额度耗尽失败 */
+export interface NotifyQuotaInfo {
+  quota: number;
+  lowWater: boolean;
+  failedToday: boolean;
+}
 export interface ApiResult<T> {
   code: number;
   message: string;

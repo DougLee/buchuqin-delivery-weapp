@@ -2,10 +2,17 @@
 import { onHide, onLaunch, onShow } from "@dcloudio/uni-app";
 import { useSessionStore } from "./stores/session";
 import { startPolling, stopPolling } from "./utils/newOrderPoller";
+import { silentTopUp } from "./utils/notifyQuota";
 onLaunch(() => void useSessionStore().ensure());
 /* IKDNVW 新单轮询（方案A）：前台期间 30s 轮询待接量，任务 tab 角标+震动；
    后台停表省流量，回前台恢复（startPolling 幂等） */
-onShow(() => startPolling());
+/* IKDQP9 订阅消息静默攒额度：放 App.onShow（进前台必经、tab 切换不重复触发），
+   quota<5 攒 3 条否则攒 1 条；「总是保持+允许」用户无感累积，其余用户
+   无手势调用直接 fail 自然终止，不打扰 */
+onShow(() => {
+  startPolling();
+  void silentTopUp();
+});
 onHide(() => stopPolling());
 </script>
 <style lang="scss">

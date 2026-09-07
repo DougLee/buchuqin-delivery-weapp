@@ -4,6 +4,11 @@ import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
+import {
+  fetchQuota,
+  getCachedQuota,
+  grantTimes,
+} from "../../utils/notifyQuota";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
 const session = useSessionStore(),
   profile = ref<StaffProfile>(),
@@ -35,6 +40,8 @@ async function load() {
     await session.ensure();
     profile.value = await api.profile(session.role);
     performance.value = await api.performance(session.role);
+    // IKDQP9：接单通知额度卡刷新（拉不到不影响本页主内容，保持缓存值）
+    void loadQuota();
   } catch (e) {
     // IKC4IN：游客进引导态；ADR-0005(IKA00R)：网络/服务故障进整页错误态
     if (isBindRequired(e)) guest.value = true;
@@ -42,6 +49,24 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+/* ---------- IKDQP9 接单通知额度卡：常显，「＋补充」一次攒 5 条可连点 ---------- */
+const quota = ref<number | null>(getCachedQuota());
+const adding = ref(false);
+async function loadQuota() {
+  try {
+    quota.value = (await fetchQuota()).quota;
+  } catch {
+    /* 静默：保留缓存值 */
+  }
+}
+async function addQuota() {
+  if (adding.value) return;
+  adding.value = true;
+  const ok = await grantTimes(5);
+  adding.value = false;
+  quota.value = getCachedQuota(); // grantTimes 内已刷新缓存，实时更新数字
+  if (ok > 0) uni.showToast({ title: `已补充 ${ok} 条`, icon: "none" });
 }
 onShow(load);
 /** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
@@ -162,6 +187,22 @@ async function logout() {
         ><text>{{ performance?.completed ?? 0 }}</text
         ><text>今日完成</text></view
       ></view
+    ><!-- IKDQP9 接单通知额度卡：常显，点「＋补充」攒 5 条（可连点），额度 0 红色警示 -->
+<view class="notify card"
+      ><view class="notify__icon"></view
+      ><view class="notify__body"
+        ><text class="notify__title">接单通知</text
+        ><text class="notify__sub"
+          >剩余额度
+          <text
+            class="notify__num"
+            :class="{ 'notify__num--zero': quota === 0 }"
+            >{{ quota == null ? "—" : `${quota} 条` }}</text
+          >，新单通过微信「服务通知」提醒</text
+        ></view
+      ><button class="notify__add" :disabled="adding" @tap="addQuota">
+        {{ adding ? "补充中…" : "＋补充" }}
+      </button></view
     >
 <view class="section-title"
       ><view
@@ -491,5 +532,84 @@ async function logout() {
   color: $primary;
   font-size: 22rpx;
   font-weight: 900;
+}
+/* ---------- IKDQP9 接单通知额度卡 ---------- */
+.notify {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin: 0 0 22rpx;
+  padding: 24rpx;
+}
+/* 铃铛图形（CSS 绘制）：与工作台低水位条同语义，绿系 */
+.notify__icon {
+  flex: 0 0 64rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 19rpx;
+  background: $soft;
+  position: relative;
+}
+.notify__icon:before {
+  content: "";
+  position: absolute;
+  left: 15rpx;
+  right: 15rpx;
+  top: 13rpx;
+  height: 24rpx;
+  border: 5rpx solid $primary-dark;
+  border-bottom: none;
+  border-radius: 14rpx 14rpx 4rpx 4rpx;
+}
+.notify__icon:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 11rpx;
+  width: 12rpx;
+  height: 12rpx;
+  margin-left: -6rpx;
+  border-radius: 50%;
+  background: $primary-dark;
+}
+.notify__body {
+  flex: 1;
+}
+.notify__title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 800;
+  color: $ink;
+}
+.notify__sub {
+  display: block;
+  font-size: 20rpx;
+  color: $muted;
+  margin-top: 4rpx;
+}
+.notify__num {
+  font-weight: 900;
+  color: $primary-dark;
+}
+.notify__num--zero {
+  color: $danger;
+}
+.notify__add {
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0 34rpx;
+  border-radius: 999rpx;
+  background: $primary-dark;
+  color: $lime;
+  font-size: 24rpx;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+}
+.notify__add[disabled] {
+  opacity: 0.6;
+}
+.notify__add:active {
+  opacity: 0.85;
 }
 </style>
