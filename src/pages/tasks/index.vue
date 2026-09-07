@@ -9,7 +9,7 @@ import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
-import { quickAction, slaText } from "../../utils/task-actions";
+import { quickAction } from "../../utils/task-actions";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
@@ -242,8 +242,8 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
           ></view
         >
         <view class="footer"
-          ><!-- IKBW0H：时效固定文案，与后台订单列表口径一致 -->
-          <text class="time">{{ slaText(task) }}</text
+          ><!-- 2026-09-07 道哥：时效文案与「模式」格重复（同派生自
+             deliveryMode），删除；footer 只留操作按钮 -->
           ><button
             v-if="active === 'pool'"
             class="grab-btn"
