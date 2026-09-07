@@ -380,40 +380,47 @@ onShow(load);
       >
     </template>
 
-    <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」回工作台弹一次（storage 标记） -->
-    <view v-if="guideVisible" class="notify-guide"
-      ><view class="notify-guide__mask" @tap="dismissGuide"></view
-      ><view class="notify-guide__panel"
-        ><text class="notify-guide__title">新单微信秒通知</text
-        ><text class="notify-guide__desc"
+    <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」回工作台弹一次（storage 标记）。
+         2026-09-07 道哥三连修：去游离>/示意按钮去重（只保留复选框教学）/勾选态前置 -->
+    <view v-if="guideVisible" class="notify-guide">
+      <view class="notify-guide__mask" @tap="dismissGuide"></view>
+      <view class="notify-guide__panel">
+        <text class="notify-guide__title">新单微信秒通知</text>
+        <text class="notify-guide__desc"
           >不用盯着小程序，出了单微信直接提醒你</text
-        ><!-- 道哥反馈：未勾「总是保持」每次授权都弹窗——前置教勾选，
-             勾过后所有攒额度静默无窗 -->
-        ><text class="notify-guide__tip"
-          >第一步：弹窗里先勾选「总是保持以上选择」再点允许——以后
-          补充额度不再弹窗</text
-        ><!-- 微信授权弹窗示意：模拟系统「订阅消息」授权卡片 -->
-<view class="wx-demo"
-          ><view class="wx-demo__head"
-            ><view class="wx-demo__icon"></view
-            ><text class="wx-demo__app">不出寝履约</text></view
-          ><text class="wx-demo__body">申请向你发送「新订单提醒」</text
-          ><view class="wx-demo__btns"
-            ><text class="wx-demo__btn">取消</text
-            ><text class="wx-demo__btn wx-demo__btn--ok">允许</text></view
-          ></view
-        ><view class="notify-guide__actions"
-          ><button class="notify-guide__btn" @tap="dismissGuide">暂不</button
-          ><button
+        >
+        <!-- 微信授权弹窗示意（教学卡）：唯一重点是那个复选框——
+             不画「取消/允许」按钮（与下方操作行重复），按钮动作交给步骤文案 -->
+        <view class="wx-demo">
+          <view class="wx-demo__head">
+            <view class="wx-demo__icon"></view>
+            <text class="wx-demo__app">不出寝履约 请求通知</text>
+          </view>
+          <text class="wx-demo__body">「新订单提醒」订阅消息</text>
+          <view class="wx-demo__check">
+            <view class="wx-demo__box"></view>
+            <text class="wx-demo__check-text"
+              >总是保持以上选择，不再询问</text
+            >
+            <text class="wx-demo__check-flag">关键</text>
+          </view>
+        </view>
+        <text class="notify-guide__tip"
+          >弹窗出现后：先勾上「总是保持以上选择」，再点「允许」——
+          以后补充额度不再弹窗</text
+        >
+        <view class="notify-guide__actions">
+          <button class="notify-guide__btn" @tap="dismissGuide">暂不</button>
+          <button
             class="notify-guide__btn notify-guide__btn--primary"
             :disabled="guideOpening"
             @tap="openGuideNotify"
           >
             {{ guideOpening ? "开启中…" : "开启通知" }}
-          </button></view
-        ></view
-      ></view
-    >
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -1072,31 +1079,57 @@ onShow(load);
   border-radius: 50%;
   border-left-color: transparent;
 }
+.wx-demo__check {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-top: 16rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 14rpx;
+  background: #f2fbf4;
+  border: 2rpx solid rgba(7, 136, 59, 0.28);
+}
+/* 复选框：绿底对勾（示意「已勾选」目标状态） */
+.wx-demo__box {
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 8rpx;
+  background: $primary;
+  position: relative;
+  flex: none;
+}
+.wx-demo__box::after {
+  content: "";
+  position: absolute;
+  left: 8rpx;
+  top: 5rpx;
+  width: 12rpx;
+  height: 20rpx;
+  border: solid #fff;
+  border-width: 0 4rpx 4rpx 0;
+  transform: rotate(45deg);
+}
+.wx-demo__check-text {
+  font-size: 22rpx;
+  color: $ink;
+  font-weight: 700;
+}
+/* 「关键」角标：视线锚点 */
+.wx-demo__check-flag {
+  margin-left: auto;
+  padding: 2rpx 12rpx;
+  border-radius: 999rpx;
+  background: #e25c05;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 800;
+}
 .wx-demo__body {
   display: block;
   margin-top: 18rpx;
   font-size: 27rpx;
   color: $ink;
-}
-.wx-demo__btns {
-  display: flex;
-  margin-top: 18rpx;
-  border-top: 2rpx solid $line;
-}
-.wx-demo__btn {
-  flex: 1;
-  min-height: 88rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 27rpx;
-  font-weight: 700;
-  color: $muted;
-}
-.wx-demo__btn + .wx-demo__btn {
-  border-left: 2rpx solid $line;
-  color: $primary-dark;
-  font-weight: 800;
 }
 .notify-guide__actions {
   display: flex;
