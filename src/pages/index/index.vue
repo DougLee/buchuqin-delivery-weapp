@@ -5,14 +5,24 @@ import { api } from "../../api";
 import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
-import { quickAction, slaText, type QuickAction } from "../../utils/task-actions";
+import {
+  quickAction,
+  slaText,
+  type QuickAction,
+} from "../../utils/task-actions";
 import {
   fetchQuota,
   grantTimes,
   isGuideShown,
   markGuideShown,
 } from "../../utils/notifyQuota";
-import type { Dashboard, Shift, StaffRole, StaffStatus, Task } from "../../types";
+import type {
+  Dashboard,
+  Shift,
+  StaffRole,
+  StaffStatus,
+  Task,
+} from "../../types";
 
 const session = useSessionStore();
 const data = ref<Dashboard>();
@@ -38,7 +48,8 @@ const staffStatus = computed<StaffStatus>(
 );
 const shiftState = computed(() => {
   if (!shift.value) return { text: "排班加载中", working: false };
-  if (shift.value.status === "working") return { text: "当班中", working: true };
+  if (shift.value.status === "working")
+    return { text: "当班中", working: true };
   if (shift.value.status === "completed")
     return { text: "今日已签退", working: false };
   return { text: "今日未签到", working: false };
@@ -154,7 +165,10 @@ async function openGuideNotify() {
   guideOpening.value = false;
   guideVisible.value = false;
   uni.showToast({
-    title: ok > 0 ? `已开启，攒了 ${ok} 条提醒额度` : "未开启成功，可稍后在「我的」页补充",
+    title:
+      ok > 0
+        ? `已开启，攒了 ${ok} 条提醒额度`
+        : "未开启成功，可稍后在「我的」页补充",
     icon: "none",
   });
 }
@@ -189,15 +203,12 @@ onShow(load);
     </view>
 
     <!-- IKDQP9 低水位提示条：当天有推送失败且余额 <3 条才出现，点击连攒 10 条 -->
-    <view
-      v-if="notifyLow"
-      class="notify-low"
-      role="button"
-      @tap="topUpTen"
+    <view v-if="notifyLow" class="notify-low" role="button" @tap="topUpTen"
       ><view class="notify-low__mark"></view
       ><text class="notify-low__text">通知额度不足，新单可能漏提醒</text
-      ><text class="notify-low__act">{{ toppingUp ? "补充中…" : "点此补充" }}</text
-      ></view
+      ><text class="notify-low__act">{{
+        toppingUp ? "补充中…" : "点此补充"
+      }}</text></view
     >
 
     <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
@@ -210,10 +221,10 @@ onShow(load);
 
     <!-- 首屏骨架（IK9VF8）：hero + 统计 + 任务卡占位 -->
     <view v-else-if="loading" class="home-skeleton"
-      ><view class="home-skeleton__hero" /><view class="home-skeleton__stats" /><view
+      ><view class="home-skeleton__hero" /><view
+        class="home-skeleton__stats" /><view class="home-skeleton__task" /><view
         class="home-skeleton__task"
-      /><view class="home-skeleton__task" /></view
-    >
+    /></view>
 
     <!-- 访客引导态（IKC4IN 审核整改）：先浏览平台介绍，登录由用户自主点击 -->
     <template v-else-if="guest">
@@ -230,27 +241,34 @@ onShow(load);
           ><text class="guest__no">01</text
           ><view
             ><text class="guest__ft">工作台 · 任务看板</text
-            ><text class="guest__fd">待处理任务按时效排序，行内一键接单、开始配送、确认送达</text></view
+            ><text class="guest__fd"
+              >待处理任务按时效排序，行内一键接单、开始配送、确认送达</text
+            ></view
           ></view
         >
         <view class="guest__feat"
           ><text class="guest__no">02</text
           ><view
             ><text class="guest__ft">两段接力配送</text
-            ><text class="guest__fd">配送员仓到楼、楼长楼到寝，拍照交接全程留痕</text></view
+            ><text class="guest__fd"
+              >配送员仓到楼、楼长楼到寝，拍照交接全程留痕</text
+            ></view
           ></view
         >
         <view class="guest__feat"
           ><text class="guest__no">03</text
           ><view
             ><text class="guest__ft">收入与绩效</text
-            ><text class="guest__fd">每单佣金、准时率与月度结算，清晰可查</text></view
+            ><text class="guest__fd"
+              >每单佣金、准时率与月度结算，清晰可查</text
+            ></view
           ></view
         ></view
       >
       <button class="guest__login" @tap="goLogin">员工登录</button>
       <text class="guest__tip"
-        >仅限不出寝食社在职员工使用 · 登录为微信静默授权，首次使用填写工号与姓名绑定</text
+        >仅限不出寝食社在职员工使用 ·
+        登录为微信静默授权，首次使用填写工号与姓名绑定</text
       >
     </template>
 
@@ -264,7 +282,7 @@ onShow(load);
               >{{ greeting }}，{{ data.profile.name }}</text
             ></view
           ><!-- IK8W5V：当班徽章接 shifts/current 真实状态 -->
-<view class="shift" :class="{ 'shift--off': !shiftState.working }">{{
+          <view class="shift" :class="{ 'shift--off': !shiftState.working }">{{
             shiftState.working ? "当班" : "未当班"
           }}</view></view
         >
@@ -286,7 +304,7 @@ onShow(load);
 
       <view class="announcement"
         ><!-- info 图标 CSS 化（IK9VF8）：圆底 + 点/竖条，替代字母 i -->
-<view class="announcement__mark"></view
+        <view class="announcement__mark"></view
         ><text>{{ data.announcement }}</text></view
       >
 
@@ -305,9 +323,8 @@ onShow(load);
         >
         <view
           ><text class="stats__value"
-            >{{ avgMinutes ?? "—" }}<text v-if="avgMinutes != null" class="small"
-              >min</text
-            ></text
+            >{{ avgMinutes ?? "—"
+            }}<text v-if="avgMinutes != null" class="small">min</text></text
           ><text class="stats__label">平均用时</text></view
         >
       </view>
@@ -388,20 +405,9 @@ onShow(load);
       <view class="notify-guide__mask" @tap="dismissGuide"></view>
       <view class="notify-guide__panel">
         <text class="notify-guide__title">新单微信秒通知</text>
-        <text class="notify-guide__desc">不用盯着小程序，出了单微信直接提醒你</text>
-        <!-- 授权示意卡（0fec881 骨架）：头部 + 复选框行，无按钮无中段文案 -->
-        <view class="wx-demo">
-          <view class="wx-demo__head">
-            <view class="wx-demo__icon"></view>
-            <text class="wx-demo__app">不出寝履约 请求通知</text>
-          </view>
-          <view class="wx-demo__check">
-            <view class="wx-demo__box"></view>
-            <text class="wx-demo__check-text">总是保持以上选择，不再询问</text>
-            <text class="wx-demo__check-flag">关键</text>
-          </view>
-        </view>
-        <text class="notify-guide__step">弹窗出现时：先勾它，再点「允许」</text>
+        <text class="notify-guide__desc"
+          >不用盯着小程序，出了单微信直接提醒你</text
+        >
         <view class="notify-guide__actions">
           <button class="notify-guide__btn" @tap="dismissGuide">暂不</button>
           <button
