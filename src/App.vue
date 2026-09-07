@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { onLaunch } from "@dcloudio/uni-app";
+import { onHide, onLaunch, onShow } from "@dcloudio/uni-app";
 import { useSessionStore } from "./stores/session";
+import { startPolling, stopPolling } from "./utils/newOrderPoller";
 onLaunch(() => void useSessionStore().ensure());
+/* IKDNVW 新单轮询（方案A）：前台期间 30s 轮询待接量，任务 tab 角标+震动；
+   后台停表省流量，回前台恢复（startPolling 幂等） */
+onShow(() => startPolling());
+onHide(() => stopPolling());
 </script>
 <style lang="scss">
 @import "./styles/theme.scss";
