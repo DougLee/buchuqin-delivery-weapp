@@ -203,15 +203,21 @@ async function logout() {
       ><view class="notify__body"
         ><text class="notify__title">接单通知</text
         ><text class="notify__sub"
-          >剩余额度
+          >微信推送新单 · 剩余
           <text
             class="notify__num"
             :class="{ 'notify__num--zero': quota === 0 }"
-            >{{ quota == null ? "—" : `${quota} 条` }}</text
-          >，新单通过微信「服务通知」提醒</text
+            >{{ quota == null ? "—" : quota }}</text
+          >
+          条</text
         ></view
-      ><button class="notify__add" :disabled="adding" @tap="addQuota">
-        {{ adding ? "补充中…" : "＋补1条" }}
+      ><!-- +1 圆钮（道哥 2026-09-07）：一次攒一条可连点；::after 外扩命中区 --><button
+        class="notify__add"
+        :disabled="adding"
+        :aria-label="adding ? '补充中' : '补充一条通知额度'"
+        @tap="addQuota"
+      >
+        {{ adding ? "···" : "+1" }}
       </button></view
     >
 <view class="section-title"
@@ -598,23 +604,39 @@ async function logout() {
   margin-top: 4rpx;
 }
 .notify__num {
+  font-size: 30rpx;
   font-weight: 900;
   color: $primary-dark;
+  padding: 0 2rpx;
 }
 .notify__num--zero {
   color: $danger;
 }
 .notify__add {
-  min-height: 88rpx;
+  position: relative;
+  min-height: 60rpx;
+  width: 88rpx;
   margin: 0;
-  padding: 0 34rpx;
+  padding: 0;
   border-radius: 999rpx;
-  background: $primary-dark;
-  color: $lime;
-  font-size: 24rpx;
+  background: linear-gradient(150deg, #25b95a, #07883b);
+  color: #fff;
+  font-size: 26rpx;
   font-weight: 900;
   display: flex;
   align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 16rpx rgba(7, 136, 59, 0.25);
+  transition: transform 0.12s ease;
+}
+/* 触控外扩（counter 同款）：60rpx 视觉 + 88rpx 命中 */
+.notify__add::after {
+  content: "";
+  position: absolute;
+  inset: -14rpx;
+}
+.notify__add:active {
+  transform: scale(0.9);
 }
 .notify__add[disabled] {
   opacity: 0.6;
