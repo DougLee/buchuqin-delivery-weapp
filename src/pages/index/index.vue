@@ -6,6 +6,24 @@ import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction, slaText, type QuickAction } from "../../utils/task-actions";
+/* ---------- 订阅消息推送效果 demo（临时，验证后撤 2026-09-07）----------
+ * 「新订单提醒」模板（履约端私有库）：授权一次 → 主会话脚本推一条到
+ * 微信「服务通知」，肉眼验证卡片形态/通知强度/点击体验。 */
+const DEMO_TMPL = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
+function onDemoNotify() {
+  uni.requestSubscribeMessage({
+    tmplIds: [DEMO_TMPL],
+    success: (r) => {
+      const st = r[DEMO_TMPL];
+      uni.showToast({
+        title: st === "accept" ? "已授权，等我这边推送" : "未授权：" + st,
+        icon: "none",
+      });
+    },
+    fail: (e) =>
+      uni.showToast({ title: "授权失败：" + (e.errMsg || ""), icon: "none" }),
+  });
+}
 import type { Dashboard, Shift, StaffRole, StaffStatus, Task } from "../../types";
 
 const session = useSessionStore();
@@ -110,6 +128,10 @@ onShow(load);
 
 <template>
   <view class="page home">
+    <!-- 订阅消息推送效果 demo（临时）：授权后由脚本推送验证 -->
+    <view class="card demo-notify" role="button" @tap="onDemoNotify"
+      >测试接单通知（demo）</view
+    >
     <view class="nav">
       <view class="identity">
         <view class="logo"><view class="logo__route"></view></view>
@@ -825,5 +847,14 @@ onShow(load);
   50% {
     opacity: 0.55;
   }
+}
+/* 订阅消息推送 demo（临时按钮样式） */
+.demo-notify {
+  margin: 20rpx 0 0;
+  padding: 24rpx 28rpx;
+  border: 2rpx dashed rgba(7, 63, 45, 0.3);
+  font-weight: 700;
+  color: #07883b;
+  text-align: center;
 }
 </style>
