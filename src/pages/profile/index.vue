@@ -63,7 +63,9 @@ async function loadQuota() {
 async function addQuota() {
   if (adding.value) return;
   adding.value = true;
-  const ok = await grantTimes(5);
+  // 一击一条（道哥反馈弹窗体验）：未勾「总是保持」每次授权必弹窗，
+  // 一次攒 1 条由用户节奏自控；勾过的用户无窗可连点速攒
+  const ok = await grantTimes(1);
   adding.value = false;
   quota.value = getCachedQuota(); // grantTimes 内已刷新缓存，实时更新数字
   if (ok > 0) uni.showToast({ title: `已补充 ${ok} 条`, icon: "none" });
@@ -187,7 +189,7 @@ async function logout() {
         ><text>{{ performance?.completed ?? 0 }}</text
         ><text>今日完成</text></view
       ></view
-    ><!-- IKDQP9 接单通知额度卡：常显，点「＋补充」攒 5 条（可连点），额度 0 红色警示 -->
+    ><!-- IKDQP9 接单通知额度卡：常显，点「＋补充」一次攒 1 条（可连点），额度 0 红色警示 -->
 <view class="notify card"
       ><view class="notify__icon"></view
       ><view class="notify__body"
@@ -201,7 +203,7 @@ async function logout() {
           >，新单通过微信「服务通知」提醒</text
         ></view
       ><button class="notify__add" :disabled="adding" @tap="addQuota">
-        {{ adding ? "补充中…" : "＋补充" }}
+        {{ adding ? "补充中…" : "＋补1条" }}
       </button></view
     >
 <view class="section-title"

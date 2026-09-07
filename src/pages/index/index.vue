@@ -134,7 +134,9 @@ const toppingUp = ref(false);
 async function topUpTen() {
   if (toppingUp.value) return;
   toppingUp.value = true;
-  const ok = await grantTimes(10); // 低水位一次性连攒 10 条
+  // 弹窗体验（道哥 2026-09-07 反馈）：未勾「总是保持」每次授权必弹窗——
+  // 一次只攒 3 条（三窗封顶），勾过的用户无窗；条可连点继续补
+  const ok = await grantTimes(3);
   toppingUp.value = false;
   if (ok > 0) {
     notifyLow.value = false; // 成功后条消失，下次 onShow 按条件重估
@@ -385,6 +387,11 @@ onShow(load);
         ><text class="notify-guide__title">新单微信秒通知</text
         ><text class="notify-guide__desc"
           >不用盯着小程序，出了单微信直接提醒你</text
+        ><!-- 道哥反馈：未勾「总是保持」每次授权都弹窗——前置教勾选，
+             勾过后所有攒额度静默无窗 -->
+        ><text class="notify-guide__tip"
+          >第一步：弹窗里先勾选「总是保持以上选择」再点允许——以后
+          补充额度不再弹窗</text
         ><!-- 微信授权弹窗示意：模拟系统「订阅消息」授权卡片 -->
 <view class="wx-demo"
           ><view class="wx-demo__head"
@@ -1010,6 +1017,17 @@ onShow(load);
   border-radius: 36rpx 36rpx 0 0;
   padding: 46rpx 36rpx calc(26rpx + env(safe-area-inset-bottom));
   animation: notify-up 0.24s ease-out;
+}
+.notify-guide__tip {
+  margin-top: 16rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 14rpx;
+  background: #fff3e2;
+  border: 2rpx solid rgba(255, 122, 33, 0.3);
+  color: #c2570f;
+  font-size: 22rpx;
+  line-height: 1.5;
+  text-align: left;
 }
 .notify-guide__title {
   font-size: 38rpx;
