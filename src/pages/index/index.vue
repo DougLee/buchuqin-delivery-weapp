@@ -414,26 +414,6 @@ onShow(load);
         </view>
       </view>
     </view>
-        <text class="notify-guide__title">新单微信秒通知</text>
-        <text class="notify-guide__desc">订单一出，微信直接提醒你</text>
-        <view class="wx-demo__check">
-          <view class="wx-demo__box"></view>
-          <text class="wx-demo__check-text">总是保持以上选择</text>
-          <text class="wx-demo__check-flag">关键</text>
-        </view>
-        <text class="notify-guide__step">弹窗出现时，先勾它，再点「允许」</text>
-        <view class="notify-guide__actions">
-          <button class="notify-guide__btn" @tap="dismissGuide">暂不</button>
-          <button
-            class="notify-guide__btn notify-guide__btn--primary"
-            :disabled="guideOpening"
-            @tap="openGuideNotify"
-          >
-            {{ guideOpening ? "开启中…" : "开启通知" }}
-          </button>
-        </view>
-      </view>
-    </view>
   </view>
 </template>
 
