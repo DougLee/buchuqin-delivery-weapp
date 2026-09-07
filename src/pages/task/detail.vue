@@ -680,9 +680,15 @@ async function confirmDeliver() {
   color: #fff;
 }
 .actions {
+  /* 2026-09-07 道哥：按钮横排——主操作占 1.4 份视觉优先，危险操作 1 份；
+     三个及以上动作时保持两列网格不挤爆 */
   display: grid;
+  grid-template-columns: 1.4fr 1fr;
   gap: 16rpx;
   margin-top: 26rpx;
+}
+.actions button:only-child {
+  grid-column: 1 / -1;
 }
 /* 送达确认弹窗（IKA580）：凭证缩略图 + 备注 */
 .deliver-panel {
