@@ -381,14 +381,39 @@ onShow(load);
     </template>
 
     <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」弹一次（storage 标记）。
-         二轮视觉（道哥：高级且简洁）：图标锚点+一句价值+唯一教学点（复选框），
-         删授权卡长文案与重复步骤 -->
+         三轮视觉（道哥 2026-09-07）：回退 0fec881 认可的骨架（左对齐+授权
+         示意卡），内容精简——示意卡只留头部与复选框教学行，去「取消/允许」
+         按钮与长文案；CSS 铃铛图形废弃（真机渲染崩） -->
     <view v-if="guideVisible" class="notify-guide">
       <view class="notify-guide__mask" @tap="dismissGuide"></view>
       <view class="notify-guide__panel">
-        <view class="notify-guide__bell">
-          <view class="notify-guide__bell-ring"></view>
+        <text class="notify-guide__title">新单微信秒通知</text>
+        <text class="notify-guide__desc">不用盯着小程序，出了单微信直接提醒你</text>
+        <!-- 授权示意卡（0fec881 骨架）：头部 + 复选框行，无按钮无中段文案 -->
+        <view class="wx-demo">
+          <view class="wx-demo__head">
+            <view class="wx-demo__icon"></view>
+            <text class="wx-demo__app">不出寝履约 请求通知</text>
+          </view>
+          <view class="wx-demo__check">
+            <view class="wx-demo__box"></view>
+            <text class="wx-demo__check-text">总是保持以上选择，不再询问</text>
+            <text class="wx-demo__check-flag">关键</text>
+          </view>
         </view>
+        <text class="notify-guide__step">弹窗出现时：先勾它，再点「允许」</text>
+        <view class="notify-guide__actions">
+          <button class="notify-guide__btn" @tap="dismissGuide">暂不</button>
+          <button
+            class="notify-guide__btn notify-guide__btn--primary"
+            :disabled="guideOpening"
+            @tap="openGuideNotify"
+          >
+            {{ guideOpening ? "开启中…" : "开启通知" }}
+          </button>
+        </view>
+      </view>
+    </view>
         <text class="notify-guide__title">新单微信秒通知</text>
         <text class="notify-guide__desc">订单一出，微信直接提醒你</text>
         <view class="wx-demo__check">
@@ -1004,83 +1029,67 @@ onShow(load);
   margin-top: auto;
   background: #fff;
   border-radius: 36rpx 36rpx 0 0;
-  padding: 56rpx 44rpx calc(40rpx + env(safe-area-inset-bottom));
+  padding: 48rpx 40rpx calc(36rpx + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  animation: guide-up 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: guide-panel-up 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
-@keyframes guide-up {
+@keyframes guide-panel-up {
   from {
-    transform: translateY(28%);
-    opacity: 0;
+    transform: translateY(24%);
+    opacity: 0.6;
   }
 }
-/* 铃铛图标（emoji-free CSS）：圆铃体 + 高光弧 + 呼吸提醒 */
-.notify-guide__bell {
-  position: relative;
-  width: 108rpx;
-  height: 108rpx;
-  margin-bottom: 26rpx;
-  border-radius: 50%;
-  background: linear-gradient(160deg, #eaf8e8, #d3f2d9);
+.notify-guide__title {
+  font-size: 36rpx;
+  font-weight: 900;
+  color: $ink;
+}
+.notify-guide__desc {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #667069;
+}
+/* 授权示意卡（0fec881 骨架恢复）：头部 icon+app 名 + 复选框行 */
+.wx-demo {
+  margin-top: 28rpx;
+  border: 2rpx solid rgba(32, 74, 45, 0.1);
+  border-radius: 20rpx;
+  padding: 22rpx 24rpx;
+  background: #fafcf9;
+  display: flex;
+  flex-direction: column;
+}
+.wx-demo__head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 14rpx;
 }
-.notify-guide__bell-ring {
-  width: 52rpx;
-  height: 52rpx;
-  border: 8rpx solid $primary-dark;
-  border-radius: 50% 50% 46% 46%;
+.wx-demo__icon {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 12rpx;
+  background: linear-gradient(150deg, #25b95a, #07883b);
   position: relative;
 }
-.notify-guide__bell-ring::before {
+.wx-demo__icon::after {
   content: "";
   position: absolute;
-  top: -16rpx;
   left: 50%;
-  width: 14rpx;
-  height: 10rpx;
-  margin-left: -7rpx;
-  border: 6rpx solid $primary-dark;
-  border-bottom: none;
-  border-radius: 10rpx 10rpx 0 0;
-}
-.notify-guide__bell-ring::after {
-  content: "";
-  position: absolute;
-  bottom: -18rpx;
-  left: 50%;
-  width: 28rpx;
-  height: 10rpx;
-  margin-left: -14rpx;
-  border-radius: 999rpx;
-  background: $primary-dark;
-}
-.notify-guide__bell::after {
-  content: "";
-  position: absolute;
-  top: 18rpx;
-  right: 22rpx;
+  top: 46%;
   width: 14rpx;
   height: 14rpx;
-  border-radius: 50%;
-  background: #ff4d2e;
-  border: 3rpx solid #fff;
-  animation: bell-breath 1.8s ease-in-out infinite;
+  margin: -10rpx 0 0 -7rpx;
+  border: solid #fff;
+  border-width: 0 4rpx 4rpx 0;
+  transform: rotate(45deg);
 }
-@keyframes bell-breath {
-  50% {
-    transform: scale(1.25);
-    opacity: 0.75;
-  }
+.wx-demo__app {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: $ink;
 }
-@media (prefers-reduced-motion: reduce) {
-  .notify-guide__bell::after {
-    animation: none;
-  }
-}
+/* 铃铛图标（emoji-free CSS）：圆铃体 + 高光弧 + 呼吸提醒 */
 
 .notify-guide__title {
   font-size: 38rpx;
@@ -1141,7 +1150,7 @@ onShow(load);
 }
 .notify-guide__step {
   margin-top: 18rpx;
-  font-size: 24rpx;
+  font-size: 23rpx;
   color: #b96f33;
 }
 .notify-guide__actions {
