@@ -69,6 +69,14 @@ async function addQuota() {
   adding.value = false;
   quota.value = getCachedQuota(); // grantTimes 内已刷新缓存，实时更新数字
   if (ok > 0) uni.showToast({ title: `已补充 ${ok} 条`, icon: "none" });
+  else
+    // C 场景兜底（道哥 2026-09-07）：零成功且没弹窗 = 大概率曾勾「总是保持」+
+    // 拒绝，微信从此静默拒绝——app 内无法再弹授权，只能去微信设置里改回来
+    uni.showToast({
+      title: "未弹出授权窗？请到 微信→设置→订阅消息 开启「新订单提醒」",
+      icon: "none",
+      duration: 3500,
+    });
 }
 onShow(load);
 /** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
