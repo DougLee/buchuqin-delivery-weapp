@@ -190,10 +190,7 @@ const deliverDialogOpen = ref(false),
 async function addDeliverProof() {
   if (deliverUploading.value) return;
   try {
-    const chosen = await uni.chooseImage({ count: 3, sizeType: ["compressed"] });
-    const paths = Array.isArray(chosen.tempFilePaths)
-      ? chosen.tempFilePaths
-      : [chosen.tempFilePaths];
+    const paths = await pickImages(3);
     if (!paths.length) return;
     deliverUploading.value = true;
     uni.showLoading({ title: "照片上传中", mask: true });
