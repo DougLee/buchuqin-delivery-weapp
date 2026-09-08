@@ -3,7 +3,7 @@ import { useSessionStore } from "../stores/session";
 
 /**
  * 新单轮询（IKDNVW 方案A，2026-09-07 道哥）：前台期间每 30s 拉一次
- * 「待处理量」，原生 tabBar「任务」角标提示；数量增加时震动。
+ * 「待处理量」，数量增加时震动并广播任务页重拉（角标已移除，2026-09-08 道哥）。
  * - 骑手（rider）：抢单池条数（availableTasks，仅配送员角色可调）
  * - 楼长（building-manager）：有包裹到楼待接货（waiting-handover）
  * onHide 停表省流量；请求失败/未登录静默跳过（网络差不打扰）。
@@ -27,15 +27,6 @@ async function poll() {
       // 抢单池仅配送员角色（后端口径），楼长以外的其他角色与骑手同路
       const list = await api.availableTasks();
       count = Array.isArray(list) ? list.length : 0;
-    }
-    if (count > 0) {
-      uni.setTabBarBadge({
-        index: 1,
-        text: count > 99 ? "99+" : String(count),
-        fail: () => {},
-      });
-    } else {
-      uni.removeTabBarBadge({ index: 1, fail: () => {} });
     }
     // 数量增加才震动（回前台首拍 lastCount 已重置，不误震）
     if (lastCount >= 0 && count > lastCount) {

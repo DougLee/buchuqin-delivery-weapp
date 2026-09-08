@@ -14,7 +14,8 @@ import { quickAction } from "../../utils/task-actions";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
-  active = ref("all"),
+  // 默认选中抢单池（道哥 2026-09-08）：骑手最关心待抢单；楼长无池回退全部
+  active = ref(session.role === "building-manager" ? "all" : "pool"),
   /** 抢单防重：当前正在抢的任务 id（IK8W5U） */
   grabbing = ref<string | null>(null),
   /** 列表行快捷操作防重（IKBW0H） */
