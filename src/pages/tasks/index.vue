@@ -4,6 +4,7 @@ import {
   onPullDownRefresh,
   onReachBottom,
   onShow,
+  onUnload,
 } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -100,6 +101,14 @@ onReachBottom(async () => {
   }
 });
 /** 下拉刷新（IK9AWY） */
+/* IKDQP9 后续：轮询器发现新单 → 静默重拉当前 tab，卡片状态不滞后
+   （防「到达楼下」点了才报状态已变化） */
+const onNewOrders = () => {
+  if (!loading.value && !guest.value && !error.value)
+    load(active.value).catch(() => {});
+};
+uni.$on("ikdnvw:new-orders", onNewOrders);
+onUnload(() => uni.$off("ikdnvw:new-orders", onNewOrders));
 onPullDownRefresh(async () => {
   await load();
   uni.stopPullDownRefresh();
@@ -472,8 +481,9 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
   font-size: 26rpx;
 }
 .footer {
+  /* 2026-09-07 道哥：操作按钮移到右下角（左侧时效文案已删，无左内容） */
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 22rpx 28rpx;
 }

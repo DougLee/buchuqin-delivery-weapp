@@ -230,6 +230,11 @@ async function act(action: string) {
     task.value = await api.action(session.role, task.value.id, action, payload);
     uni.showToast({ title: "操作成功", icon: "success" });
   } catch (error) {
+    // IKDQP9 后续（道哥 2026-09-07）：状态冲突（他人/后台已推进）时自动
+    // 重拉详情纠偏视图，避免「刷新后重试」还要手动下拉
+    if (/任务状态已变化/.test(error instanceof Error ? error.message : "")) {
+      load(taskId.value).catch(() => {});
+    }
     // IK9U4I/J：任何失败都必须可见。request 层的 toast 可能已被 loading
     // 吞掉，这里兜底再弹一次错误信息，宁可重复不可无反馈
     uni.hideLoading();
@@ -680,10 +685,10 @@ async function confirmDeliver() {
   color: #fff;
 }
 .actions {
-  /* 2026-09-07 道哥：按钮横排——主操作占 1.4 份视觉优先，危险操作 1 份；
-     三个及以上动作时保持两列网格不挤爆 */
+  /* 2026-09-07 道哥二轮：主/次按钮等宽横排（原 1.4:1 视觉不等宽显凌乱）；
+     单按钮时通栏，三个及以上自动换行等宽 */
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16rpx;
   margin-top: 26rpx;
 }

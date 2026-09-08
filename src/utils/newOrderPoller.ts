@@ -38,8 +38,11 @@ async function poll() {
       uni.removeTabBarBadge({ index: 1, fail: () => {} });
     }
     // 数量增加才震动（回前台首拍 lastCount 已重置，不误震）
-    if (lastCount >= 0 && count > lastCount)
+    if (lastCount >= 0 && count > lastCount) {
       uni.vibrateShort({ fail: () => {} });
+      // 新单到达广播：任务页监听后静默重拉，卡片状态不再滞后
+      uni.$emit("ikdnvw:new-orders");
+    }
     lastCount = count;
   } catch {
     /* 静默：401/网络差下轮重试 */
