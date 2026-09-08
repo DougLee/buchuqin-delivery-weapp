@@ -100,7 +100,8 @@ function promptText(title: string, placeholder: string): Promise<string | null> 
  */
 function safeHideLoading() {
   try {
-    uni.hideLoading({ fail: () => {} } as never);
+    // uni 类型里 hideLoading 无参，但微信实现接受 {fail}——双保险吞新版基础库的 fail
+    (uni.hideLoading as (o?: { fail?: () => void }) => void)({ fail: () => {} });
   } catch {
     /* 忽略：无 loading 属正常态 */
   }
