@@ -93,6 +93,18 @@ function confirmDialog() {
 function promptText(title: string, placeholder: string): Promise<string | null> {
   return promptDialog(title, placeholder);
 }
+/**
+ * 安全收 loading（2026-09-08 道哥）：微信新版基础库在「无 loading 可收」时
+ * hideLoading 直接 fail（toast can't be found）——复用上次照片路径不 showLoading，
+ * 旧的裸 hideLoading 会把 fail 抛进 catch，动作还没发就被「操作失败」拦截。
+ */
+function safeHideLoading() {
+  try {
+    uni.hideLoading({ fail: () => {} } as never);
+  } catch {
+    /* 忽略：无 loading 属正常态 */
+  }
+}
 /** 收件人联系（IK9AWW）：展示脱敏、拨号用真实号（真实号仅当班员工可见） */
 function maskName(name: string): string {
   if (!name) return "—";
@@ -122,7 +134,7 @@ async function chooseUploadedImages(count: number): Promise<string[]> {
   } catch {
     return [];
   } finally {
-    uni.hideLoading();
+    safeHideLoading();
   }
 }
 /** 交接凭证（IKA0UP）：拍照上传取代扫寝室二维码；距上次成功上传
@@ -151,9 +163,13 @@ async function handoverProofPhoto(): Promise<string> {
     : chosen.tempFilePaths;
   if (!path) throw new Error("已取消");
   uni.showLoading({ title: "凭证上传中", mask: true });
-  const url = await uploadImage(path);
-  uni.setStorageSync(LAST_PROOF_KEY, { url, ts: Date.now() });
-  return url;
+  try {
+    const url = await uploadImage(path);
+    uni.setStorageSync(LAST_PROOF_KEY, { url, ts: Date.now() });
+    return url;
+  } finally {
+    safeHideLoading(); // 自己的 loading 自己收（复用路径根本没 show，靠 act 代收曾是事故源）
+  }
 }
 /** 取真实 gcj02 定位，尽力而为（IKA580：送达不再强制定位，失败不阻断） */
 function locateQuiet(): Promise<{ latitude: number; longitude: number } | null> {
@@ -187,7 +203,7 @@ async function addDeliverProof() {
     /* 取消/失败不阻断，可重选 */
   } finally {
     deliverUploading.value = false;
-    uni.hideLoading();
+    safeHideLoading();
   }
 }
 function removeDeliverProof(index: number) {
@@ -226,7 +242,7 @@ async function act(action: string) {
     }
     // 微信端 showLoading 与 showToast 共用单例：必须先收 loading 再弹结果，
     // 否则 toast 被 loading 遮罩吞掉——真机上表现为「点了没反应」（IK9U4I/J）
-    uni.hideLoading();
+    safeHideLoading();
     task.value = await api.action(session.role, task.value.id, action, payload);
     uni.showToast({ title: "操作成功", icon: "success" });
   } catch (error) {
@@ -237,7 +253,7 @@ async function act(action: string) {
     }
     // IK9U4I/J：任何失败都必须可见。request 层的 toast 可能已被 loading
     // 吞掉，这里兜底再弹一次错误信息，宁可重复不可无反馈
-    uni.hideLoading();
+    safeHideLoading();
     const msg =
       error instanceof Error && error.message ? error.message : "操作失败，请重试";
     // 用户主动取消（选图/扫码取消 reject「已取消」）不是错误，静默返回（IK9VF8）
