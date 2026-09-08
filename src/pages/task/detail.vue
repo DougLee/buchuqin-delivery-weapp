@@ -121,13 +121,33 @@ const callRecipient = () => {
   if (task.value?.recipientPhone)
     uni.makePhoneCall({ phoneNumber: task.value.recipientPhone });
 };
-/** 选图并上传（可选凭证）：用户取消或上传失败时返回 []，不阻断动作 */
-async function chooseUploadedImages(count: number): Promise<string[]> {
+/**
+ * 选图统一入口（2026-09-08 道哥反馈：点拍照无框即报「操作失败」）：
+ * chooseImage 是微信隐私 API——后台未配「用户隐私保护指引」时真机直接
+ * fail 不弹框。真实 errMsg 抛出去让 toast 可诊断；用户取消转静默语义。
+ */
+async function pickImages(count: number): Promise<string[]> {
   try {
     const chosen = await uni.chooseImage({ count, sizeType: ["compressed"] });
     const paths = Array.isArray(chosen.tempFilePaths)
       ? chosen.tempFilePaths
       : [chosen.tempFilePaths];
+    if (!paths.length) throw new Error("已取消");
+    return paths;
+  } catch (e) {
+    const msg = (e as { errMsg?: string })?.errMsg ?? "";
+    if (/cancel|已取消/i.test(msg)) throw new Error("已取消");
+    throw new Error(
+      msg
+        ? `无法选择照片：${msg.replace(/^chooseImage:fail\s*/, "")}`
+        : "无法选择照片，请检查相机/相册权限",
+    );
+  }
+}
+/** 选图并上传（可选凭证）：用户取消或上传失败时返回 []，不阻断动作 */
+async function chooseUploadedImages(count: number): Promise<string[]> {
+  try {
+    const paths = await pickImages(count);
     if (!paths.length) return [];
     uni.showLoading({ title: "照片上传中", mask: true });
     return await Promise.all(paths.map((p) => uploadImage(p)));
@@ -157,11 +177,7 @@ async function handoverProofPhoto(): Promise<string> {
     });
     if (reuse) return last.url;
   }
-  const chosen = await uni.chooseImage({ count: 1, sizeType: ["compressed"] });
-  const path = Array.isArray(chosen.tempFilePaths)
-    ? chosen.tempFilePaths[0]
-    : chosen.tempFilePaths;
-  if (!path) throw new Error("已取消");
+  const path = (await pickImages(1))[0];
   uni.showLoading({ title: "凭证上传中", mask: true });
   try {
     const url = await uploadImage(path);
