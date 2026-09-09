@@ -1,11 +1,12 @@
 import { api } from "../api";
 import { useSessionStore } from "../stores/session";
+import { isManagerRole } from "../types";
 
 /**
  * 新单轮询（IKDNVW 方案A，2026-09-07 道哥）：前台期间每 30s 拉一次
  * 「待处理量」，数量增加时震动并广播任务页重拉（角标已移除，2026-09-08 道哥）。
  * - 骑手（rider）：抢单池条数（availableTasks，仅配送员角色可调）
- * - 楼长（building-manager）：有包裹到楼待接货（waiting-handover）
+ * - 楼长（building-manager / intern-building-manager）：有包裹到楼待接货（waiting-handover）
  * onHide 停表省流量；请求失败/未登录静默跳过（网络差不打扰）。
  * 与后续 E 离线推送（liveActivity 状态卡片，等类目审核）互补：
  * A 管前台即时感，E 管离线触达。
@@ -20,7 +21,8 @@ async function poll() {
   const { role } = useSessionStore();
   try {
     let count = 0;
-    if (role === "building-manager") {
+    // IKEAGE：实习楼长与正式楼长同权（到楼待接货口径一致）
+    if (isManagerRole(role)) {
       const page = await api.tasksPage("waiting-handover", 1, 1);
       count = page.total ?? 0;
     } else {

@@ -181,7 +181,7 @@ async function logout() {
           ></view
         ></view
       ><!-- IK8W5V：徽章按真实绩效（准时率≥95）显示 -->
-<view v-if="excellent" class="badge">优秀履约员</view></view
+<view v-if="excellent" class="badge">优秀履约员</view><view v-if="session.role === 'intern-building-manager'" class="badge badge--intern">实习</view></view
     ><view class="kpi card"
       ><view
         ><text>{{ Math.round(performance?.onTimeRate ?? 0) }}%</text
@@ -345,6 +345,11 @@ async function logout() {
   color: $lime;
   font-size: 20rpx;
   font-weight: 800;
+}
+/* IKEAGE：实习楼长徽章（绿色系区分优秀履约员黄绿） */
+.badge--intern {
+  background: rgba(37, 185, 90, 0.12);
+  color: #07883b;
 }
 .kpi {
   display: grid;

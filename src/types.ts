@@ -1,5 +1,16 @@
 export type StaffRole =
-  "building-manager" | "fulltime-rider" | "parttime-rider";
+  | "building-manager"
+  | "intern-building-manager"
+  | "fulltime-rider"
+  | "parttime-rider";
+/**
+ * 楼长系角色判断（IKEAGE）：实习楼长（intern-building-manager，招募审批
+ * 通过自动创建）与正式楼长完全同权——任务/交接/请假/收入/轮询等所有
+ * 楼长分支统一走本函数，新增角色只改这里。
+ */
+export function isManagerRole(role: StaffRole): boolean {
+  return role === "building-manager" || role === "intern-building-manager";
+}
 /** 后端 Staff.status 三态（IK8W5U）：profile.online 由它派生 */
 export type StaffStatus = "online" | "paused" | "offline";
 export interface StaffProfile {

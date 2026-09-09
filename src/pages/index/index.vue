@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { isManagerRole } from "../../types";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -64,8 +65,9 @@ async function load() {
     shift.value = s;
     // IKDQP9：登录态下查订阅额度（低水位条）；骑手首次「接单中」→ 上岗引导半屏
     void refreshNotifyBar();
+    // IKEAGE：实习楼长同楼长——不弹骑手上岗引导
     if (
-      session.role !== "building-manager" &&
+      !isManagerRole(session.role) &&
       d.profile.status === "online" &&
       !isGuideShown()
     )

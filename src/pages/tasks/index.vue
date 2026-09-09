@@ -11,11 +11,11 @@ import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction } from "../../utils/task-actions";
-import type { Task } from "../../types";
+import { isManagerRole, type Task } from "../../types";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
   // 默认选中抢单池（道哥 2026-09-08）：骑手最关心待抢单；楼长无池回退全部
-  active = ref(session.role === "building-manager" ? "all" : "pool"),
+  active = ref(isManagerRole(session.role) ? "all" : "pool"),
   /** 抢单防重：当前正在抢的任务 id（IK8W5U） */
   grabbing = ref<string | null>(null),
   /** 列表行快捷操作防重（IKBW0H） */
@@ -31,7 +31,8 @@ const session = useSessionStore(),
   total = ref(0),
   loadingMore = ref(false);
 // 抢单池仅骑手角色可见（IK8W5U，后端对楼长返回 403）
-const isRider = computed(() => session.role !== "building-manager");
+// IKEAGE：实习楼长同楼长（非骑手）视角
+const isRider = computed(() => !isManagerRole(session.role));
 /** 骑手 tab（IKAFP5 保持不变）：待处理/待接单/进行中沿用骑手派生状态 */
 const riderTabs: Array<[string, string]> = [
   ["all", "全部"],
