@@ -9,6 +9,7 @@ import {
   getCachedQuota,
   grantTimes,
 } from "../../utils/notifyQuota";
+import { isManagerRole } from "../../types";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
 const session = useSessionStore(),
   profile = ref<StaffProfile>(),
@@ -199,10 +200,12 @@ async function logout() {
       ></view
     ><!-- IKDQP9 额度卡三轮（道哥：高级且简洁）：一行极简——icon+标题+
          右侧数字组（0 红）+ +1 圆钮；说明文字删（教学在引导弹窗完成） -->
-<!-- 道哥 2026-09-07：额度卡只对推送受众（全职/兼职骑手）放开，楼长不渲染 -->
+<!-- 道哥 2026-09-09：楼长（含实习）也收到楼下推送，额度卡与骑手一致放开 -->
 <view
       v-if="
-        session.role === 'fulltime-rider' || session.role === 'parttime-rider'
+        session.role === 'fulltime-rider' ||
+        session.role === 'parttime-rider' ||
+        isManagerRole(session.role)
       "
       class="notify card"
       ><view class="notify__icon"></view

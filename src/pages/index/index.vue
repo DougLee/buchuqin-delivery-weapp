@@ -65,12 +65,9 @@ async function load() {
     shift.value = s;
     // IKDQP9：登录态下查订阅额度（低水位条）；骑手首次「接单中」→ 上岗引导半屏
     void refreshNotifyBar();
-    // IKEAGE：实习楼长同楼长——不弹骑手上岗引导
-    if (
-      !isManagerRole(session.role) &&
-      d.profile.status === "online" &&
-      !isGuideShown()
-    )
+    // 道哥 2026-09-09：授权引导全员放开——楼长（含实习）也收到楼下推送，
+    // 登录且上岗同样弹一次授权框（IKEAGE 撤销此前对楼长系的排除）
+    if (d.profile.status === "online" && !isGuideShown())
       guideVisible.value = true;
   } catch (e) {
     // IKC4IN：未绑定员工（游客）→ 功能引导态，不强制登录；

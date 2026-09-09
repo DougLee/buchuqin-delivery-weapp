@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { useSessionStore } from "../stores/session";
+import { isManagerRole } from "../types";
 import type { NotifyQuotaInfo } from "../types";
 
 /**
@@ -93,9 +94,15 @@ export async function grantTimes(n: number): Promise<number> {
  * 其余用户无手势调用 requestSubscribeMessage 会直接 fail，循环自然终止。
  */
 export async function silentTopUp(): Promise<void> {
-  // 道哥 2026-09-07：额度体系只对骑手（全职/兼职）放开，楼长跳过攒额度
+  // 道哥 2026-09-09：楼长（含实习）也收到楼下推送，额度体系全员放开——
+  // 推送受众 = 骑手两角色 + 楼长系（出库推骑手、到楼下推楼长）
   const role = useSessionStore().role;
-  if (role !== "fulltime-rider" && role !== "parttime-rider") return;
+  if (
+    role !== "fulltime-rider" &&
+    role !== "parttime-rider" &&
+    !isManagerRole(role)
+  )
+    return;
   if (!uni.getStorageSync("staffToken") || granting) return;
   try {
     const { quota } = await fetchQuota();
