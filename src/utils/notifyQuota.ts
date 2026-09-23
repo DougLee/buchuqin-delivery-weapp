@@ -16,6 +16,13 @@ import type { NotifyQuotaInfo } from "../types";
 /** 「新订单提醒」订阅消息模板（履约端私有库，IKDQP9 真机已验证） */
 export const NOTIFY_TMPL_ID = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
 
+/**
+ * 服务号二维码（IKI3ZP）：图片 URL 由道哥提供服务号二维码后配置；
+ * 空串 = 未配置，骑手端不展示「关注服务号」引导（优雅降级）。
+ * 关注后派单走服务号模板消息（无额度概念），订阅消息作为兜底通道保留。
+ */
+export const GZH_QRCODE_URL = "";
+
 /** 上岗引导半屏只弹一次的 storage 标记（IKDQP9） */
 const GUIDE_SHOWN_KEY = "notifyGuideShown";
 export const isGuideShown = () => !!uni.getStorageSync(GUIDE_SHOWN_KEY);

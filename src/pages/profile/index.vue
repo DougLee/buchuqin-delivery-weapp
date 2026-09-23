@@ -8,6 +8,7 @@ import {
   fetchQuota,
   getCachedQuota,
   grantTimes,
+  GZH_QRCODE_URL,
 } from "../../utils/notifyQuota";
 import { isManagerRole } from "../../types";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
@@ -54,12 +55,21 @@ async function load() {
 /* ---------- IKDQP9 接单通知额度卡：常显，「＋补充」一次攒 5 条可连点 ---------- */
 const quota = ref<number | null>(getCachedQuota());
 const adding = ref(false);
+/** IKI3ZP：服务号绑定状态（null=未拉到不显示引导）；二维码未配置则整块不出现 */
+const gzhBound = ref<boolean | null>(null);
 async function loadQuota() {
   try {
-    quota.value = (await fetchQuota()).quota;
+    const info = await fetchQuota();
+    quota.value = info.quota;
+    gzhBound.value = !!info.gzhBound;
   } catch {
     /* 静默：保留缓存值 */
   }
+}
+/** 引导关注服务号：长按识别二维码（previewImage 支持保存/识别） */
+function showGzhQrcode() {
+  if (GZH_QRCODE_URL)
+    uni.previewImage({ urls: [GZH_QRCODE_URL] });
 }
 async function addQuota() {
   if (adding.value) return;
@@ -224,6 +234,24 @@ async function logout() {
       >
         {{ adding ? "···" : "+1" }}
       </button></view
+    ><!-- IKI3ZP 服务号引导：未配置二维码不显示；已绑定显示状态不引导 -->
+    <view
+      v-if="GZH_QRCODE_URL && gzhBound === false"
+      class="notify card gzh-guide"
+      role="button"
+      aria-label="关注服务号，新单通知不漏单"
+      @tap="showGzhQrcode"
+      ><view class="notify__icon"></view
+      ><view class="gzh-guide__text"
+        ><text class="gzh-guide__title">关注服务号 · 新单通知不漏单</text
+        ><text class="gzh-guide__sub">点开二维码，长按识别关注，无需攒额度</text></view
+      ><text class="gzh-guide__arrow">›</text></view
+    >
+    <view
+      v-else-if="GZH_QRCODE_URL && gzhBound"
+      class="notify card gzh-guide gzh-guide--done"
+      ><view class="notify__icon"></view
+      ><text class="gzh-guide__title">服务号通知已开启</text></view
     >
 <view class="section-title"
       ><view
@@ -653,5 +681,33 @@ async function logout() {
 }
 .notify__add:active {
   opacity: 0.85;
+}
+
+/* IKI3ZP 服务号引导：未绑定引导扫码（点击预览二维码长按识别），已绑定显示完成态 */
+.gzh-guide {
+  cursor: pointer;
+}
+.gzh-guide__text {
+  flex: 1;
+  min-width: 0;
+}
+.gzh-guide__title {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 800;
+  color: $ink;
+}
+.gzh-guide__sub {
+  display: block;
+  font-size: 21rpx;
+  color: #667069;
+  margin-top: 6rpx;
+}
+.gzh-guide__arrow {
+  font-size: 40rpx;
+  color: #9aa39d;
+}
+.gzh-guide--done .gzh-guide__title {
+  color: $primary-dark;
 }
 </style>

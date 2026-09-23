@@ -77,11 +77,13 @@ export interface Dashboard {
   tasks: Task[];
 }
 /** 订阅消息额度（IKDQP9）：GET /fulfillment/notify/quota
- *  lowWater=quota<5（低水位）；failedToday=当天有推送因额度耗尽失败 */
+ *  lowWater=quota<5（低水位）；failedToday=当天有推送因额度耗尽失败；
+ *  gzhBound=已关注服务号（IKI3ZP，关注后派单走服务号模板不受额度限制） */
 export interface NotifyQuotaInfo {
   quota: number;
   lowWater: boolean;
   failedToday: boolean;
+  gzhBound?: boolean;
 }
 export interface ApiResult<T> {
   code: number;
