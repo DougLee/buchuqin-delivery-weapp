@@ -350,8 +350,11 @@ async function confirmDeliver() {
     ><view class="info card"
       ><view
         ><text>取货仓库</text><text>{{ task.warehouse }}</text></view
+      ><!-- IKI7LZ：预计时效（纯时段文案跨天歧义）退场，改下单时间+配送类型 -->
+      <view
+        ><text>下单时间</text><text>{{ task.orderedAt }}</text></view
       ><view
-        ><text>预计时效</text><text>{{ task.deadline }}</text></view
+        ><text>配送类型</text><text>{{ task.modeText }}</text></view
       ><view
         ><text>预计收入</text
         ><text class="income">¥{{ fenToYuan(task.commission) }}</text></view

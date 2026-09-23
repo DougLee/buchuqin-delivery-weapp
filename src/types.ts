@@ -55,6 +55,8 @@ export interface Task {
   recipientPhone: string;
   mode: string;
   modeText: string;
+  /** IKI7LZ：下单时间（北京时间 MM-DD HH:mm）——替代 deadline 的歧义时段文案 */
+  orderedAt: string;
   deadline: string;
   warehouse: string;
   /** 任务佣金（单位:分） */
