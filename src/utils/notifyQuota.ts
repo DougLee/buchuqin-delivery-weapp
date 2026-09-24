@@ -21,7 +21,8 @@ export const NOTIFY_TMPL_ID = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
  * 空串 = 未配置，骑手端不展示「关注服务号」引导（优雅降级）。
  * 关注后派单走服务号模板消息（无额度概念），订阅消息作为兜底通道保留。
  */
-export const GZH_QRCODE_URL = "";
+export const GZH_QRCODE_URL =
+  "https://static.buchuqin.com/uploads/2026/09/5baac03f-0cb7-42ad-a499-066ae779b85e.jpg";
 
 /** 上岗引导半屏只弹一次的 storage 标记（IKDQP9） */
 const GUIDE_SHOWN_KEY = "notifyGuideShown";
