@@ -208,7 +208,7 @@ async function logout() {
         ><text>{{ performance?.completed ?? 0 }}</text
         ><text>今日完成</text></view
       ></view
-    ><!-- IKIRO6 推广业绩卡（激励看板）：本月推广订单数/金额 + 今日金额 -->
+    ><!-- IKIRO6 楼栋销量卡（激励看板）：本月订单数/本月销售额/今日销售额 -->
     <view
       v-if="
         session.role === 'building-manager' ||
@@ -225,12 +225,12 @@ async function logout() {
           ><text class="gmv-nums__num gmv-nums__num--gmv">¥{{
             ((performance?.monthGmv ?? 0) / 100).toFixed(2)
           }}</text
-          ><text class="gmv-nums__unit">本月金额</text></view
+          ><text class="gmv-nums__unit">本月销售额</text></view
         ><view class="gmv-nums__item"
           ><text class="gmv-nums__num">¥{{
             ((performance?.todayGmv ?? 0) / 100).toFixed(2)
           }}</text
-          ><text class="gmv-nums__unit">今日</text></view
+          ><text class="gmv-nums__unit">今日销售额</text></view
         ></view
       ></view
     >
