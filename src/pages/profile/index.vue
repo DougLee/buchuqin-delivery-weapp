@@ -216,7 +216,7 @@ async function logout() {
       "
       class="notify card gmv-card"
       ><view class="notify__icon gmv-icon"></view
-      ><text class="notify__title">推广业绩</text
+      ><text class="notify__title">楼栋销量</text
       ><view class="gmv-nums"
         ><view class="gmv-nums__item"
           ><text class="gmv-nums__num">{{ performance?.monthOrders ?? 0 }}</text
