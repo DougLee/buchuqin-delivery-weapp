@@ -208,7 +208,33 @@ async function logout() {
         ><text>{{ performance?.completed ?? 0 }}</text
         ><text>今日完成</text></view
       ></view
-    ><!-- IKDQP9 额度卡三轮（道哥：高级且简洁）：一行极简——icon+标题+
+    ><!-- IKIRO6 推广业绩卡（激励看板）：本月推广订单数/金额 + 今日金额 -->
+    <view
+      v-if="
+        session.role === 'building-manager' ||
+        session.role === 'intern-building-manager'
+      "
+      class="notify card gmv-card"
+      ><view class="notify__icon gmv-icon"></view
+      ><text class="notify__title">推广业绩</text
+      ><view class="gmv-nums"
+        ><view class="gmv-nums__item"
+          ><text class="gmv-nums__num">{{ performance?.monthOrders ?? 0 }}</text
+          ><text class="gmv-nums__unit">本月订单</text></view
+        ><view class="gmv-nums__item"
+          ><text class="gmv-nums__num gmv-nums__num--gmv">¥{{
+            ((performance?.monthGmv ?? 0) / 100).toFixed(2)
+          }}</text
+          ><text class="gmv-nums__unit">本月金额</text></view
+        ><view class="gmv-nums__item"
+          ><text class="gmv-nums__num">¥{{
+            ((performance?.todayGmv ?? 0) / 100).toFixed(2)
+          }}</text
+          ><text class="gmv-nums__unit">今日</text></view
+        ></view
+      ></view
+    >
+><!-- IKDQP9 额度卡三轮（道哥：高级且简洁）：一行极简——icon+标题+
          右侧数字组（0 红）+ +1 圆钮；说明文字删（教学在引导弹窗完成） -->
 <!-- 道哥 2026-09-09：楼长（含实习）也收到楼下推送，额度卡与骑手一致放开 -->
 <view
@@ -683,6 +709,33 @@ async function logout() {
   opacity: 0.85;
 }
 
+.gmv-icon {
+  background: $primary;
+}
+.gmv-nums {
+  display: flex;
+  flex: 1;
+  justify-content: space-around;
+  align-items: center;
+}
+.gmv-nums__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4rpx;
+}
+.gmv-nums__num {
+  font-size: 30rpx;
+  font-weight: 900;
+  color: $ink;
+}
+.gmv-nums__num--gmv {
+  color: $primary-dark;
+}
+.gmv-nums__unit {
+  font-size: 20rpx;
+  color: #9aa39d;
+}
 /* IKI3ZP 服务号引导：未绑定引导扫码（点击预览二维码长按识别），已绑定显示完成态 */
 .gzh-guide {
   cursor: pointer;

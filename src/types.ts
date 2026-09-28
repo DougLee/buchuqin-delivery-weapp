@@ -102,6 +102,10 @@ export interface Performance {
   onTimeRate: number;
   proofRate: number | null;
   exceptionRate: number;
+  /** IKIRO6 推广订单金额（单位:分）：今日/本月（送达时间口径） */
+  todayGmv?: number;
+  monthGmv?: number;
+  monthOrders?: number;
 }
 export interface CommissionRecord {
   id: string;
