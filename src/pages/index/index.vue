@@ -376,13 +376,13 @@ onShow(load);
         <view class="section-title"
           ><view
             ><text class="section-kicker">BATTLE MAP</text
-            ><text class="section-title__main">本栋作战地图</text></view
-          ><text class="section-title__sub">🟢已下单 · 🟡注册未下单 · ⚪未开发</text></view
+            ><text class="section-title__main">作战地图</text></view
+          ><text class="section-title__sub">{{ battleMap?.building.name ?? "" }}</text></view
         >
         <view v-if="mapLoading" class="card map-empty">地图加载中…</view>
         <view v-else-if="mapError" class="card map-empty">{{ mapError }}</view>
         <view v-else-if="battleMap" class="card battle-map">
-          <scroll-view scroll-x class="battle-floors">
+          <view class="battle-floors">
             <view
               v-for="f in battleMap.floors"
               :key="f.floor"
@@ -391,12 +391,15 @@ onShow(load);
               @tap="mapFloor = f.floor"
               >{{ f.floor }} 层</view
             >
-          </scroll-view>
+          </view>
           <view v-if="activeFloor" class="battle-summary">
-            <text>覆盖率 {{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text>
-            <text>🟢 {{ activeFloor.ordered }}</text>
-            <text>🟡 {{ activeFloor.registered }}</text>
-            <text>⚪ {{ activeFloor.fresh }}</text>
+            <text class="battle-summary__rate"
+              >{{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text
+            >
+            <text class="battle-summary__label">覆盖率</text>
+            <text class="battle-summary__dot ordered">{{ activeFloor.ordered }}</text>
+            <text class="battle-summary__dot registered">{{ activeFloor.registered }}</text>
+            <text class="battle-summary__dot fresh">{{ activeFloor.fresh }}</text>
           </view>
           <view v-if="activeFloor" class="battle-grid">
             <view
@@ -1296,75 +1299,116 @@ onShow(load);
     opacity: 0.4;
   }
 }
-/* ---------- IKKTTP 作战地图 ---------- */
+/* ---------- IKKTTP 作战地图（v2：分段楼层+呼吸空间+低饱和三色） ---------- */
+.battle-map {
+  padding: 24rpx 28rpx 28rpx !important;
+}
 .map-empty {
-  padding: 28rpx;
+  padding: 40rpx 28rpx;
   font-size: 24rpx;
-  color: var(--muted, #7b8981);
+  color: #8a978f;
   text-align: center;
 }
+/* 楼层分段控制器：等分铺满、选中墨绿胶囊 */
 .battle-floors {
-  white-space: nowrap;
   display: flex;
-  gap: 12rpx;
-  margin-bottom: 16rpx;
+  gap: 8rpx;
+  background: #f0f5f1;
+  border-radius: 16rpx;
+  padding: 6rpx;
+  margin-bottom: 20rpx;
 }
 .battle-floor-tab {
-  display: inline-block;
-  padding: 10rpx 28rpx;
-  border-radius: 22rpx;
-  border: 1rpx solid #dfe7e1;
-  background: #fff;
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  border-radius: 12rpx;
   font-size: 24rpx;
-  color: #4c5c53;
+  color: #63736a;
+  transition: all 0.18s ease;
 }
 .battle-floor-tab.active {
-  background: #159c55;
-  border-color: #159c55;
-  color: #fff;
-  font-weight: 600;
+  background: #fff;
+  color: #0b4b36;
+  font-weight: 700;
+  box-shadow: 0 2rpx 10rpx rgba(7, 63, 45, 0.1);
 }
+/* 汇总行：大号覆盖率 + 三色圆点计数 */
 .battle-summary {
   display: flex;
-  gap: 20rpx;
-  flex-wrap: wrap;
-  font-size: 22rpx;
-  color: #55645b;
-  padding: 12rpx 4rpx;
-  border-bottom: 1rpx dashed #e6ede8;
-  margin-bottom: 16rpx;
+  align-items: center;
+  gap: 14rpx;
+  padding: 4rpx 4rpx 20rpx;
+  margin-bottom: 20rpx;
+  border-bottom: 1rpx solid #eef3ef;
 }
+.battle-summary__rate {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #0b4b36;
+  letter-spacing: -1rpx;
+}
+.battle-summary__label {
+  font-size: 20rpx;
+  color: #8a978f;
+  margin-right: auto;
+}
+.battle-summary__dot {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #4c5c53;
+}
+.battle-summary__dot::before {
+  content: "";
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+}
+.battle-summary__dot.ordered::before {
+  background: #12a05e;
+}
+.battle-summary__dot.registered::before {
+  background: #e8a33d;
+}
+.battle-summary__dot.fresh::before {
+  background: #d5ded8;
+}
+/* 格子：低饱和三色、均衡间距 */
 .battle-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128rpx, 1fr));
-  gap: 14rpx;
+  grid-template-columns: repeat(auto-fill, minmax(112rpx, 1fr));
+  gap: 12rpx;
 }
 .battle-cell {
   aspect-ratio: 1;
-  border-radius: 18rpx;
+  border-radius: 14rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4rpx;
-  font-size: 26rpx;
+  gap: 2rpx;
+  font-size: 25rpx;
+  font-weight: 600;
 }
 .battle-cell.ordered {
-  background: #159c55;
+  background: #12a05e;
   color: #fff;
 }
 .battle-cell.registered {
-  background: #f0a13a;
+  background: #e8a33d;
   color: #fff;
 }
 .battle-cell.fresh {
-  background: #eef2f0;
-  color: #8a978f;
-  border: 1rpx dashed #cfd9d3;
+  background: #f4f7f5;
+  color: #9aa79f;
 }
 .battle-cell__sub {
-  font-size: 20rpx;
-  opacity: 0.85;
+  font-size: 19rpx;
+  font-weight: 400;
+  opacity: 0.82;
 }
 /* 寝室详情弹层 */
 .room-mask {
