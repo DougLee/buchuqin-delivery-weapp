@@ -1,5 +1,7 @@
 import { request } from "./request";
 import type {
+  BattleMapData,
+  BattleRoomDetail,
   CommissionBill,
   CommissionRecord,
   Dashboard,
@@ -51,6 +53,10 @@ export const api = {
       data: {},
     }),
   profile: (_r: StaffRole) => request<StaffProfile>("/fulfillment/profile"),
+  /** IKKTTP 楼长作战地图：整栋三色格/寝室详情 */
+  battleMap: () => request<BattleMapData>("/fulfillment/battle-map"),
+  battleMapRoom: (roomId: string) =>
+    request<BattleRoomDetail>(`/fulfillment/battle-map/rooms/${roomId}`),
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
   tasks: async (_r: StaffRole, s = "all") =>
     (await request<PageResult<Task>>(`/fulfillment/tasks?status=${s}`)).items,

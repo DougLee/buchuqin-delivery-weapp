@@ -144,3 +144,38 @@ export interface LeaveItem {
   /** 自己调配指定的代班楼长姓名（IKA57Y） */
   substituteName?: string | null;
 }
+
+/** IKKTTP 楼长作战地图（复用后台口径）：整栋楼层三色格 */
+export interface BattleFloor {
+  floor: number;
+  total: number;
+  ordered: number;
+  registered: number;
+  fresh: number;
+  coverageRate: number;
+  rooms: Array<{
+    roomId: string;
+    roomNo: string;
+    status: "ordered" | "registered" | "fresh";
+    orderCount: number;
+    userCount: number;
+  }>;
+}
+export interface BattleMapData {
+  building: { id: string; name: string };
+  floors: BattleFloor[];
+}
+export interface BattleRoomDetail {
+  room: { id: string; roomNo: string; floor: number };
+  orderCount: number;
+  users: Array<{
+    userId: string;
+    nickname: string;
+    phone: string;
+    orderCount: number;
+    totalAmount: number;
+    recentCount: number;
+    highFrequency: boolean;
+    registeredAt: string;
+  }>;
+}

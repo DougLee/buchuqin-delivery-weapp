@@ -15,6 +15,8 @@ import {
 } from "../../utils/notifyQuota";
 import type {
   Dashboard,
+  BattleMapData,
+  BattleRoomDetail,
   Shift,
   StaffRole,
   StaffStatus,
@@ -58,7 +60,10 @@ async function load() {
   try {
     await session.ensure();
     const [d, s] = await Promise.all([
-      api.dashboard(session.role),
+      api.dashboard(session.role).then((d) => {
+        if (isManagerRole(d.profile.role)) void loadBattleMap();
+        return d;
+      }),
       api.shiftsCurrent(),
     ]);
     data.value = d;
@@ -80,6 +85,46 @@ async function load() {
 }
 // IK9U4F：签到/签退入口已隐藏（决策记录不做地理围栏签到），保留当班状态读取
 // IKA57R：状态切换入口移至「我的」页（原位置被状态栏/胶囊遮挡），首页仅展示
+/* ---------- IKKTTP 楼长作战地图 ---------- */
+const isManager = computed(() =>
+  isManagerRole(data.value?.profile.role ?? "fulltime-rider"),
+);
+const battleMap = ref<BattleMapData | null>(null);
+const mapLoading = ref(false);
+const mapError = ref("");
+const mapFloor = ref<number | null>(null);
+const activeFloor = computed(
+  () => battleMap.value?.floors.find((f) => f.floor === mapFloor.value) ?? null,
+);
+async function loadBattleMap() {
+  mapLoading.value = true;
+  mapError.value = "";
+  try {
+    battleMap.value = await api.battleMap();
+    mapFloor.value = battleMap.value.floors[0]?.floor ?? null;
+  } catch (e) {
+    mapError.value = e instanceof Error ? e.message : "地图加载失败";
+  } finally {
+    mapLoading.value = false;
+  }
+}
+/* 寝室详情弹层 */
+const roomOpen = ref(false);
+const roomLoading = ref(false);
+const roomDetail = ref<BattleRoomDetail | null>(null);
+async function openRoom(cell: { roomId: string; roomNo: string }) {
+  roomOpen.value = true;
+  roomLoading.value = true;
+  roomDetail.value = null;
+  try {
+    roomDetail.value = await api.battleMapRoom(cell.roomId);
+  } catch (e) {
+    roomOpen.value = false;
+    mapError.value = e instanceof Error ? e.message : "寝室详情加载失败";
+  } finally {
+    roomLoading.value = false;
+  }
+}
 /** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
 const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
@@ -306,28 +351,70 @@ onShow(load);
         ><text>{{ data.announcement }}</text></view
       >
 
+      <!-- IKKTTP 金额四联：今日/本月 × 销售额/收入（楼长推广激励看板） -->
       <view class="stats card">
         <view
-          ><text class="stats__value">{{ data.stats.completed }}</text
-          ><text class="stats__label">今日完成</text></view
+          ><text class="stats__value">¥{{ fenToYuan(data.stats.todayGmv) }}</text
+          ><text class="stats__label">今日销售额</text></view
         >
         <view
-          ><text class="stats__value">¥{{ fenToYuan(data.stats.income) }}</text
+          ><text class="stats__value">¥{{ fenToYuan(data.stats.todayIncome) }}</text
           ><text class="stats__label">今日收入</text></view
         >
         <view
-          ><text class="stats__value">{{ onTimeRate }}</text
-          ><text class="stats__label">准时率</text></view
+          ><text class="stats__value">¥{{ fenToYuan(data.stats.monthGmv) }}</text
+          ><text class="stats__label">本月销售额</text></view
         >
         <view
-          ><text class="stats__value"
-            >{{ avgMinutes ?? "—"
-            }}<text v-if="avgMinutes != null" class="small">min</text></text
-          ><text class="stats__label">平均用时</text></view
+          ><text class="stats__value">¥{{ fenToYuan(data.stats.income) }}</text
+          ><text class="stats__label">本月收入</text></view
         >
       </view>
 
-      <view class="section-title"
+      <!-- IKKTTP 楼长：此楼作战地图（三色格+楼层切换+寝室详情） -->
+      <template v-if="isManager">
+        <view class="section-title"
+          ><view
+            ><text class="section-kicker">BATTLE MAP</text
+            ><text class="section-title__main">本栋作战地图</text></view
+          ><text class="section-title__sub">🟢已下单 · 🟡注册未下单 · ⚪未开发</text></view
+        >
+        <view v-if="mapLoading" class="card map-empty">地图加载中…</view>
+        <view v-else-if="mapError" class="card map-empty">{{ mapError }}</view>
+        <view v-else-if="battleMap" class="card battle-map">
+          <scroll-view scroll-x class="battle-floors">
+            <view
+              v-for="f in battleMap.floors"
+              :key="f.floor"
+              class="battle-floor-tab"
+              :class="{ active: mapFloor === f.floor }"
+              @tap="mapFloor = f.floor"
+              >{{ f.floor }} 层</view
+            >
+          </scroll-view>
+          <view v-if="activeFloor" class="battle-summary">
+            <text>覆盖率 {{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text>
+            <text>🟢 {{ activeFloor.ordered }}</text>
+            <text>🟡 {{ activeFloor.registered }}</text>
+            <text>⚪ {{ activeFloor.fresh }}</text>
+          </view>
+          <view v-if="activeFloor" class="battle-grid">
+            <view
+              v-for="cell in activeFloor.rooms"
+              :key="cell.roomId"
+              class="battle-cell"
+              :class="cell.status"
+              @tap="openRoom(cell)"
+            >
+              <text class="battle-cell__no">{{ cell.roomNo }}</text>
+              <text v-if="cell.status === 'ordered'" class="battle-cell__sub">{{ cell.orderCount }}单</text>
+              <text v-else-if="cell.status === 'registered'" class="battle-cell__sub">{{ cell.userCount }}人</text>
+            </view>
+          </view>
+        </view>
+      </template>
+
+      <view v-else class="section-title"
         ><view
           ><text class="section-kicker">NEXT TASKS</text
           ><text class="section-title__main">优先任务</text></view
@@ -338,6 +425,7 @@ onShow(load);
           <text class="link-chip">全部任务</text></text
         ></view
       >
+      <template v-if="!isManager">
       <view
         v-for="(task, index) in data.tasks"
         :key="task.id"
@@ -393,7 +481,41 @@ onShow(load);
         @tap="uni.switchTab({ url: '/pages/tasks/index' })"
         >暂无待处理任务，去任务看板看看</view
       >
+      </template>
     </template>
+
+    <!-- IKKTTP 寝室详情弹层（作战地图格子下钻） -->
+    <view v-if="roomOpen" class="room-mask" @tap.self="roomOpen = false">
+      <view class="room-sheet">
+        <view class="room-sheet__head"
+          ><text class="room-sheet__title"
+            >{{ roomDetail?.room.roomNo ?? "…" }} · {{ roomDetail?.room.floor ?? "" }} 层</text
+          ><text class="room-sheet__close" @tap="roomOpen = false">✕</text></view
+        >
+        <view v-if="roomLoading" class="room-sheet__body">加载中…</view>
+        <view v-else-if="roomDetail" class="room-sheet__body">
+          <view class="room-sheet__meta"
+            >本寝已支付 {{ roomDetail.orderCount }} 单</view
+          >
+          <view v-if="!roomDetail.users.length" class="room-sheet__empty"
+            >还没有注册用户落到这个寝室——先推二维码。</view
+          >
+          <view
+            v-for="u in roomDetail.users"
+            :key="u.userId"
+            class="room-user"
+          >
+            <view class="room-user__line"
+              ><text class="room-user__name">{{ u.nickname }}</text
+              ><text v-if="u.highFrequency" class="hf">高频</text></view
+            >
+            <view class="room-user__sub"
+              >{{ u.phone }} · {{ u.orderCount }} 单 · ¥{{ fenToYuan(u.totalAmount) }}</view
+            >
+          </view>
+        </view>
+      </view>
+    </view>
 
     <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」弹一次（storage 标记）。
          三轮视觉（道哥 2026-09-07）：回退 0fec881 认可的骨架（左对齐+授权
@@ -1173,5 +1295,149 @@ onShow(load);
     transform: translateY(30%);
     opacity: 0.4;
   }
+}
+/* ---------- IKKTTP 作战地图 ---------- */
+.map-empty {
+  padding: 28rpx;
+  font-size: 24rpx;
+  color: var(--muted, #7b8981);
+  text-align: center;
+}
+.battle-floors {
+  white-space: nowrap;
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+.battle-floor-tab {
+  display: inline-block;
+  padding: 10rpx 28rpx;
+  border-radius: 22rpx;
+  border: 1rpx solid #dfe7e1;
+  background: #fff;
+  font-size: 24rpx;
+  color: #4c5c53;
+}
+.battle-floor-tab.active {
+  background: #159c55;
+  border-color: #159c55;
+  color: #fff;
+  font-weight: 600;
+}
+.battle-summary {
+  display: flex;
+  gap: 20rpx;
+  flex-wrap: wrap;
+  font-size: 22rpx;
+  color: #55645b;
+  padding: 12rpx 4rpx;
+  border-bottom: 1rpx dashed #e6ede8;
+  margin-bottom: 16rpx;
+}
+.battle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128rpx, 1fr));
+  gap: 14rpx;
+}
+.battle-cell {
+  aspect-ratio: 1;
+  border-radius: 18rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  font-size: 26rpx;
+}
+.battle-cell.ordered {
+  background: #159c55;
+  color: #fff;
+}
+.battle-cell.registered {
+  background: #f0a13a;
+  color: #fff;
+}
+.battle-cell.fresh {
+  background: #eef2f0;
+  color: #8a978f;
+  border: 1rpx dashed #cfd9d3;
+}
+.battle-cell__sub {
+  font-size: 20rpx;
+  opacity: 0.85;
+}
+/* 寝室详情弹层 */
+.room-mask {
+  position: fixed;
+  inset: 0;
+  background: #062e2366;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+}
+.room-sheet {
+  width: 100%;
+  max-height: 70vh;
+  background: #fff;
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 28rpx 28rpx 40rpx;
+  box-sizing: border-box;
+}
+.room-sheet__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.room-sheet__title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #153628;
+}
+.room-sheet__close {
+  font-size: 30rpx;
+  color: #7b8981;
+  padding: 8rpx;
+}
+.room-sheet__body {
+  overflow-y: auto;
+  max-height: 56vh;
+}
+.room-sheet__meta {
+  font-size: 24rpx;
+  color: #55645b;
+  margin-bottom: 16rpx;
+}
+.room-sheet__empty {
+  font-size: 24rpx;
+  color: #7b8981;
+  padding: 30rpx 0;
+  text-align: center;
+}
+.room-user {
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f2f6f3;
+}
+.room-user__line {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.room-user__name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #153628;
+}
+.hf {
+  font-size: 20rpx;
+  color: #159c55;
+  background: #159c5520;
+  border-radius: 999rpx;
+  padding: 2rpx 12rpx;
+}
+.room-user__sub {
+  font-size: 22rpx;
+  color: #7b8981;
+  margin-top: 4rpx;
 }
 </style>
