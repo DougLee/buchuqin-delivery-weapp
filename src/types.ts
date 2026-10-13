@@ -55,6 +55,7 @@ export interface Task {
   recipientPhone: string;
   mode: string;
   modeText: string;
+  lastMileMode: "building-manager" | "customer-pickup";
   /** IKI7LZ：下单时间（北京时间 MM-DD HH:mm）——替代 deadline 的歧义时段文案 */
   orderedAt: string;
   deadline: string;

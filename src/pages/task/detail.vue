@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { ApiError, isRetryable } from "../../api/request";
@@ -15,6 +15,8 @@ const error = ref(false);
 /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
 const loading = ref(false);
 const taskId = ref("");
+const customerPickup = computed(() => task.value?.lastMileMode === "customer-pickup");
+const deliveredLabel = computed(() => (customerPickup.value ? "已送到楼下" : "已送到寝室"));
 /** 动作进行中防重复提交 */
 const acting = ref(false);
 const labels: Record<string, string> = {
@@ -25,7 +27,7 @@ const labels: Record<string, string> = {
   handover: "拍照交接楼长",
   receive: "确认楼下接货",
   // IKA580：去「开始送往寝室」，接货后直接送达（弹窗凭证+备注）
-  delivered: "已送到寝室",
+  delivered: "确认送达",
   absent: "用户不在",
   refused: "用户拒收",
   transfer: "申请转单",
@@ -284,6 +286,10 @@ async function act(action: string) {
 /** 送达确认弹窗提交（IKA580）：凭证或备注二选一，定位尽力而为 */
 async function confirmDeliver() {
   if (!task.value || acting.value) return;
+  if (customerPickup.value && !deliverProofImages.value.length) {
+    uni.showToast({ title: "请上传楼下送达凭证照片", icon: "none" });
+    return;
+  }
   if (!deliverProofImages.value.length && !deliverRemark.value.trim()) {
     uni.showToast({ title: "请上传凭证照片或填写备注", icon: "none" });
     return;
@@ -302,7 +308,7 @@ async function confirmDeliver() {
       },
     );
     deliverDialogOpen.value = false;
-    uni.showToast({ title: "已送达寝室", icon: "success" });
+    uni.showToast({ title: deliveredLabel.value, icon: "success" });
   } catch (error) {
     const msg =
       error instanceof Error && error.message ? error.message : "操作失败，请重试";
@@ -453,9 +459,13 @@ async function confirmDeliver() {
   <view v-if="deliverDialogOpen" class="input-dialog"
     ><view class="input-dialog__mask"></view
     ><view class="input-dialog__panel deliver-panel"
-      ><text class="input-dialog__title">已送到寝室</text
+      ><text class="input-dialog__title">{{ deliveredLabel }}</text
       ><text class="deliver-hint"
-        >上传凭证照片或填写备注（用户不在、放某地等情况留证），至少完成一项</text
+        >{{
+          customerPickup
+            ? "请上传楼下送达凭证照片，提交后将通知用户确认取货"
+            : "上传凭证照片或填写备注（用户不在、放某地等情况留证），至少完成一项"
+        }}</text
       ><view class="deliver-photos"
         ><view
           v-for="(img, i) in deliverProofImages"
