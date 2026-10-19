@@ -110,8 +110,10 @@ async function loadBattleMap() {
 }
 /* 楼层横滑溢出提示（道哥 2026-10-19）：两端渐隐+chevron，还有未露出内容
    的方向才显示；楼层一屏内两端都不出。scroll 时只更新位置，宽度变化
-   （切楼栋/首载）后重测。 */
+   （切楼栋/首载）后重测。箭头可点（道哥 2026-10-19 追加）：点击按视口
+   80% 步进翻页滚动（scroll-left 受控+动画），效果同手滑。 */
 const floorOverflow = ref({ canLeft: false, canRight: false });
+const floorScrollPos = ref(0);
 let floorClientWidth = 0;
 let floorScrollWidth = 0;
 let floorLastLeft = 0;
@@ -139,7 +141,13 @@ function measureFloorOverflow() {
 }
 function onFloorScroll(e: { detail: { scrollLeft: number } }) {
   floorLastLeft = e.detail.scrollLeft;
+  floorScrollPos.value = floorLastLeft;
   updateFloorArrows(floorLastLeft);
+}
+/** 点箭头翻页：±视口 80%（留一档重叠上下文），scroll-view 自动 clamp 边界 */
+function scrollFloor(dir: -1 | 1) {
+  const target = floorLastLeft + dir * floorClientWidth * 0.8;
+  floorScrollPos.value = Math.max(0, target);
 }
 /** 楼层数据变化（首载/切楼栋下拉刷新）后重测内容宽，箭头状态归位重算 */
 watch(battleMap, () => {
@@ -429,6 +437,8 @@ onShow(load);
               class="battle-floors-scroll"
               scroll-x
               :show-scrollbar="false"
+              :scroll-left="floorScrollPos"
+              :scroll-with-animation="true"
               @scroll="onFloorScroll"
             >
               <view class="battle-floors">
@@ -445,11 +455,17 @@ onShow(load);
             <view
               v-if="floorOverflow.canLeft"
               class="battle-floors-edge battle-floors-edge--left"
+              hover-class="battle-floors-edge--tap"
+              :hover-stay-time="120"
+              @tap.stop="scrollFloor(-1)"
               ><view class="battle-floors-arrow"
             /></view>
             <view
               v-if="floorOverflow.canRight"
               class="battle-floors-edge battle-floors-edge--right"
+              hover-class="battle-floors-edge--tap"
+              :hover-stay-time="120"
+              @tap.stop="scrollFloor(1)"
               ><view class="battle-floors-arrow"
             /></view></view
           >
@@ -1393,11 +1409,21 @@ onShow(load);
   position: absolute;
   top: 6rpx;
   bottom: 6rpx;
-  width: 56rpx;
+  width: 64rpx;
   z-index: 2;
   display: flex;
   align-items: center;
-  pointer-events: none;
+}
+/* 按压反馈：箭头与渐隐加深一档 */
+.battle-floors-edge--tap .battle-floors-arrow {
+  border-color: #4c5c53;
+  transform-origin: center;
+}
+.battle-floors-edge--tap.battle-floors-edge--left .battle-floors-arrow {
+  transform: rotate(45deg) scale(1.15);
+}
+.battle-floors-edge--tap.battle-floors-edge--right .battle-floors-arrow {
+  transform: rotate(-135deg) scale(1.15);
 }
 .battle-floors-edge--left {
   left: 0;
