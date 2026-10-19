@@ -382,16 +382,25 @@ onShow(load);
         <view v-if="mapLoading" class="card map-empty">地图加载中…</view>
         <view v-else-if="mapError" class="card map-empty">{{ mapError }}</view>
         <view v-else-if="battleMap" class="card battle-map">
-          <view class="battle-floors">
-            <view
-              v-for="f in battleMap.floors"
-              :key="f.floor"
-              class="battle-floor-tab"
-              :class="{ active: mapFloor === f.floor }"
-              @tap="mapFloor = f.floor"
-              >{{ f.floor }} 层</view
-            >
-          </view>
+          <!-- 楼层切换（道哥 2026-10-19：固定宽+横向滑动）——高层栋楼层多时
+              等分挤压致文字竖排折行，改 scroll-view 横滑、tab 最小 96rpx；
+              楼层少时 inline-flex+min-width 仍铺满不留白 -->
+          <scroll-view
+            class="battle-floors-scroll"
+            scroll-x
+            :show-scrollbar="false"
+          >
+            <view class="battle-floors">
+              <view
+                v-for="f in battleMap.floors"
+                :key="f.floor"
+                class="battle-floor-tab"
+                :class="{ active: mapFloor === f.floor }"
+                @tap="mapFloor = f.floor"
+                >{{ f.floor }} 层</view
+              >
+            </view>
+          </scroll-view>
           <view v-if="activeFloor" class="battle-summary">
             <text class="battle-summary__rate"
               >{{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text
@@ -1309,21 +1318,29 @@ onShow(load);
   color: #8a978f;
   text-align: center;
 }
-/* 楼层分段控制器：等分铺满、选中墨绿胶囊 */
+/* 楼层分段控制器（2026-10-19）：固定最小宽+横向滑动——楼层少 inline-flex
+   铺满不留白，楼层多 tab 保持 96rpx 可读宽、超出左滑；选中墨绿胶囊 */
+.battle-floors-scroll {
+  width: 100%;
+  margin-bottom: 20rpx;
+}
 .battle-floors {
-  display: flex;
+  display: inline-flex;
+  min-width: 100%;
+  box-sizing: border-box;
   gap: 8rpx;
   background: #f0f5f1;
   border-radius: 16rpx;
   padding: 6rpx;
-  margin-bottom: 20rpx;
 }
 .battle-floor-tab {
-  flex: 1;
+  flex: 1 0 96rpx;
+  min-width: 96rpx;
   text-align: center;
   padding: 12rpx 0;
   border-radius: 12rpx;
   font-size: 24rpx;
+  white-space: nowrap;
   color: #63736a;
   transition: all 0.18s ease;
 }
