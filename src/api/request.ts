@@ -121,7 +121,17 @@ export async function request<T>(
           }
           // IKLE1J：401 也 toast——自动重登失败不再静默（首个 401 不会走到这里，
           // 被 401 重试分支拦下；到达分类层的 401 都是重登失败的终态）
-          uni.showToast({ title: apiError.message, icon: "none" });
+          // 「未绑定」404 静默（道哥 2026-10-19）：首次打开必弹观感像报错——
+          // 它是预期路径，首页访客态/登录页绑定表单都有 UI 承接；错误对象
+          // 照常上抛（isBindRequired 分支不受影响）。与 session.isBindRequired
+          // 弱判定同口径（不 import store 防循环依赖）。
+          if (
+            !(
+              res.statusCode === 404 &&
+              /未绑定/.test(apiError.message || "")
+            )
+          )
+            uni.showToast({ title: apiError.message, icon: "none" });
           reject(apiError);
         },
         fail(err) {
