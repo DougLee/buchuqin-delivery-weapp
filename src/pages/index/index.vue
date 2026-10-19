@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
+import { APP_NAME as appName } from "../../config/app";
 import { isManagerRole } from "../../types";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -275,7 +276,7 @@ onShow(load);
       <view class="identity">
         <view class="logo"><view class="logo__route"></view></view>
         <view
-          ><text class="brand">不出寝履约</text
+          ><text class="brand">{{ appName }}</text
           ><!-- IKAJT4：校区信息接口下发，多校区不再硬编码湖工大 -->
           <text v-if="campusLine" class="campus">{{ campusLine }}</text></view
         >
@@ -318,7 +319,7 @@ onShow(load);
     <!-- 访客引导态（IKC4IN 审核整改）：先浏览平台介绍，登录由用户自主点击 -->
     <template v-else-if="guest">
       <view class="card guest__hero">
-        <text class="guest__brand">不出寝食社 · 履约端</text>
+        <text class="guest__brand">{{ appName }}</text>
         <text class="guest__title">校园寝售 · 配送工作台</text>
         <text class="guest__desc"
           >零食饮料寝室直达的校园电商平台。本端为履约工作人员（配送员/楼长）专用工作台，员工工号绑定后即可上岗接单。</text
@@ -356,7 +357,7 @@ onShow(load);
       >
       <button class="guest__login" @tap="goLogin">员工登录</button>
       <text class="guest__tip"
-        >仅限不出寝食社在职员工使用 ·
+        >仅限合作品牌在职员工使用 ·
         登录为微信静默授权，首次使用填写工号与姓名绑定</text
       >
     </template>
@@ -400,15 +401,18 @@ onShow(load);
       <!-- IKKTTP 金额四联：今日/本月 × 销售额/收入（楼长推广激励看板） -->
       <view class="stats card">
         <view
-          ><text class="stats__value">¥{{ fenToYuan(data.stats.todayGmv) }}</text
+          ><text class="stats__value"
+            >¥{{ fenToYuan(data.stats.todayGmv) }}</text
           ><text class="stats__label">今日销售额</text></view
         >
         <view
-          ><text class="stats__value">¥{{ fenToYuan(data.stats.todayIncome) }}</text
+          ><text class="stats__value"
+            >¥{{ fenToYuan(data.stats.todayIncome) }}</text
           ><text class="stats__label">今日收入</text></view
         >
         <view
-          ><text class="stats__value">¥{{ fenToYuan(data.stats.monthGmv) }}</text
+          ><text class="stats__value"
+            >¥{{ fenToYuan(data.stats.monthGmv) }}</text
           ><text class="stats__label">本月销售额</text></view
         >
         <view
@@ -423,7 +427,9 @@ onShow(load);
           ><view
             ><text class="section-kicker">BATTLE MAP</text
             ><text class="section-title__main">作战地图</text></view
-          ><text class="section-title__sub">{{ battleMap?.building.name ?? "" }}</text></view
+          ><text class="section-title__sub">{{
+            battleMap?.building.name ?? ""
+          }}</text></view
         >
         <view v-if="mapLoading" class="card map-empty">地图加载中…</view>
         <view v-else-if="mapError" class="card map-empty">{{ mapError }}</view>
@@ -466,17 +472,22 @@ onShow(load);
               hover-class="battle-floors-edge--tap"
               :hover-stay-time="120"
               @tap.stop="scrollFloor(1)"
-              ><view class="battle-floors-arrow"
-            /></view></view
-          >
+              ><view class="battle-floors-arrow" /></view
+          ></view>
           <view v-if="activeFloor" class="battle-summary">
             <text class="battle-summary__rate"
               >{{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text
             >
             <text class="battle-summary__label">覆盖率</text>
-            <text class="battle-summary__dot ordered">{{ activeFloor.ordered }}</text>
-            <text class="battle-summary__dot registered">{{ activeFloor.registered }}</text>
-            <text class="battle-summary__dot fresh">{{ activeFloor.fresh }}</text>
+            <text class="battle-summary__dot ordered">{{
+              activeFloor.ordered
+            }}</text>
+            <text class="battle-summary__dot registered">{{
+              activeFloor.registered
+            }}</text>
+            <text class="battle-summary__dot fresh">{{
+              activeFloor.fresh
+            }}</text>
           </view>
           <view v-if="activeFloor" class="battle-grid">
             <view
@@ -487,8 +498,14 @@ onShow(load);
               @tap="openRoom(cell)"
             >
               <text class="battle-cell__no">{{ cell.roomNo }}</text>
-              <text v-if="cell.status === 'ordered'" class="battle-cell__sub">{{ cell.orderCount }}单</text>
-              <text v-else-if="cell.status === 'registered'" class="battle-cell__sub">{{ cell.userCount }}人</text>
+              <text v-if="cell.status === 'ordered'" class="battle-cell__sub"
+                >{{ cell.orderCount }}单</text
+              >
+              <text
+                v-else-if="cell.status === 'registered'"
+                class="battle-cell__sub"
+                >{{ cell.userCount }}人</text
+              >
             </view>
           </view>
         </view>
@@ -506,61 +523,62 @@ onShow(load);
         ></view
       >
       <template v-if="!isManager">
-      <view
-        v-for="(task, index) in data.tasks"
-        :key="task.id"
-        class="task card"
-        role="button"
-        @tap="open(task.id)"
-      >
         <view
-          class="task__accent"
-          :class="{ 'task__accent--orange': index === 0 }"
-        ></view>
-        <view class="task__head"
-          ><!-- IKA57O：配送单号已下线，统一显订单号 -->
-          <text class="package">{{ task.orderNo }}</text
-          ><text class="status">{{ task.statusText }}</text></view
+          v-for="(task, index) in data.tasks"
+          :key="task.id"
+          class="task card"
+          role="button"
+          @tap="open(task.id)"
         >
-        <view class="task__destination"
-          ><view class="floor"
-            ><text>{{ task.floor }}</text
-            ><text>F</text></view
-          ><view
-            ><text class="building">{{ task.building }} · {{ task.room }}</text
-            ><!-- 2026-09-07 道哥：时效固定文案与 meta「模式」格重复（同派生自
-               deliveryMode），删除；destination 行只留楼栋 · 寝室 --></view
-          ></view
-        >
-        <view class="task__meta"
-          ><text>{{ task.itemCount }} 件 · {{ task.weight }}kg</text
-          ><text>{{ task.modeText }}</text
-          ><text class="commission"
-            >+¥{{ fenToYuan(task.commission) }}</text
-          ></view
-        >
-        <view class="task__action"
-          ><!-- IK9VQ2：整卡可点，行尾箭头改 chip -->
-          <!-- IKBW0H：标准下一步直接行内完成，无则保持查看入口 -->
-          <button
-            v-if="qaOf(task)"
-            class="quick-btn"
-            :disabled="acting === task.id"
-            @tap.stop="runAction(task)"
+          <view
+            class="task__accent"
+            :class="{ 'task__accent--orange': index === 0 }"
+          ></view>
+          <view class="task__head"
+            ><!-- IKA57O：配送单号已下线，统一显订单号 -->
+            <text class="package">{{ task.orderNo }}</text
+            ><text class="status">{{ task.statusText }}</text></view
           >
-            {{ acting === task.id ? "处理中…" : qaOf(task)?.label }}
-          </button>
-          <text v-else class="link-chip">查看路线与操作</text></view
+          <view class="task__destination"
+            ><view class="floor"
+              ><text>{{ task.floor }}</text
+              ><text>F</text></view
+            ><view
+              ><text class="building"
+                >{{ task.building }} · {{ task.room }}</text
+              ><!-- 2026-09-07 道哥：时效固定文案与 meta「模式」格重复（同派生自
+               deliveryMode），删除；destination 行只留楼栋 · 寝室 --></view
+            ></view
+          >
+          <view class="task__meta"
+            ><text>{{ task.itemCount }} 件 · {{ task.weight }}kg</text
+            ><text>{{ task.modeText }}</text
+            ><text class="commission"
+              >+¥{{ fenToYuan(task.commission) }}</text
+            ></view
+          >
+          <view class="task__action"
+            ><!-- IK9VQ2：整卡可点，行尾箭头改 chip -->
+            <!-- IKBW0H：标准下一步直接行内完成，无则保持查看入口 -->
+            <button
+              v-if="qaOf(task)"
+              class="quick-btn"
+              :disabled="acting === task.id"
+              @tap.stop="runAction(task)"
+            >
+              {{ acting === task.id ? "处理中…" : qaOf(task)?.label }}
+            </button>
+            <text v-else class="link-chip">查看路线与操作</text></view
+          >
+        </view>
+        <!-- 优先任务空态（IK9VF8）：无待处理时引导去任务看板，不留空白 -->
+        <view
+          v-if="!data.tasks.length"
+          class="empty card"
+          role="button"
+          @tap="uni.switchTab({ url: '/pages/tasks/index' })"
+          >暂无待处理任务，去任务看板看看</view
         >
-      </view>
-      <!-- 优先任务空态（IK9VF8）：无待处理时引导去任务看板，不留空白 -->
-      <view
-        v-if="!data.tasks.length"
-        class="empty card"
-        role="button"
-        @tap="uni.switchTab({ url: '/pages/tasks/index' })"
-        >暂无待处理任务，去任务看板看看</view
-      >
       </template>
     </template>
 
@@ -569,8 +587,11 @@ onShow(load);
       <view class="room-sheet">
         <view class="room-sheet__head"
           ><text class="room-sheet__title"
-            >{{ roomDetail?.room.roomNo ?? "…" }} · {{ roomDetail?.room.floor ?? "" }} 层</text
-          ><text class="room-sheet__close" @tap="roomOpen = false">✕</text></view
+            >{{ roomDetail?.room.roomNo ?? "…" }} ·
+            {{ roomDetail?.room.floor ?? "" }} 层</text
+          ><text class="room-sheet__close" @tap="roomOpen = false"
+            >✕</text
+          ></view
         >
         <view v-if="roomLoading" class="room-sheet__body">加载中…</view>
         <view v-else-if="roomDetail" class="room-sheet__body">
@@ -580,17 +601,15 @@ onShow(load);
           <view v-if="!roomDetail.users.length" class="room-sheet__empty"
             >还没有注册用户落到这个寝室——先推二维码。</view
           >
-          <view
-            v-for="u in roomDetail.users"
-            :key="u.userId"
-            class="room-user"
-          >
+          <view v-for="u in roomDetail.users" :key="u.userId" class="room-user">
             <view class="room-user__line"
               ><text class="room-user__name">{{ u.nickname }}</text
               ><text v-if="u.highFrequency" class="hf">高频</text></view
             >
             <view class="room-user__sub"
-              >{{ u.phone }} · {{ u.orderCount }} 单 · ¥{{ fenToYuan(u.totalAmount) }}</view
+              >{{ u.phone }} · {{ u.orderCount }} 单 · ¥{{
+                fenToYuan(u.totalAmount)
+              }}</view
             >
           </view>
         </view>

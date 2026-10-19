@@ -2,6 +2,7 @@
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useSessionStore, clearGuestFlag } from "../../stores/session";
+import { APP_NAME as appName } from "../../config/app";
 const session = useSessionStore(),
   /** 自动直登检测中（IKC4IN 优化）：进入登录页即静默尝试，已绑定秒进工作台 */
   checking = ref(false),
@@ -51,7 +52,7 @@ async function bind() {
 <template>
   <view class="page login">
     <view class="login__hero">
-      <text class="login__eyebrow">不出寝食社 · 履约端</text>
+      <text class="login__eyebrow">{{ appName }}</text>
       <text class="login__title">员工登录</text>
       <text class="login__sub"
         >绑定工号与姓名，微信自动记住登录，下次打开免输入</text
