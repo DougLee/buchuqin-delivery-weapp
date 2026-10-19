@@ -73,5 +73,8 @@ export function applyWeappBrandToManifest(
   const brand = getWeappBrand(brandKey, currentEnv);
   return source
     .replace(/("name"\s*:\s*)"[^"]*"/, `$1"${brand.name}"`)
+    // description/h5.title 不进小程序产物，但工具层展示同源替换免得串味
+    .replace(/("description"\s*:\s*)"[^"]*"/, `$1"${brand.name}履约人员小程序"`)
+    .replace(/("title"\s*:\s*)"[^"]*"/, `$1"${brand.name}"`)
     .replace(/wxdc6ded350d633443/g, brand.appId);
 }
