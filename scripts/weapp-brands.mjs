@@ -6,8 +6,12 @@ const APP_ID_RE = /^wx[0-9a-f]{16}$/;
 
 export const WEAPP_BRANDS = Object.freeze({
   buchuqin: Object.freeze({
-    name: "不出寝履约端",
+    name: "不出寝配送端",
     appId: "wxdc6ded350d633443",
+  }),
+  xiaoman: Object.freeze({
+    name: "小满优选配送端",
+    appId: "wxf2e90f96bcc32dd1",
   }),
 });
 
