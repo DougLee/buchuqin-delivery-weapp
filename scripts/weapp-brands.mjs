@@ -13,6 +13,10 @@ export const WEAPP_BRANDS = Object.freeze({
     name: "小满优选配送端",
     appId: "wxf2e90f96bcc32dd1",
   }),
+  daxiong: Object.freeze({
+    name: "大雄零食配送端",
+    appId: "wxdb7c1a5b802ae816",
+  }),
 });
 
 function envPrefix(key) {
