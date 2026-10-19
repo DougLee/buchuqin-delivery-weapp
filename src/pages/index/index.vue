@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { isManagerRole } from "../../types";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -108,6 +108,44 @@ async function loadBattleMap() {
     mapLoading.value = false;
   }
 }
+/* 楼层横滑溢出提示（道哥 2026-10-19）：两端渐隐+chevron，还有未露出内容
+   的方向才显示；楼层一屏内两端都不出。scroll 时只更新位置，宽度变化
+   （切楼栋/首载）后重测。 */
+const floorOverflow = ref({ canLeft: false, canRight: false });
+let floorClientWidth = 0;
+let floorScrollWidth = 0;
+let floorLastLeft = 0;
+function updateFloorArrows(scrollLeft: number) {
+  floorOverflow.value.canLeft = scrollLeft > 4;
+  floorOverflow.value.canRight =
+    floorScrollWidth > 0 &&
+    scrollLeft + floorClientWidth < floorScrollWidth - 4;
+}
+function measureFloorOverflow() {
+  uni
+    .createSelectorQuery()
+    .select(".battle-floors-scroll")
+    .boundingClientRect()
+    .select(".battle-floors")
+    .boundingClientRect()
+    .exec((rs) => {
+      const outer = rs?.[0] as { width?: number } | null;
+      const inner = rs?.[1] as { width?: number } | null;
+      if (!outer || !inner) return;
+      floorClientWidth = outer.width ?? 0;
+      floorScrollWidth = inner.width ?? 0;
+      updateFloorArrows(floorLastLeft);
+    });
+}
+function onFloorScroll(e: { detail: { scrollLeft: number } }) {
+  floorLastLeft = e.detail.scrollLeft;
+  updateFloorArrows(floorLastLeft);
+}
+/** 楼层数据变化（首载/切楼栋下拉刷新）后重测内容宽，箭头状态归位重算 */
+watch(battleMap, () => {
+  floorLastLeft = 0;
+  void nextTick(measureFloorOverflow);
+});
 /* 寝室详情弹层 */
 const roomOpen = ref(false);
 const roomLoading = ref(false);
@@ -384,23 +422,37 @@ onShow(load);
         <view v-else-if="battleMap" class="card battle-map">
           <!-- 楼层切换（道哥 2026-10-19：固定宽+横向滑动）——高层栋楼层多时
               等分挤压致文字竖排折行，改 scroll-view 横滑、tab 最小 96rpx；
-              楼层少时 inline-flex+min-width 仍铺满不留白 -->
-          <scroll-view
-            class="battle-floors-scroll"
-            scroll-x
-            :show-scrollbar="false"
+              楼层少时 inline-flex+min-width 仍铺满不留白。两端渐隐+chevron
+              提示未露出方向（纯 CSS 箭头，pointer-events 不挡 tab 点击） -->
+          <view class="battle-floors-wrap"
+            ><scroll-view
+              class="battle-floors-scroll"
+              scroll-x
+              :show-scrollbar="false"
+              @scroll="onFloorScroll"
+            >
+              <view class="battle-floors">
+                <view
+                  v-for="f in battleMap.floors"
+                  :key="f.floor"
+                  class="battle-floor-tab"
+                  :class="{ active: mapFloor === f.floor }"
+                  @tap="mapFloor = f.floor"
+                  >{{ f.floor }} 层</view
+                >
+              </view>
+            </scroll-view>
+            <view
+              v-if="floorOverflow.canLeft"
+              class="battle-floors-edge battle-floors-edge--left"
+              ><view class="battle-floors-arrow"
+            /></view>
+            <view
+              v-if="floorOverflow.canRight"
+              class="battle-floors-edge battle-floors-edge--right"
+              ><view class="battle-floors-arrow"
+            /></view></view
           >
-            <view class="battle-floors">
-              <view
-                v-for="f in battleMap.floors"
-                :key="f.floor"
-                class="battle-floor-tab"
-                :class="{ active: mapFloor === f.floor }"
-                @tap="mapFloor = f.floor"
-                >{{ f.floor }} 层</view
-              >
-            </view>
-          </scroll-view>
           <view v-if="activeFloor" class="battle-summary">
             <text class="battle-summary__rate"
               >{{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text
@@ -1319,10 +1371,14 @@ onShow(load);
   text-align: center;
 }
 /* 楼层分段控制器（2026-10-19）：固定最小宽+横向滑动——楼层少 inline-flex
-   铺满不留白，楼层多 tab 保持 96rpx 可读宽、超出左滑；选中墨绿胶囊 */
+   铺满不留白，楼层多 tab 保持 96rpx 可读宽、超出左滑；选中墨绿胶囊。
+   两端渐隐+chevron：该方向还有未露出内容才显示，遮罩色与分段条底同源 */
+.battle-floors-wrap {
+  position: relative;
+  margin-bottom: 20rpx;
+}
 .battle-floors-scroll {
   width: 100%;
-  margin-bottom: 20rpx;
 }
 .battle-floors {
   display: inline-flex;
@@ -1332,6 +1388,43 @@ onShow(load);
   background: #f0f5f1;
   border-radius: 16rpx;
   padding: 6rpx;
+}
+.battle-floors-edge {
+  position: absolute;
+  top: 6rpx;
+  bottom: 6rpx;
+  width: 56rpx;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.battle-floors-edge--left {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: 10rpx;
+  background: linear-gradient(90deg, #f0f5f1 34%, rgba(240, 245, 241, 0));
+  border-radius: 16rpx 0 0 16rpx;
+}
+.battle-floors-edge--right {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: 10rpx;
+  background: linear-gradient(270deg, #f0f5f1 34%, rgba(240, 245, 241, 0));
+  border-radius: 0 16rpx 16rpx 0;
+}
+/* 纯 CSS chevron（不用字符图标，避免字体渲染差异）：L 形边框旋转定朝向 */
+.battle-floors-arrow {
+  width: 14rpx;
+  height: 14rpx;
+  border-left: 3rpx solid #8a978f;
+  border-bottom: 3rpx solid #8a978f;
+}
+.battle-floors-edge--left .battle-floors-arrow {
+  transform: rotate(45deg);
+}
+.battle-floors-edge--right .battle-floors-arrow {
+  transform: rotate(-135deg);
 }
 .battle-floor-tab {
   flex: 1 0 96rpx;
