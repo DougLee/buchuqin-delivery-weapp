@@ -1,5 +1,11 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_WECHAT_APP_ID: string;
+  readonly VITE_API_BASE_URL?: string;
+  readonly VITE_APP_NAME?: string;
+}
+
 declare module "*.vue" {
   import { DefineComponent } from "vue";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/ban-types

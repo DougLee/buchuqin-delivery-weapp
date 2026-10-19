@@ -15,7 +15,8 @@ import type {
   Task,
 } from "../types";
 /** 本端小程序 appid（IK8W5Q 双小程序凭证路由，与 manifest 一致） */
-const DELIVERY_APPID = "wxdc6ded350d633443";
+const DELIVERY_APPID = import.meta.env.VITE_WECHAT_APP_ID;
+if (!DELIVERY_APPID) throw new Error("缺少 VITE_WECHAT_APP_ID，请使用履约端品牌构建命令启动");
 /** 微信登录返回（wechat-login / staff-bind 共用） */
 interface WechatLoginResult {
   token: string;
