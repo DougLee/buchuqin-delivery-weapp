@@ -27,6 +27,8 @@ export interface StaffProfile {
   campusWarehouseName?: string;
   /** 联系电话（IKP0AP）：员工自助维护，空串=未录入 */
   phone?: string;
+  /** 所属组织服务号二维码（IKP34J）：空串=组织未配置，展示端回落平台兜底 */
+  gzhQrcodeUrl?: string;
 }
 /** 当班卡（IK8W5U）：GET /fulfillment/shifts/current */
 export interface Shift {

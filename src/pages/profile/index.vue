@@ -8,7 +8,7 @@ import {
   fetchQuota,
   getCachedQuota,
   grantTimes,
-  GZH_QRCODE_URL,
+  gzhQrcodeOf,
 } from "../../utils/notifyQuota";
 import { isManagerRole } from "../../types";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
@@ -57,6 +57,8 @@ const quota = ref<number | null>(getCachedQuota());
 const adding = ref(false);
 /** IKI3ZP：服务号绑定状态（null=未拉到不显示引导）；二维码未配置则整块不出现 */
 const gzhBound = ref<boolean | null>(null);
+/** IKP34J：二维码按员工所属组织解析（未配置回落平台兜底），空串不展示引导 */
+const gzhQrcode = computed(() => gzhQrcodeOf(profile.value));
 async function loadQuota() {
   try {
     const info = await fetchQuota();
@@ -68,8 +70,7 @@ async function loadQuota() {
 }
 /** 引导关注服务号：长按识别二维码（previewImage 支持保存/识别） */
 function showGzhQrcode() {
-  if (GZH_QRCODE_URL)
-    uni.previewImage({ urls: [GZH_QRCODE_URL] });
+  if (gzhQrcode.value) uni.previewImage({ urls: [gzhQrcode.value] });
 }
 async function addQuota() {
   if (adding.value) return;
@@ -306,9 +307,9 @@ async function logout() {
       >
         {{ adding ? "···" : "+1" }}
       </button></view
-    ><!-- IKI3ZP 服务号引导：未配置二维码不显示；已绑定显示状态不引导 -->
+    ><!-- IKI3ZP 服务号引导：解析后二维码为空不显示（IKP34J 组织级）；已绑定显示状态不引导 -->
     <view
-      v-if="GZH_QRCODE_URL && gzhBound === false"
+      v-if="gzhQrcode && gzhBound === false"
       class="notify card gzh-guide"
       role="button"
       aria-label="关注服务号，新单通知不漏单"
@@ -320,7 +321,7 @@ async function logout() {
       ><text class="gzh-guide__arrow">›</text></view
     >
     <view
-      v-else-if="GZH_QRCODE_URL && gzhBound"
+      v-else-if="gzhQrcode && gzhBound"
       class="notify card gzh-guide gzh-guide--done"
       ><view class="notify__icon"></view
       ><text class="gzh-guide__title">服务号通知已开启</text></view

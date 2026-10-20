@@ -17,12 +17,25 @@ import type { NotifyQuotaInfo } from "../types";
 export const NOTIFY_TMPL_ID = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
 
 /**
- * 服务号二维码（IKI3ZP）：图片 URL 由道哥提供服务号二维码后配置；
- * 空串 = 未配置，骑手端不展示「关注服务号」引导（优雅降级）。
- * 关注后派单走服务号模板消息（无额度概念），订阅消息作为兜底通道保留。
+ * 平台组织兜底二维码（IKI3ZP 配置，IKP34J 更名）：组织未配置自己的
+ * 服务号二维码时回落到它。空串 = 未配置，不展示「关注服务号」引导
+ * （优雅降级）。关注后派单走服务号模板消息（无额度概念），
+ * 订阅消息作为兜底通道保留。
  */
-export const GZH_QRCODE_URL =
+export const GZH_QRCODE_FALLBACK_URL =
   "https://static.buchuqin.com/uploads/2026/09/5baac03f-0cb7-42ad-a499-066ae779b85e.jpg";
+
+/**
+ * 解析员工应展示的服务号二维码（IKP34J）：优先取 profile.gzhQrcodeUrl
+ * （员工所属组织的服务号，空串=组织未配置），未配置回落平台兜底——
+ * 行为保持现状：平台组织未配置时仍显示原二维码。两者皆空返回空串，
+ * 调用方对空串不展示「关注服务号」引导（降级语义不变）。
+ */
+export function gzhQrcodeOf(
+  profile?: { gzhQrcodeUrl?: string } | null,
+): string {
+  return profile?.gzhQrcodeUrl || GZH_QRCODE_FALLBACK_URL;
+}
 
 /** 上岗引导半屏只弹一次的 storage 标记（IKDQP9） */
 const GUIDE_SHOWN_KEY = "notifyGuideShown";
