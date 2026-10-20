@@ -122,6 +122,13 @@ export const api = {
       method: "PATCH" as UniApp.RequestOptions["method"],
       data: { status },
     }),
+  /** 员工自助更新本人电话（IKP0AP）：PATCH /fulfillment/profile，body { phone }
+   *  TODO(真机验证): 同 updateStatus——PATCH 在微信端 wx.request 的支持未在官方文档列出 */
+  updateMyProfilePhone: (phone: string) =>
+    request<Partial<StaffProfile>>("/fulfillment/profile", {
+      method: "PATCH" as UniApp.RequestOptions["method"],
+      data: { phone },
+    }),
   /** 抢单池（仅骑手角色，楼长 403）：GET /fulfillment/tasks/available */
   availableTasks: () => request<Task[]>("/fulfillment/tasks/available"),
   /** 抢单：POST /fulfillment/tasks/:id/grab，与 accept 同互斥 */

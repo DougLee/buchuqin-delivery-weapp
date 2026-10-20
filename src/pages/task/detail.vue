@@ -124,6 +124,18 @@ const callRecipient = () => {
   if (task.value?.recipientPhone)
     uni.makePhoneCall({ phoneNumber: task.value.recipientPhone });
 };
+/** 骑手联系（IKP0AP）：楼长看交接单上家骑手/骑手看本单自己——展示同收件人
+ *  先例（手机号脱敏，座机等格式原样），点击拨真实号 */
+const riderPhoneText = computed(() => {
+  const phone = task.value?.rider?.phone ?? "";
+  return /^1\d{10}$/.test(phone)
+    ? phone.slice(0, 3) + "****" + phone.slice(7)
+    : phone;
+});
+const callRider = () => {
+  const phone = task.value?.rider?.phone;
+  if (phone) uni.makePhoneCall({ phoneNumber: phone });
+};
 /**
  * 选图统一入口（2026-09-08 道哥反馈：点拍照无框即报「操作失败」）：
  * chooseImage 是微信隐私 API——后台未配「用户隐私保护指引」时真机直接
@@ -378,6 +390,20 @@ async function confirmDeliver() {
         class="contact__call"
         aria-label="拨打收件人电话"
         @tap="callRecipient"
+      >
+        联系
+      </button></view
+    ><!-- IKP0AP 骑手联系：上家骑手（楼长视角交接单）/本单骑手，接单后才有值，null 不渲染 -->
+<view v-if="task.rider" class="contact card"
+      ><view
+        ><text class="contact__label">骑手</text
+        ><text class="contact__value"
+        >{{ task.rider.name }} · {{ riderPhoneText }}</text
+      ></view
+      ><button
+        class="contact__call"
+        aria-label="拨打骑手电话"
+        @tap="callRider"
       >
         联系
       </button></view

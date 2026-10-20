@@ -127,6 +127,35 @@ function toggleStatus() {
     },
   });
 }
+/** 联系电话自助修改（IKP0AP）：showModal editable（微信基础库 2.17.1+）弹窗
+ *  输入，本地与后端同规校验 /^[0-9-]{3,20}$/，成功后本地同步展示 */
+const phoneSaving = ref(false);
+function editPhone() {
+  if (phoneSaving.value || !profile.value) return;
+  uni.showModal({
+    title: "修改联系电话",
+    editable: true,
+    placeholderText: "手机号或座机",
+    success: async (m) => {
+      if (!m.confirm) return;
+      const phone = (m.content ?? "").trim();
+      if (!/^[0-9-]{3,20}$/.test(phone)) {
+        uni.showToast({ title: "电话格式不正确", icon: "none" });
+        return;
+      }
+      phoneSaving.value = true;
+      try {
+        await api.updateMyProfilePhone(phone);
+        if (profile.value) profile.value = { ...profile.value, phone };
+        uni.showToast({ title: "联系电话已更新", icon: "success" });
+      } catch {
+        // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
+      } finally {
+        phoneSaving.value = false;
+      }
+    },
+  });
+}
 /** 履约规范（IK9AX0）：原「帮助」行是带箭头的死菜单，点开真内容 */
 function help() {
   uni.showModal({
@@ -308,6 +337,14 @@ async function logout() {
         ><view class="menu__body"
           ><text>服务楼栋</text><text>{{ profile.building }}</text></view
         ></view
+      ><!-- IKP0AP：联系电话信息行（空=未设置），弹窗输入改号，同后端正则校验 --><view
+        role="button"
+        @tap="editPhone"
+        ><view class="menu__icon phone"></view
+        ><view class="menu__body"
+          ><text>联系电话</text
+          ><text>{{ profile.phone || "未设置" }}</text></view
+        ><text class="link-chip">修改</text></view
       ><!-- IKA57R：状态设置入口移到本页，点击直接切换（原首页入口被胶囊遮挡） --><view
         role="button"
         @tap="toggleStatus"
@@ -522,6 +559,28 @@ async function logout() {
   margin: -17rpx 0 0 -17rpx;
   border-radius: 50%;
   border: 4rpx solid rgba(7, 136, 59, 0.28);
+}
+/* 电话（IKP0AP）：竖机身圆角轮廓 + 底部按键点，同菜单 CSS 图标语言 */
+.phone:before {
+  content: "";
+  position: absolute;
+  left: 16rpx;
+  top: 11rpx;
+  bottom: 11rpx;
+  width: 24rpx;
+  border: 4rpx solid $primary-dark;
+  border-radius: 9rpx;
+}
+.phone:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 17rpx;
+  width: 12rpx;
+  height: 4rpx;
+  margin-left: -6rpx;
+  border-radius: 2rpx;
+  background: $primary-dark;
 }
 /* 帮助/退出：ASCII 字形全机型稳定，圆环包裹成 icon 观感 */
 .help:before,
