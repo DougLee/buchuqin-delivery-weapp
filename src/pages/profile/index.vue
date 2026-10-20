@@ -127,40 +127,42 @@ function toggleStatus() {
     },
   });
 }
-/** 联系电话自助修改（IKP0AP）：showModal editable（微信基础库 2.17.1+）弹窗
- *  输入，本地与后端同规校验 /^[0-9-]{3,20}$/，成功后本地同步展示 */
+/** 联系电话自助修改（道哥 2026-10-20 重设计）：点「修改」弹底部弹层——
+ *  ①一键获取本机号（button open-type=getPhoneNumber，code 后端换号）
+ *  ②手动输入（input + 同规校验）；双通道复用 applyPhone 回显 */
 const phoneSaving = ref(false);
+const phoneSheetOpen = ref(false);
+const phoneInput = ref("");
 function applyPhone(profile0: Partial<StaffProfile> | undefined) {
   if (profile0 && profile.value)
     profile.value = { ...profile.value, phone: profile0.phone ?? "" };
+  phoneSheetOpen.value = false;
   uni.showToast({ title: "联系电话已更新", icon: "success" });
 }
 function editPhone() {
   if (phoneSaving.value || !profile.value) return;
-  uni.showModal({
-    title: "手动输入联系电话",
-    editable: true,
-    placeholderText: "手机号或座机",
-    success: async (m) => {
-      if (!m.confirm) return;
-      const phone = (m.content ?? "").trim();
-      if (!/^[0-9-]{3,20}$/.test(phone)) {
-        uni.showToast({ title: "电话格式不正确", icon: "none" });
-        return;
-      }
-      phoneSaving.value = true;
-      try {
-        applyPhone(await api.updateMyProfilePhone(phone));
-      } catch {
-        // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
-      } finally {
-        phoneSaving.value = false;
-      }
-    },
-  });
+  phoneInput.value = "";
+  phoneSheetOpen.value = true;
 }
-/** 一键获取本机手机号（道哥 2026-10-20）：button open-type=getPhoneNumber
- *  回调 code → 后端换真实号并落档；用户拒绝授权静默返回 */
+/** 手动输入提交：同后端正则 /^[0-9-]{3,20}$/ 校验 */
+async function submitPhoneInput() {
+  const phone = phoneInput.value.trim();
+  if (phoneSaving.value) return;
+  if (!/^[0-9-]{3,20}$/.test(phone)) {
+    uni.showToast({ title: "请输入正确的手机号或座机", icon: "none" });
+    return;
+  }
+  phoneSaving.value = true;
+  try {
+    applyPhone(await api.updateMyProfilePhone(phone));
+  } catch {
+    // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
+  } finally {
+    phoneSaving.value = false;
+  }
+}
+/** 一键获取本机手机号：button open-type=getPhoneNumber 回调 code →
+ *  后端换真实号并落档；用户拒绝授权静默返回 */
 async function onWechatPhone(e: { detail: { code?: string; errMsg?: string } }) {
   const code = e.detail.code;
   if (!code || phoneSaving.value || !profile.value) return; // 拒绝授权/fail：静默
@@ -354,19 +356,15 @@ async function logout() {
         ><view class="menu__body"
           ><text>服务楼栋</text><text>{{ profile.building }}</text></view
         ></view
-      ><!-- IKP0AP：联系电话信息行（空=未设置），双入口——本机号一键获取
-          （getPhoneNumber code 后端换号）+ 手动输入（弹窗同规校验） --><view
+      ><!-- IKP0AP：联系电话信息行（空=未设置），点修改弹底部弹层（一键
+          获取本机号 + 手动输入双通道，道哥 2026-10-20 重设计） --><view
+        role="button"
+        @tap="editPhone"
         ><view class="menu__icon phone"></view
         ><view class="menu__body"
           ><text>联系电话</text
           ><text>{{ profile.phone || "未设置" }}</text></view
-        ><button
-          class="link-chip phone-wechat-btn"
-          open-type="getPhoneNumber"
-          :disabled="phoneSaving"
-          @getphonenumber="onWechatPhone"
-          >本机号</button
-        ><text class="link-chip" role="button" @tap="editPhone">修改</text></view
+        ><text class="link-chip">修改</text></view
       ><!-- IKA57R：状态设置入口移到本页，点击直接切换（原首页入口被胶囊遮挡） --><view
         role="button"
         @tap="toggleStatus"
@@ -389,22 +387,169 @@ async function logout() {
         ></view
       ></view
     ><!-- IK9U49：删「履约支持 09:00-22:30」底栏 --></view
+  ><!-- 修改联系电话弹层（道哥 2026-10-20）：底部弹出，一键获取本机号
+      （微信原生授权）与手动输入双通道 -->
+  <view
+    v-if="phoneSheetOpen"
+    class="phone-sheet-mask"
+    @tap="phoneSheetOpen = false"
+    ><view class="phone-sheet" @tap.stop
+      ><view class="phone-sheet__head"
+        ><text class="phone-sheet__title">修改联系电话</text
+        ><text
+          class="phone-sheet__close"
+          role="button"
+          @tap="phoneSheetOpen = false">✕</text></view
+      ><text class="phone-sheet__current"
+        >当前：{{ profile?.phone || "未设置" }}</text
+      ><button
+        class="phone-sheet__wechat"
+        open-type="getPhoneNumber"
+        :disabled="phoneSaving"
+        @getphonenumber="onWechatPhone"
+        ><view class="phone-sheet__wechat-icon"></view
+        >一键获取本机手机号</button
+      ><view class="phone-sheet__divider"><text>或手动输入</text></view
+      ><input
+        v-model="phoneInput"
+        class="phone-sheet__input"
+        type="text"
+        maxlength="20"
+        placeholder="手机号或座机，如 138xxxx5678"
+        placeholder-class="phone-sheet__ph"
+      /><button
+        class="phone-sheet__submit"
+        :disabled="phoneSaving || !phoneInput.trim()"
+        @tap="submitPhoneInput"
+        >{{ phoneSaving ? "保存中…" : "保存" }}</button
+      ></view
+    ></view
   >
 </template>
 <style scoped lang="scss">
-/* 本机号 chip：重置微信 button 默认样式对齐 .link-chip（全局）观感 */
-.phone-wechat-btn {
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  line-height: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  color: inherit;
+/* 修改联系电话弹层（道哥 2026-10-20）：底部弹出卡片，品牌绿语言——
+   一键获取大按钮（纯 CSS 手机图标）+ 分隔线 + 手输确认，双通道一屏完成 */
+.phone-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(6, 46, 35, 0.45);
+  display: flex;
+  align-items: flex-end;
 }
-.phone-wechat-btn::after {
+.phone-sheet {
+  width: 100%;
+  background: #fff;
+  border-radius: 34rpx 34rpx 0 0;
+  padding: 34rpx 34rpx calc(40rpx + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+.phone-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.phone-sheet__title {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #153628;
+}
+.phone-sheet__close {
+  padding: 8rpx;
+  font-size: 28rpx;
+  color: #8a978f;
+}
+.phone-sheet__current {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  color: #8a978f;
+}
+.phone-sheet__wechat {
+  margin-top: 28rpx;
+  height: 92rpx;
+  border-radius: 46rpx;
+  background: linear-gradient(135deg, #07883b, #25b95a);
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
   border: none;
+  box-shadow: 0 10rpx 24rpx rgba(7, 136, 59, 0.18);
+}
+.phone-sheet__wechat::after {
+  border: none;
+}
+.phone-sheet__wechat[disabled] {
+  opacity: 0.6;
+  color: #fff;
+  background: linear-gradient(135deg, #07883b, #25b95a);
+}
+/* 纯 CSS 手机图标（对齐项目 icon 语言，不用 emoji） */
+.phone-sheet__wechat-icon {
+  width: 20rpx;
+  height: 30rpx;
+  border: 3rpx solid #fff;
+  border-radius: 6rpx;
+  position: relative;
+}
+.phone-sheet__wechat-icon::after {
+  content: "";
+  position: absolute;
+  bottom: 3rpx;
+  left: 50%;
+  width: 6rpx;
+  height: 4rpx;
+  background: #fff;
+  border-radius: 1rpx;
+  transform: translateX(-50%);
+}
+.phone-sheet__divider {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin: 30rpx 0;
+  color: #b9c4bd;
+  font-size: 22rpx;
+}
+.phone-sheet__divider::before,
+.phone-sheet__divider::after {
+  content: "";
+  flex: 1;
+  height: 1rpx;
+  background: #eef3ef;
+}
+.phone-sheet__input {
+  height: 88rpx;
+  border: 2rpx solid #e8ece8;
+  border-radius: 20rpx;
+  padding: 0 28rpx;
+  font-size: 28rpx;
+  background: #fafbfa;
+}
+.phone-sheet__ph {
+  color: #b9c4bd;
+}
+.phone-sheet__submit {
+  margin-top: 24rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  background: #f0f5f1;
+  color: #0b4b36;
+  font-size: 30rpx;
+  font-weight: 700;
+  border: none;
+}
+.phone-sheet__submit::after {
+  border: none;
+}
+.phone-sheet__submit[disabled] {
+  opacity: 0.45;
+  color: #0b4b36;
+  background: #f0f5f1;
 }
 @import "../../styles/theme.scss";
 .profile {
