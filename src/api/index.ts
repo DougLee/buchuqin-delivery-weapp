@@ -129,6 +129,13 @@ export const api = {
       method: "PATCH" as UniApp.RequestOptions["method"],
       data: { phone },
     }),
+  /** 一键获取本机手机号（道哥 2026-10-20）：wx getPhoneNumber code 换号，
+   *  后端按组织履约凭证调微信接口换真实号并直写档案，返回最新 profile */
+  fetchMyPhoneByWechat: (code: string) =>
+    request<Partial<StaffProfile>>("/fulfillment/profile/wechat-phone", {
+      method: "POST" as UniApp.RequestOptions["method"],
+      data: { code },
+    }),
   /** 抢单池（仅骑手角色，楼长 403）：GET /fulfillment/tasks/available */
   availableTasks: () => request<Task[]>("/fulfillment/tasks/available"),
   /** 抢单：POST /fulfillment/tasks/:id/grab，与 accept 同互斥 */

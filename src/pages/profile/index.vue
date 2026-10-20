@@ -130,10 +130,15 @@ function toggleStatus() {
 /** 联系电话自助修改（IKP0AP）：showModal editable（微信基础库 2.17.1+）弹窗
  *  输入，本地与后端同规校验 /^[0-9-]{3,20}$/，成功后本地同步展示 */
 const phoneSaving = ref(false);
+function applyPhone(profile0: Partial<StaffProfile> | undefined) {
+  if (profile0 && profile.value)
+    profile.value = { ...profile.value, phone: profile0.phone ?? "" };
+  uni.showToast({ title: "联系电话已更新", icon: "success" });
+}
 function editPhone() {
   if (phoneSaving.value || !profile.value) return;
   uni.showModal({
-    title: "修改联系电话",
+    title: "手动输入联系电话",
     editable: true,
     placeholderText: "手机号或座机",
     success: async (m) => {
@@ -145,9 +150,7 @@ function editPhone() {
       }
       phoneSaving.value = true;
       try {
-        await api.updateMyProfilePhone(phone);
-        if (profile.value) profile.value = { ...profile.value, phone };
-        uni.showToast({ title: "联系电话已更新", icon: "success" });
+        applyPhone(await api.updateMyProfilePhone(phone));
       } catch {
         // ADR-0005(IKA00R)：失败原因 request 层已 toast，这里只防未处理拒绝
       } finally {
@@ -155,6 +158,20 @@ function editPhone() {
       }
     },
   });
+}
+/** 一键获取本机手机号（道哥 2026-10-20）：button open-type=getPhoneNumber
+ *  回调 code → 后端换真实号并落档；用户拒绝授权静默返回 */
+async function onWechatPhone(e: { detail: { code?: string; errMsg?: string } }) {
+  const code = e.detail.code;
+  if (!code || phoneSaving.value || !profile.value) return; // 拒绝授权/fail：静默
+  phoneSaving.value = true;
+  try {
+    applyPhone(await api.fetchMyPhoneByWechat(code));
+  } catch {
+    uni.showToast({ title: "获取失败，请手动输入", icon: "none" });
+  } finally {
+    phoneSaving.value = false;
+  }
 }
 /** 履约规范（IK9AX0）：原「帮助」行是带箭头的死菜单，点开真内容 */
 function help() {
@@ -337,14 +354,19 @@ async function logout() {
         ><view class="menu__body"
           ><text>服务楼栋</text><text>{{ profile.building }}</text></view
         ></view
-      ><!-- IKP0AP：联系电话信息行（空=未设置），弹窗输入改号，同后端正则校验 --><view
-        role="button"
-        @tap="editPhone"
+      ><!-- IKP0AP：联系电话信息行（空=未设置），双入口——本机号一键获取
+          （getPhoneNumber code 后端换号）+ 手动输入（弹窗同规校验） --><view
         ><view class="menu__icon phone"></view
         ><view class="menu__body"
           ><text>联系电话</text
           ><text>{{ profile.phone || "未设置" }}</text></view
-        ><text class="link-chip">修改</text></view
+        ><button
+          class="link-chip phone-wechat-btn"
+          open-type="getPhoneNumber"
+          :disabled="phoneSaving"
+          @getphonenumber="onWechatPhone"
+          >本机号</button
+        ><text class="link-chip" role="button" @tap="editPhone">修改</text></view
       ><!-- IKA57R：状态设置入口移到本页，点击直接切换（原首页入口被胶囊遮挡） --><view
         role="button"
         @tap="toggleStatus"
@@ -370,6 +392,20 @@ async function logout() {
   >
 </template>
 <style scoped lang="scss">
+/* 本机号 chip：重置微信 button 默认样式对齐 .link-chip（全局）观感 */
+.phone-wechat-btn {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  line-height: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+.phone-wechat-btn::after {
+  border: none;
+}
 @import "../../styles/theme.scss";
 .profile {
   padding-top: 42rpx;
