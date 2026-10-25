@@ -46,7 +46,14 @@ export function uploadImage(file: string): Promise<string> {
         }
       },
       fail(err) {
-        uni.showToast({ title: "图片上传失败，请重试", icon: "none" });
+        // 真因透出（2026-10-24 道哥复现「无楼长单传不了图」排查）：真机域名
+        // 未配 uploadFile 合法域名时 errMsg 为 url not in domain list——
+        // 笼统文案掩盖根因，改成可判定的提示
+        const raw = (err as { errMsg?: string })?.errMsg || "";
+        const msg = /domain|url not in/i.test(raw)
+          ? "上传域名未配置（小程序后台 uploadFile 合法域名）"
+          : raw.replace(/^uploadFile:fail\s*/, "") || "图片上传失败，请重试";
+        uni.showToast({ title: msg, icon: "none", duration: 3000 });
         reject(err);
       },
     }),
