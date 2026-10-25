@@ -220,15 +220,26 @@ const deliverDialogOpen = ref(false),
   deliverUploading = ref(false);
 async function addDeliverProof() {
   if (deliverUploading.value) return;
+  let paths: string[] = [];
   try {
-    const paths = await pickImages(3);
-    if (!paths.length) return;
-    deliverUploading.value = true;
-    uni.showLoading({ title: "照片上传中", mask: true });
+    paths = await pickImages(3);
+  } catch (e) {
+    // 选图失败透出（2026-10-24 道哥复现「点凭证没框弹出来」排查）：
+    // 此前整个 catch 静默吞错——chooseImage fail（权限/基础库）用户看不到
+    // 任何反馈。取消仍静默，失败必须可见。
+    const msg = e instanceof Error ? e.message : "";
+    if (!/已取消/.test(msg))
+      uni.showToast({ title: msg || "无法选择照片", icon: "none", duration: 3000 });
+    return;
+  }
+  if (!paths.length) return;
+  deliverUploading.value = true;
+  uni.showLoading({ title: "照片上传中", mask: true });
+  try {
     const urls = await Promise.all(paths.map((p) => uploadImage(p)));
     deliverProofImages.value = [...deliverProofImages.value, ...urls].slice(0, 3);
   } catch {
-    /* 取消/失败不阻断，可重选 */
+    /* uploadImage 已 toast 具体原因，这里仅复位状态 */
   } finally {
     deliverUploading.value = false;
     safeHideLoading();
