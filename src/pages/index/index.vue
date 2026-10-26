@@ -16,8 +16,6 @@ import {
 } from "../../utils/notifyQuota";
 import type {
   Dashboard,
-  BattleMapData,
-  BattleRoomDetail,
   Shift,
   StaffRole,
   StaffStatus,
@@ -62,7 +60,6 @@ async function load() {
     await session.ensure();
     const [d, s] = await Promise.all([
       api.dashboard(session.role).then((d) => {
-        if (isManagerRole(d.profile.role)) void loadBattleMap();
         return d;
       }),
       api.shiftsCurrent(),
@@ -90,88 +87,6 @@ async function load() {
 const isManager = computed(() =>
   isManagerRole(data.value?.profile.role ?? "fulltime-rider"),
 );
-const battleMap = ref<BattleMapData | null>(null);
-const mapLoading = ref(false);
-const mapError = ref("");
-const mapFloor = ref<number | null>(null);
-const activeFloor = computed(
-  () => battleMap.value?.floors.find((f) => f.floor === mapFloor.value) ?? null,
-);
-async function loadBattleMap() {
-  mapLoading.value = true;
-  mapError.value = "";
-  try {
-    battleMap.value = await api.battleMap();
-    mapFloor.value = battleMap.value.floors[0]?.floor ?? null;
-  } catch (e) {
-    mapError.value = e instanceof Error ? e.message : "地图加载失败";
-  } finally {
-    mapLoading.value = false;
-  }
-}
-/* 楼层横滑溢出提示（道哥 2026-10-19）：两端渐隐+chevron，还有未露出内容
-   的方向才显示；楼层一屏内两端都不出。scroll 时只更新位置，宽度变化
-   （切楼栋/首载）后重测。箭头可点（道哥 2026-10-19 追加）：点击按视口
-   80% 步进翻页滚动（scroll-left 受控+动画），效果同手滑。 */
-const floorOverflow = ref({ canLeft: false, canRight: false });
-const floorScrollPos = ref(0);
-let floorClientWidth = 0;
-let floorScrollWidth = 0;
-let floorLastLeft = 0;
-function updateFloorArrows(scrollLeft: number) {
-  floorOverflow.value.canLeft = scrollLeft > 4;
-  floorOverflow.value.canRight =
-    floorScrollWidth > 0 &&
-    scrollLeft + floorClientWidth < floorScrollWidth - 4;
-}
-function measureFloorOverflow() {
-  uni
-    .createSelectorQuery()
-    .select(".battle-floors-scroll")
-    .boundingClientRect()
-    .select(".battle-floors")
-    .boundingClientRect()
-    .exec((rs) => {
-      const outer = rs?.[0] as { width?: number } | null;
-      const inner = rs?.[1] as { width?: number } | null;
-      if (!outer || !inner) return;
-      floorClientWidth = outer.width ?? 0;
-      floorScrollWidth = inner.width ?? 0;
-      updateFloorArrows(floorLastLeft);
-    });
-}
-function onFloorScroll(e: { detail: { scrollLeft: number } }) {
-  floorLastLeft = e.detail.scrollLeft;
-  floorScrollPos.value = floorLastLeft;
-  updateFloorArrows(floorLastLeft);
-}
-/** 点箭头翻页：±视口 80%（留一档重叠上下文），scroll-view 自动 clamp 边界 */
-function scrollFloor(dir: -1 | 1) {
-  const target = floorLastLeft + dir * floorClientWidth * 0.8;
-  floorScrollPos.value = Math.max(0, target);
-}
-/** 楼层数据变化（首载/切楼栋下拉刷新）后重测内容宽，箭头状态归位重算 */
-watch(battleMap, () => {
-  floorLastLeft = 0;
-  void nextTick(measureFloorOverflow);
-});
-/* 寝室详情弹层 */
-const roomOpen = ref(false);
-const roomLoading = ref(false);
-const roomDetail = ref<BattleRoomDetail | null>(null);
-async function openRoom(cell: { roomId: string; roomNo: string }) {
-  roomOpen.value = true;
-  roomLoading.value = true;
-  roomDetail.value = null;
-  try {
-    roomDetail.value = await api.battleMapRoom(cell.roomId);
-  } catch (e) {
-    roomOpen.value = false;
-    mapError.value = e instanceof Error ? e.message : "寝室详情加载失败";
-  } finally {
-    roomLoading.value = false;
-  }
-}
 /** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
 const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
@@ -399,8 +314,9 @@ onShow(load);
       >
 
       <!-- IKKTTP 金额四联：今日/本月 × 销售额/收入（楼长推广激励看板） -->
+      <!-- 金额区（IKQCGO 角色化）：销售额仅楼长可见，配送员只看收入 -->
       <view class="stats card">
-        <view
+        <view v-if="isManager"
           ><text class="stats__value"
             >¥{{ fenToYuan(data.stats.todayGmv) }}</text
           ><text class="stats__label">今日销售额</text></view
@@ -410,7 +326,7 @@ onShow(load);
             >¥{{ fenToYuan(data.stats.todayIncome) }}</text
           ><text class="stats__label">今日收入</text></view
         >
-        <view
+        <view v-if="isManager"
           ><text class="stats__value"
             >¥{{ fenToYuan(data.stats.monthGmv) }}</text
           ><text class="stats__label">本月销售额</text></view
@@ -421,97 +337,8 @@ onShow(load);
         >
       </view>
 
-      <!-- IKKTTP 楼长：此楼作战地图（三色格+楼层切换+寝室详情） -->
-      <template v-if="isManager">
-        <view class="section-title"
-          ><view
-            ><text class="section-kicker">BATTLE MAP</text
-            ><text class="section-title__main">作战地图</text></view
-          ><text class="section-title__sub">{{
-            battleMap?.building.name ?? ""
-          }}</text></view
-        >
-        <view v-if="mapLoading" class="card map-empty">地图加载中…</view>
-        <view v-else-if="mapError" class="card map-empty">{{ mapError }}</view>
-        <view v-else-if="battleMap" class="card battle-map">
-          <!-- 楼层切换（道哥 2026-10-19：固定宽+横向滑动）——高层栋楼层多时
-              等分挤压致文字竖排折行，改 scroll-view 横滑、tab 最小 96rpx；
-              楼层少时 inline-flex+min-width 仍铺满不留白。两端渐隐+chevron
-              提示未露出方向（纯 CSS 箭头，pointer-events 不挡 tab 点击） -->
-          <view class="battle-floors-wrap"
-            ><scroll-view
-              class="battle-floors-scroll"
-              scroll-x
-              :show-scrollbar="false"
-              :scroll-left="floorScrollPos"
-              :scroll-with-animation="true"
-              @scroll="onFloorScroll"
-            >
-              <view class="battle-floors">
-                <view
-                  v-for="f in battleMap.floors"
-                  :key="f.floor"
-                  class="battle-floor-tab"
-                  :class="{ active: mapFloor === f.floor }"
-                  @tap="mapFloor = f.floor"
-                  >{{ f.floor }} 层</view
-                >
-              </view>
-            </scroll-view>
-            <view
-              v-if="floorOverflow.canLeft"
-              class="battle-floors-edge battle-floors-edge--left"
-              hover-class="battle-floors-edge--tap"
-              :hover-stay-time="120"
-              @tap.stop="scrollFloor(-1)"
-              ><view class="battle-floors-arrow"
-            /></view>
-            <view
-              v-if="floorOverflow.canRight"
-              class="battle-floors-edge battle-floors-edge--right"
-              hover-class="battle-floors-edge--tap"
-              :hover-stay-time="120"
-              @tap.stop="scrollFloor(1)"
-              ><view class="battle-floors-arrow" /></view
-          ></view>
-          <view v-if="activeFloor" class="battle-summary">
-            <text class="battle-summary__rate"
-              >{{ (activeFloor.coverageRate / 100).toFixed(1) }}%</text
-            >
-            <text class="battle-summary__label">覆盖率</text>
-            <text class="battle-summary__dot ordered">{{
-              activeFloor.ordered
-            }}</text>
-            <text class="battle-summary__dot registered">{{
-              activeFloor.registered
-            }}</text>
-            <text class="battle-summary__dot fresh">{{
-              activeFloor.fresh
-            }}</text>
-          </view>
-          <view v-if="activeFloor" class="battle-grid">
-            <view
-              v-for="cell in activeFloor.rooms"
-              :key="cell.roomId"
-              class="battle-cell"
-              :class="cell.status"
-              @tap="openRoom(cell)"
-            >
-              <text class="battle-cell__no">{{ cell.roomNo }}</text>
-              <text v-if="cell.status === 'ordered'" class="battle-cell__sub"
-                >{{ cell.orderCount }}单</text
-              >
-              <text
-                v-else-if="cell.status === 'registered'"
-                class="battle-cell__sub"
-                >{{ cell.userCount }}人</text
-              >
-            </view>
-          </view>
-        </view>
-      </template>
 
-      <view v-else class="section-title"
+      <view class="section-title"
         ><view
           ><text class="section-kicker">NEXT TASKS</text
           ><text class="section-title__main">优先任务</text></view
@@ -581,40 +408,6 @@ onShow(load);
         >
       </template>
     </template>
-
-    <!-- IKKTTP 寝室详情弹层（作战地图格子下钻） -->
-    <view v-if="roomOpen" class="room-mask" @tap.self="roomOpen = false">
-      <view class="room-sheet">
-        <view class="room-sheet__head"
-          ><text class="room-sheet__title"
-            >{{ roomDetail?.room.roomNo ?? "…" }} ·
-            {{ roomDetail?.room.floor ?? "" }} 层</text
-          ><text class="room-sheet__close" @tap="roomOpen = false"
-            >✕</text
-          ></view
-        >
-        <view v-if="roomLoading" class="room-sheet__body">加载中…</view>
-        <view v-else-if="roomDetail" class="room-sheet__body">
-          <view class="room-sheet__meta"
-            >本寝已支付 {{ roomDetail.orderCount }} 单</view
-          >
-          <view v-if="!roomDetail.users.length" class="room-sheet__empty"
-            >还没有注册用户落到这个寝室——先推二维码。</view
-          >
-          <view v-for="u in roomDetail.users" :key="u.userId" class="room-user">
-            <view class="room-user__line"
-              ><text class="room-user__name">{{ u.nickname }}</text
-              ><text v-if="u.highFrequency" class="hf">高频</text></view
-            >
-            <view class="room-user__sub"
-              >{{ u.phone }} · {{ u.orderCount }} 单 · ¥{{
-                fenToYuan(u.totalAmount)
-              }}</view
-            >
-          </view>
-        </view>
-      </view>
-    </view>
 
     <!-- IKDQP9 上岗引导半屏：骑手首次切「接单中」弹一次（storage 标记）。
          三轮视觉（道哥 2026-09-07）：回退 0fec881 认可的骨架（左对齐+授权
@@ -1394,249 +1187,5 @@ onShow(load);
     transform: translateY(30%);
     opacity: 0.4;
   }
-}
-/* ---------- IKKTTP 作战地图（v2：分段楼层+呼吸空间+低饱和三色） ---------- */
-.battle-map {
-  padding: 24rpx 28rpx 28rpx !important;
-}
-.map-empty {
-  padding: 40rpx 28rpx;
-  font-size: 24rpx;
-  color: #8a978f;
-  text-align: center;
-}
-/* 楼层分段控制器（2026-10-19）：固定最小宽+横向滑动——楼层少 inline-flex
-   铺满不留白，楼层多 tab 保持 96rpx 可读宽、超出左滑；选中墨绿胶囊。
-   两端渐隐+chevron：该方向还有未露出内容才显示，遮罩色与分段条底同源 */
-.battle-floors-wrap {
-  position: relative;
-  margin-bottom: 20rpx;
-}
-.battle-floors-scroll {
-  width: 100%;
-}
-.battle-floors {
-  display: inline-flex;
-  min-width: 100%;
-  box-sizing: border-box;
-  gap: 8rpx;
-  background: #f0f5f1;
-  border-radius: 16rpx;
-  padding: 6rpx;
-}
-.battle-floors-edge {
-  position: absolute;
-  top: 6rpx;
-  bottom: 6rpx;
-  width: 64rpx;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-}
-/* 按压反馈：箭头与渐隐加深一档 */
-.battle-floors-edge--tap .battle-floors-arrow {
-  border-color: #4c5c53;
-  transform-origin: center;
-}
-.battle-floors-edge--tap.battle-floors-edge--left .battle-floors-arrow {
-  transform: rotate(45deg) scale(1.15);
-}
-.battle-floors-edge--tap.battle-floors-edge--right .battle-floors-arrow {
-  transform: rotate(-135deg) scale(1.15);
-}
-.battle-floors-edge--left {
-  left: 0;
-  justify-content: flex-start;
-  padding-left: 10rpx;
-  background: linear-gradient(90deg, #f0f5f1 34%, rgba(240, 245, 241, 0));
-  border-radius: 16rpx 0 0 16rpx;
-}
-.battle-floors-edge--right {
-  right: 0;
-  justify-content: flex-end;
-  padding-right: 10rpx;
-  background: linear-gradient(270deg, #f0f5f1 34%, rgba(240, 245, 241, 0));
-  border-radius: 0 16rpx 16rpx 0;
-}
-/* 纯 CSS chevron（不用字符图标，避免字体渲染差异）：L 形边框旋转定朝向 */
-.battle-floors-arrow {
-  width: 14rpx;
-  height: 14rpx;
-  border-left: 3rpx solid #8a978f;
-  border-bottom: 3rpx solid #8a978f;
-}
-.battle-floors-edge--left .battle-floors-arrow {
-  transform: rotate(45deg);
-}
-.battle-floors-edge--right .battle-floors-arrow {
-  transform: rotate(-135deg);
-}
-.battle-floor-tab {
-  flex: 1 0 96rpx;
-  min-width: 96rpx;
-  text-align: center;
-  padding: 12rpx 0;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  white-space: nowrap;
-  color: #63736a;
-  transition: all 0.18s ease;
-}
-.battle-floor-tab.active {
-  background: #fff;
-  color: #0b4b36;
-  font-weight: 700;
-  box-shadow: 0 2rpx 10rpx rgba(7, 63, 45, 0.1);
-}
-/* 汇总行：大号覆盖率 + 三色圆点计数 */
-.battle-summary {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  padding: 4rpx 4rpx 20rpx;
-  margin-bottom: 20rpx;
-  border-bottom: 1rpx solid #eef3ef;
-}
-.battle-summary__rate {
-  font-size: 40rpx;
-  font-weight: 800;
-  color: #0b4b36;
-  letter-spacing: -1rpx;
-}
-.battle-summary__label {
-  font-size: 20rpx;
-  color: #8a978f;
-  margin-right: auto;
-}
-.battle-summary__dot {
-  display: flex;
-  align-items: center;
-  gap: 6rpx;
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #4c5c53;
-}
-.battle-summary__dot::before {
-  content: "";
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-}
-.battle-summary__dot.ordered::before {
-  background: #12a05e;
-}
-.battle-summary__dot.registered::before {
-  background: #e8a33d;
-}
-.battle-summary__dot.fresh::before {
-  background: #d5ded8;
-}
-/* 格子：低饱和三色、均衡间距 */
-.battle-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112rpx, 1fr));
-  gap: 12rpx;
-}
-.battle-cell {
-  aspect-ratio: 1;
-  border-radius: 14rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2rpx;
-  font-size: 25rpx;
-  font-weight: 600;
-}
-.battle-cell.ordered {
-  background: #12a05e;
-  color: #fff;
-}
-.battle-cell.registered {
-  background: #e8a33d;
-  color: #fff;
-}
-.battle-cell.fresh {
-  background: #f4f7f5;
-  color: #9aa79f;
-}
-.battle-cell__sub {
-  font-size: 19rpx;
-  font-weight: 400;
-  opacity: 0.82;
-}
-/* 寝室详情弹层 */
-.room-mask {
-  position: fixed;
-  inset: 0;
-  background: #062e2366;
-  z-index: 30;
-  display: flex;
-  align-items: flex-end;
-}
-.room-sheet {
-  width: 100%;
-  max-height: 70vh;
-  background: #fff;
-  border-radius: 28rpx 28rpx 0 0;
-  padding: 28rpx 28rpx 40rpx;
-  box-sizing: border-box;
-}
-.room-sheet__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16rpx;
-}
-.room-sheet__title {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #153628;
-}
-.room-sheet__close {
-  font-size: 30rpx;
-  color: #7b8981;
-  padding: 8rpx;
-}
-.room-sheet__body {
-  overflow-y: auto;
-  max-height: 56vh;
-}
-.room-sheet__meta {
-  font-size: 24rpx;
-  color: #55645b;
-  margin-bottom: 16rpx;
-}
-.room-sheet__empty {
-  font-size: 24rpx;
-  color: #7b8981;
-  padding: 30rpx 0;
-  text-align: center;
-}
-.room-user {
-  padding: 14rpx 0;
-  border-bottom: 1rpx solid #f2f6f3;
-}
-.room-user__line {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-.room-user__name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #153628;
-}
-.hf {
-  font-size: 20rpx;
-  color: #159c55;
-  background: #159c5520;
-  border-radius: 999rpx;
-  padding: 2rpx 12rpx;
-}
-.room-user__sub {
-  font-size: 22rpx;
-  color: #7b8981;
-  margin-top: 4rpx;
 }
 </style>
