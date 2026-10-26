@@ -157,13 +157,17 @@ const week = computed(() => {
       ></view
     ><view class="records card"
       ><view v-for="r in bill.records" :key="r.id" class="record"
-        ><view class="record__icon"></view
+        ><view class="record__icon" :class="{ 'record__icon--neg': r.amount < 0 }"></view
         ><view class="record__content"
-          ><text class="record__title">{{ r.building }} 配送</text
+          ><text class="record__title">{{ r.amount < 0 ? "退款冲回" : `${r.building} 配送` }}</text
           ><text class="muted"
             >{{ r.orderNo }} · {{ formatShort(r.createdAt) }}</text
           ></view
-        ><text class="money">+¥{{ fenToYuan(r.amount) }}</text></view
+        ><text class="money" :class="{ 'money--neg': r.amount < 0 }">{{
+          r.amount < 0
+            ? `-¥${fenToYuan(-r.amount)}`
+            : `+¥${fenToYuan(r.amount)}`
+        }}</text></view
       ><view v-if="!bill.records.length" class="records__empty"
         >本月暂无提成记录</view
       ></view
@@ -353,6 +357,13 @@ const week = computed(() => {
   color: $primary-dark;
   font-size: 30rpx;
   font-weight: 900;
+}
+/* 退款冲回（道哥 2026-10-26）：负向调整独立观感——橙字+橙底图标，一眼区分 */
+.money--neg {
+  color: #c85a22;
+}
+.record__icon--neg {
+  background: rgba(200, 90, 34, 0.12);
 }
 .income-skeleton__hero,
 .income-skeleton__break,
