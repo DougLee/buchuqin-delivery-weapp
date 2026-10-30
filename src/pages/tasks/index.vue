@@ -58,7 +58,10 @@ const tabs = computed<Array<[string, string]>>(() =>
 const buildingId = ref("");
 const buildings = ref<Array<{ id: string; name: string }>>([]);
 async function loadBuildings() {
+  // 先等登录就绪：onShow 时 token 可能未取到，裸调会 401 且被静默吞掉，
+  // 停留本页不再触发 onShow 就永远看不到筛选条（道哥 2026-10-30 实测）
   try {
+    await session.ensure();
     buildings.value = await api.taskBuildings();
   } catch {
     buildings.value = []; // 楼栋列表失败不打断看板，筛选条隐藏
