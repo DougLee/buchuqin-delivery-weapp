@@ -61,11 +61,16 @@ export const api = {
   dashboard: (_r: StaffRole) => request<Dashboard>("/fulfillment/dashboard"),
   tasks: async (_r: StaffRole, s = "all") =>
     (await request<PageResult<Task>>(`/fulfillment/tasks?status=${s}`)).items,
-  /** 任务分页契约（IK9AWX）：滚动加载用，返回完整信封 */
-  tasksPage: (s = "all", page = 1, pageSize = 20) =>
+  /** 任务分页契约（IK9AWX）：滚动加载用，返回完整信封；IKRMQF 加楼栋筛选 */
+  tasksPage: (s = "all", page = 1, pageSize = 20, buildingId = "") =>
     request<PageResult<Task>>(
-      `/fulfillment/tasks?status=${s}&page=${page}&pageSize=${pageSize}`,
+      `/fulfillment/tasks?status=${s}&page=${page}&pageSize=${pageSize}${
+        buildingId ? `&buildingId=${encodeURIComponent(buildingId)}` : ""
+      }`,
     ),
+  /** IKRMQF（道哥 2026-10-30）：任务看板楼栋筛选——骑手所在校区楼栋列表 */
+  taskBuildings: () =>
+    request<Array<{ id: string; name: string }>>("/fulfillment/buildings"),
   task: (_r: StaffRole, id: string) =>
     request<Task>(`/fulfillment/tasks/${id}`),
   action: (
@@ -137,7 +142,12 @@ export const api = {
       data: { code },
     }),
   /** 抢单池（仅骑手角色，楼长 403）：GET /fulfillment/tasks/available */
-  availableTasks: () => request<Task[]>("/fulfillment/tasks/available"),
+  availableTasks: (buildingId = "") =>
+    request<Task[]>(
+      `/fulfillment/tasks/available${
+        buildingId ? `?buildingId=${encodeURIComponent(buildingId)}` : ""
+      }`,
+    ),
   /** 抢单：POST /fulfillment/tasks/:id/grab，与 accept 同互斥 */
   grab: (id: string) =>
     request<Task>(`/fulfillment/tasks/${id}/grab`, {

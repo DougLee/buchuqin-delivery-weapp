@@ -54,6 +54,21 @@ const managerTabs: Array<[string, string]> = [
 const tabs = computed<Array<[string, string]>>(() =>
   isRider.value ? [["pool", "抢单池"], ...riderTabs] : managerTabs,
 );
+/* ---------- IKRMQF（道哥 2026-10-30）：楼栋筛选（仅骑手显示） ---------- */
+const buildingId = ref("");
+const buildings = ref<Array<{ id: string; name: string }>>([]);
+async function loadBuildings() {
+  try {
+    buildings.value = await api.taskBuildings();
+  } catch {
+    buildings.value = []; // 楼栋列表失败不打断看板，筛选条隐藏
+  }
+}
+function pickBuilding(id: string) {
+  if (buildingId.value === id) return;
+  buildingId.value = id;
+  void load(active.value);
+}
 /** 首屏加载（IK9AWX/Y）：pool 走抢单池接口，其余走分页接口取第一页 */
 async function load(s = active.value) {
   error.value = false;
@@ -65,10 +80,10 @@ async function load(s = active.value) {
     active.value = s;
     page.value = 1;
     if (s === "pool") {
-      items.value = await api.availableTasks();
+      items.value = await api.availableTasks(buildingId.value);
       total.value = items.value.length;
     } else {
-      const res = await api.tasksPage(s, 1);
+      const res = await api.tasksPage(s, 1, 20, buildingId.value);
       items.value = res.items;
       total.value = res.total;
     }
@@ -93,7 +108,7 @@ onReachBottom(async () => {
   loadingMore.value = true;
   try {
     page.value += 1;
-    const res = await api.tasksPage(active.value, page.value);
+    const res = await api.tasksPage(active.value, page.value, 20, buildingId.value);
     items.value = [...items.value, ...res.items];
     total.value = res.total;
   } catch {
@@ -174,6 +189,24 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
         ><text>单</text></view
       >
     </view>
+    <!-- IKRMQF（道哥 2026-10-30）：楼栋筛选条（仅骑手）——与状态 tab 叠加过滤 -->
+    <scroll-view
+      v-if="isRider && buildings.length"
+      scroll-x
+      class="bfilter"
+      :show-scrollbar="false"
+      ><view class="bfilter__inner"
+        ><view
+          v-for="b in [{ id: '', name: '全部楼栋' }, ...buildings]"
+          :key="b.id || 'all'"
+          class="bfilter__chip"
+          :class="{ 'bfilter__chip--active': buildingId === b.id }"
+          role="button"
+          @tap="pickBuilding(b.id)"
+          >{{ b.name }}</view
+        ></view
+      ></scroll-view
+    >
     <scroll-view scroll-x class="tabs" :show-scrollbar="false"
       ><view class="tabs__inner"
         ><view
@@ -560,5 +593,32 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
   50% {
     opacity: 0.55;
   }
+}
+
+/* IKRMQF：楼栋筛选条（仅骑手）——浅色描边 chips，与深色状态 tab 区分层级 */
+.bfilter {
+  margin-top: 16rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bfilter__inner {
+  display: inline-flex;
+  gap: 14rpx;
+  padding: 4rpx 4rpx;
+}
+.bfilter__chip {
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  border: 2rpx solid $line;
+  color: #667069;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.bfilter__chip--active {
+  background: #eaf4ee;
+  border-color: var(--brand, #159c55);
+  color: var(--brand, #159c55);
+  font-weight: 800;
 }
 </style>
