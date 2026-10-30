@@ -314,25 +314,36 @@ onShow(load);
       >
 
       <!-- IKKTTP 金额四联：今日/本月 × 销售额/收入（楼长推广激励看板） -->
-      <!-- 金额区（IKQCGO 角色化）：销售额仅楼长可见，配送员只看收入 -->
-      <view class="stats card">
+      <!-- 金额区（IKQCGO 角色化）：销售额仅楼长可见，配送员只看收入。
+           2026-10-30 样式优化：骑手两格自适应占满（原固定 4 列右半空），
+           零值灰化、有收入品牌绿（道哥 /ui-ux-pro-max） -->
+      <view class="stats card" :class="{ 'stats--rider': !isManager }">
         <view v-if="isManager"
-          ><text class="stats__value"
+          ><text
+            class="stats__value"
+            :class="{ 'stats__value--zero': !data.stats.todayGmv }"
             >¥{{ fenToYuan(data.stats.todayGmv) }}</text
           ><text class="stats__label">今日销售额</text></view
         >
         <view
-          ><text class="stats__value"
+          ><text
+            class="stats__value"
+            :class="{ 'stats__value--zero': !data.stats.todayIncome }"
             >¥{{ fenToYuan(data.stats.todayIncome) }}</text
           ><text class="stats__label">今日收入</text></view
         >
         <view v-if="isManager"
-          ><text class="stats__value"
+          ><text
+            class="stats__value"
+            :class="{ 'stats__value--zero': !data.stats.monthGmv }"
             >¥{{ fenToYuan(data.stats.monthGmv) }}</text
           ><text class="stats__label">本月销售额</text></view
         >
         <view
-          ><text class="stats__value">¥{{ fenToYuan(data.stats.income) }}</text
+          ><text
+            class="stats__value"
+            :class="{ 'stats__value--zero': !data.stats.income }"
+            >¥{{ fenToYuan(data.stats.income) }}</text
           ><text class="stats__label">本月收入</text></view
         >
       </view>
@@ -719,8 +730,12 @@ onShow(load);
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 26rpx 8rpx;
+  padding: 28rpx 10rpx;
   text-align: center;
+}
+/* 骑手两格自适应占满（原固定 4 列，销售额隐藏后右半空白） */
+.stats--rider {
+  grid-template-columns: repeat(2, 1fr);
 }
 .stats > view + view {
   border-left: 2rpx solid $line;
@@ -730,14 +745,21 @@ onShow(load);
   display: block;
 }
 .stats__value {
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 900;
-  color: $primary-dark;
+  color: var(--brand, #159c55);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5rpx;
+}
+/* 零值弱化：灰化不抢眼，有收入才亮品牌绿 */
+.stats__value--zero {
+  color: #b9c2bc;
 }
 .stats__label {
-  font-size: 18rpx;
+  font-size: 20rpx;
   color: $muted;
-  margin-top: 5rpx;
+  margin-top: 6rpx;
+  letter-spacing: 1rpx;
 }
 .small {
   font-size: 17rpx;
