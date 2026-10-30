@@ -349,7 +349,10 @@ onShow(load);
           <text class="link-chip">全部任务</text></text
         ></view
       >
-      <template v-if="!isManager">
+      <!-- IKQCGO 遗留修复（道哥 2026-10-30）：删作战地图后楼长分支无替代内容，
+           v-if="!isManager" 让楼长优先任务整块空白（连空态都不渲染）——楼长
+           同样渲染（dashboard.tasks 对楼长正常下发，行内按钮按角色走） -->
+      <template>
         <view
           v-for="(task, index) in data.tasks"
           :key="task.id"
