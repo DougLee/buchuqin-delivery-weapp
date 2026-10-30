@@ -62,6 +62,8 @@ async function loadBuildings() {
   // 停留本页不再触发 onShow 就永远看不到筛选条（道哥 2026-10-30 实测）
   try {
     await session.ensure();
+    // 登录就绪后再判角色（onShow 时 isRider 尚未就绪）；已拉到跳过防重复
+    if (!isRider.value || buildings.value.length) return;
     buildings.value = await api.taskBuildings();
   } catch {
     buildings.value = []; // 楼栋列表失败不打断看板，筛选条隐藏
@@ -173,7 +175,12 @@ async function runAction(task: Task) {
     load(active.value).catch(() => {});
   }
 }
-onShow(() => load());
+onShow(() => {
+  // IKRMQF 时序（道哥 2026-10-30）：无条件调——onShow 时 session.role 常未
+  // 就绪，外层判 isRider 会永久跳过且登录完成后无人重触发
+  void loadBuildings();
+  load();
+});
 /** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
 const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 </script>
