@@ -231,7 +231,11 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
             ><view class="route__leg"
               ><text class="route__tag route__tag--to">送</text
               ><text class="address"
-                >{{ task.building }} · {{ task.floor }} 楼 · {{ task.room }}</text
+                >{{ task.building }}<text
+                  v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
+                  class="gender-tag"
+                  :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
+                >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
               ></view
             ><view class="route__leg"
               ><text class="route__tag">取</text
@@ -447,6 +451,24 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 .address {
   font-size: 32rpx;
   font-weight: 900;
+}
+/* IKRMQF：楼栋性别徽标——男寝蓝/女寝粉，mixed 不显示 */
+.gender-tag {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.gender-tag--male {
+  background: #e8f1fd;
+  color: #2563eb;
+}
+.gender-tag--female {
+  background: #fdeef3;
+  color: #db2777;
 }
 .warehouse {
   font-size: 21rpx;

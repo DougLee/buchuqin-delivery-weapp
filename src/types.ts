@@ -50,6 +50,8 @@ export interface Task {
   status: string;
   statusText: string;
   building: string;
+  /** IKRMQF：楼栋性别（male/female/mixed）——任务卡男寝/女寝徽标，mixed 不显示 */
+  buildingGender?: string;
   floor: number;
   room: string;
   itemCount: number;

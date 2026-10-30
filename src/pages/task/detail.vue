@@ -362,7 +362,11 @@ async function confirmDeliver() {
     ><view class="summary"
       ><text class="status-text">{{ task.statusText }}</text
       ><text class="destination"
-        >{{ task.building }} · {{ task.floor }} 楼 · {{ task.room }}</text
+        >{{ task.building }}<text
+          v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
+          class="gender-tag"
+          :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
+        >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
       ><text class="muted-light"
         >{{ task.orderNo }}　{{ task.modeText }}</text
       ></view
@@ -557,6 +561,24 @@ async function confirmDeliver() {
   font-size: 42rpx;
   font-weight: 900;
   margin: 18rpx 0;
+}
+/* IKRMQF：楼栋性别徽标——男寝蓝/女寝粉，mixed 不显示 */
+.gender-tag {
+  display: inline-block;
+  margin-left: 10rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.gender-tag--male {
+  background: #e8f1fd;
+  color: #2563eb;
+}
+.gender-tag--female {
+  background: #fdeef3;
+  color: #db2777;
 }
 .muted-light {
   opacity: 0.82;

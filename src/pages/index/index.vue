@@ -372,7 +372,11 @@ onShow(load);
               ><text>F</text></view
             ><view
               ><text class="building"
-                >{{ task.building }} · {{ task.room }}</text
+                >{{ task.building }}<text
+                  v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
+                  class="gender-tag"
+                  :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
+                >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.room }}</text
               ><!-- 2026-09-07 道哥：时效固定文案与 meta「模式」格重复（同派生自
                deliveryMode），删除；destination 行只留楼栋 · 寝室 --></view
             ></view
@@ -803,6 +807,24 @@ onShow(load);
   display: block;
   font-size: 34rpx;
   font-weight: 900;
+}
+/* IKRMQF：楼栋性别徽标——男寝蓝/女寝粉，mixed 不显示 */
+.gender-tag {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 20rpx;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.gender-tag--male {
+  background: #e8f1fd;
+  color: #2563eb;
+}
+.gender-tag--female {
+  background: #fdeef3;
+  color: #db2777;
 }
 .task__meta {
   gap: 14rpx;
