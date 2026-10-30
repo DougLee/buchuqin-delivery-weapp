@@ -36,14 +36,6 @@ const hour = new Date().getHours();
 const greeting = computed(() =>
   hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好",
 );
-const statusText: Record<StaffStatus, string> = {
-  online: "接单中",
-  paused: "暂停接单",
-  offline: "已下线",
-};
-const staffStatus = computed<StaffStatus>(
-  () => data.value?.profile.status ?? "offline",
-);
 const shiftState = computed(() => {
   if (!shift.value) return { text: "排班加载中", working: false };
   if (shift.value.status === "working")
@@ -196,15 +188,6 @@ onShow(load);
           <text v-if="campusLine" class="campus">{{ campusLine }}</text></view
         >
       </view>
-      <view
-        class="online"
-        :class="{
-          'online--paused': staffStatus === 'paused',
-          'online--offline': staffStatus === 'offline',
-        }"
-        ><view class="online__dot"></view
-        ><text>{{ statusText[staffStatus] }}</text></view
-      >
     </view>
 
     <!-- IKDQP9 低水位提示条：当天有推送失败且余额 <3 条才出现，点击连攒 10 条 -->
@@ -450,7 +433,7 @@ onShow(load);
 @import "../../styles/theme.scss";
 .home {
   /* IKA57R：微信 env(safe-area-inset-top) 在 page 级常取 0，用平台注入的
-     --status-bar-height 才躲得开状态栏；胶囊带另在 .online 避让 */
+     --status-bar-height 才躲得开状态栏 */
   padding-top: calc(24rpx + var(--status-bar-height, 0px));
   background:
     radial-gradient(
@@ -462,7 +445,6 @@ onShow(load);
 }
 .nav,
 .identity,
-.online,
 .hero__top,
 .hero__metric,
 .task__head,
@@ -473,10 +455,6 @@ onShow(load);
 }
 .nav {
   justify-content: space-between;
-}
-.online {
-  /* IKA57R：右侧避让小程序胶囊（约 87px + 边距），防点击/视觉重叠 */
-  margin-right: 196rpx;
 }
 .identity {
   gap: 16rpx;
@@ -521,39 +499,6 @@ onShow(load);
   font-size: 20rpx;
   color: $muted;
   margin-top: 2rpx;
-}
-.online {
-  gap: 9rpx;
-  min-height: 62rpx;
-  padding: 0 20rpx;
-  border-radius: 999rpx;
-  background: #fff;
-  border: 2rpx solid $line;
-  color: $primary-dark;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-.online--paused {
-  color: #8a5a17;
-  border-color: #ecd9b4;
-}
-.online--offline {
-  color: $muted;
-}
-.online__dot {
-  width: 13rpx;
-  height: 13rpx;
-  border-radius: 50%;
-  background: $lime;
-  box-shadow: 0 0 0 7rpx rgba(185, 242, 39, 0.2);
-}
-.online--paused .online__dot {
-  background: $accent;
-  box-shadow: 0 0 0 7rpx rgba(255, 138, 52, 0.18);
-}
-.online--offline .online__dot {
-  background: #b7c4ba;
-  box-shadow: none;
 }
 .hero {
   position: relative;
