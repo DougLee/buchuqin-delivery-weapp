@@ -307,12 +307,6 @@ onShow(load);
         >
       </view>
 
-      <view class="announcement"
-        ><!-- info 图标 CSS 化（IK9VF8）：圆底 + 点/竖条，替代字母 i -->
-        <view class="announcement__mark"></view
-        ><text>{{ data.announcement }}</text></view
-      >
-
       <!-- IKKTTP 金额四联：今日/本月 × 销售额/收入（楼长推广激励看板） -->
       <!-- 金额区（IKQCGO 角色化）：销售额仅楼长可见，配送员只看收入。
            2026-10-30 样式优化：骑手两格自适应占满（原固定 4 列右半空），
@@ -684,48 +678,6 @@ onShow(load);
   margin-top: 10rpx;
   font-size: 18rpx;
   opacity: 0.65;
-}
-.announcement {
-  display: flex;
-  align-items: flex-start;
-  gap: 14rpx;
-  margin: 20rpx 0;
-  padding: 20rpx 22rpx;
-  border-radius: 22rpx;
-  background: $warning;
-  color: #795024;
-  font-size: 22rpx;
-}
-.announcement__mark {
-  flex: 0 0 34rpx;
-  width: 34rpx;
-  height: 34rpx;
-  border-radius: 50%;
-  background: $accent;
-  position: relative;
-}
-/* info 图标（IK9VF8）：上点下竖，替代字母 i 字符 */
-.announcement__mark:before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 19rpx;
-  width: 4rpx;
-  height: 10rpx;
-  margin-left: -2rpx;
-  border-radius: 2rpx;
-  background: #fff;
-}
-.announcement__mark:after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 9rpx;
-  width: 5rpx;
-  height: 5rpx;
-  margin-left: -2.5rpx;
-  border-radius: 50%;
-  background: #fff;
 }
 .stats {
   display: grid;
