@@ -32,6 +32,14 @@ const labels: Record<string, string> = {
   refused: "用户拒收",
   transfer: "申请转单",
 };
+/** #111（IKRSIY）arrive 双语义：待出发（waiting-first-mile）时=到店取货；
+ *  配送中（first-mile）仍是「到达楼下」（后端 spec：老语义不受影响），
+ *  按当前任务状态取文案，不能全局替换 */
+function actionLabel(action: string): string {
+  if (action === "arrive" && task.value?.status === "waiting-first-mile")
+    return "到店取货";
+  return labels[action] || action;
+}
 /** timeline 节点 key → 展示标题（老数据 title 存的是原始 key，IK8W5V） */
 const stepTitles: Record<string, string> = {
   paid: "支付成功",
@@ -306,6 +314,42 @@ async function act(action: string) {
     acting.value = false;
   }
 }
+/**
+ * #111 扫码到店：扫小票二维码（内容=orderNo）→ POST /fulfillment/scan-arrive。
+ * 成功 toast「已确认到店」；409（重复扫码/别处已推进）也提示服务端文案；
+ * 成功/失败都重拉详情纠偏视图。扫码取消静默，业务错误 request 层已 toast、
+ * 这里按「宁可重复不可无反馈」（IK9U4I/J）再兜一层。
+ */
+const scanning = ref(false);
+async function scanArrive() {
+  if (!task.value || scanning.value) return;
+  scanning.value = true;
+  try {
+    const scan = await uni.scanCode({ onlyFromCamera: false });
+    const orderNo = String(scan.result ?? "").trim();
+    if (!orderNo) {
+      uni.showToast({ title: "二维码无有效内容", icon: "none" });
+      return;
+    }
+    try {
+      await api.scanArrive(orderNo);
+      uni.showToast({ title: "已确认到店", icon: "success" });
+    } catch (e) {
+      const msg =
+        e instanceof Error && e.message ? e.message : "操作失败，请重试";
+      if (/cancel|已取消/i.test(msg)) return;
+      setTimeout(() => uni.showToast({ title: msg, icon: "none" }), 60);
+    } finally {
+      load(taskId.value).catch(() => {});
+    }
+  } catch (e) {
+    const msg = (e as { errMsg?: string })?.errMsg ?? "";
+    if (!/cancel/i.test(msg))
+      uni.showToast({ title: "扫码失败，请重试", icon: "none" });
+  } finally {
+    scanning.value = false;
+  }
+}
 /** 送达确认弹窗提交（IKA580）：凭证或备注二选一，定位尽力而为 */
 async function confirmDeliver() {
   if (!task.value || acting.value) return;
@@ -455,6 +499,18 @@ async function confirmDeliver() {
         ></view>
       </view></view
     ><view class="actions"
+      ><!-- #111 扫码到店：待出发（waiting-first-mile）时出——扫小票码免手填直确认到店；
+          first-mile 的 arrive（到楼下）不出此钮 -->
+      <button
+        v-if="
+          task.status === 'waiting-first-mile' &&
+          task.availableActions.includes('arrive')
+        "
+        class="primary-btn"
+        :disabled="scanning"
+        @tap="scanArrive"
+      >
+        {{ scanning ? "扫码中…" : "扫码到店" }}</button
       ><button
         v-for="action in task.availableActions"
         :key="action"
@@ -465,7 +521,7 @@ async function confirmDeliver() {
         "
         @tap="act(action)"
       >
-        {{ labels[action] || action }}</button
+        {{ actionLabel(action) }}</button
       ><!-- IK9U45：无可执行操作时直接不渲染该区域，去掉「当前节点暂无可执行操作」空文案 --></view
     ></view
   >

@@ -294,7 +294,8 @@ onShow(load);
            2026-10-30 样式优化：骑手两格自适应占满（原固定 4 列右半空），
            零值灰化、有收入品牌绿（道哥 /ui-ux-pro-max） -->
       <view class="stats card" :class="{ 'stats--rider': !isManager }">
-        <view v-if="isManager"
+        <!-- IKRSIZ #108：校区可关销售额展示（后端置 null=不渲染该格） -->
+        <view v-if="isManager && data.stats.todayGmv != null"
           ><text
             class="stats__value"
             :class="{ 'stats__value--zero': !data.stats.todayGmv }"
@@ -308,7 +309,7 @@ onShow(load);
             >¥{{ fenToYuan(data.stats.todayIncome) }}</text
           ><text class="stats__label">今日收入</text></view
         >
-        <view v-if="isManager"
+        <view v-if="isManager && data.stats.monthGmv != null"
           ><text
             class="stats__value"
             :class="{ 'stats__value--zero': !data.stats.monthGmv }"

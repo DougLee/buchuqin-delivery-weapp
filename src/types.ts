@@ -85,6 +85,10 @@ export interface Dashboard {
   /** 统计卡数值；income 键为金额（单位:分），其余为单量/百分比 */
   stats: Record<string, number>;
   tasks: Task[];
+  /** #112 计酬模式：per-order 按单计酬 | rate 按销售额抽成（未下发=按单计酬） */
+  commissionMode?: "per-order" | "rate";
+  /** 抽成比例（万分比：5%=500），仅 commissionMode=rate 时有意义 */
+  commissionRate?: number;
 }
 /** 订阅消息额度（IKDQP9）：GET /fulfillment/notify/quota
  *  lowWater=quota<5（低水位）；failedToday=当天有推送因额度耗尽失败；
@@ -111,8 +115,10 @@ export interface Performance {
   proofRate: number | null;
   exceptionRate: number;
   /** IKIRO6 推广订单金额（单位:分）：今日/本月（送达时间口径） */
-  todayGmv?: number;
-  monthGmv?: number;
+  /** IKRSIZ #108：校区关闭销售额展示时为 null（前端不渲染该格） */
+  todayGmv?: number | null;
+  monthGmv?: number | null;
+
   monthOrders?: number;
 }
 export interface CommissionRecord {

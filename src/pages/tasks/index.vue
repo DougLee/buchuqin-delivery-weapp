@@ -321,6 +321,11 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
             ></view
           ></view
         >
+        <!-- IKRSIZ #78：任务卡显示配送员（楼长交接场景可直接知道上家是谁，
+             详情页可拨号） -->
+        <view v-if="task.rider" class="rider-row"
+          ><text>配送员</text><strong>{{ task.rider.name }}</strong></view
+        >
         <view class="footer"
           ><!-- 2026-09-07 道哥：时效文案与「模式」格重复（同派生自
              deliveryMode），删除；footer 只留操作按钮 --><button
@@ -550,6 +555,24 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
   padding: 20rpx 0;
   background: #f5f8f5;
   border-radius: 20rpx;
+}
+/* IKRSIZ #78：配送员一行（楼长交接场景看上家是谁） */
+.rider-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16rpx 28rpx 0;
+  padding: 14rpx 20rpx;
+  background: #f5f8f5;
+  border-radius: 16rpx;
+}
+.rider-row text {
+  font-size: 20rpx;
+  color: $muted;
+}
+.rider-row strong {
+  font-size: 22rpx;
+  color: $ink;
 }
 .meta view {
   text-align: center;

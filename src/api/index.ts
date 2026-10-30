@@ -83,6 +83,19 @@ export const api = {
       method: "POST",
       data,
     }),
+  /** #111（IKRSIY）扫码到店：小票二维码内容=orderNo，免任务 id 直确认到店
+   *  （waiting-first-mile → arrived）。400=空号/未接单、404=订单不存在、
+   *  409=状态已推进（重复扫码/别处已推进） */
+  scanArrive: (orderNo: string) =>
+    request<{
+      orderId: string;
+      orderNo: string;
+      status: string;
+      statusText: string;
+    }>("/fulfillment/scan-arrive", {
+      method: "POST",
+      data: { orderNo },
+    }),
   performance: (_r: StaffRole) =>
     request<Performance>("/fulfillment/performance"),
   leave: () => request<LeaveItem[]>("/fulfillment/leave-dispatch"),

@@ -6,7 +6,7 @@ import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
-import type { CommissionBill } from "../../types";
+import type { CommissionBill, Dashboard } from "../../types";
 const session = useSessionStore(),
   bill = ref<CommissionBill & { total?: number }>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
@@ -22,12 +22,36 @@ function nowMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 const isCurrent = computed(() => month.value === nowMonth());
+/** #112 计酬模式（dashboard 根级下发；commissions 若带同名字段以它兜底）：
+ *  rate=按销售额抽成，per-order/未下发=按单计酬 */
+const commissionMode = ref<Dashboard["commissionMode"]>();
+const commissionRate = ref(0);
+/** 「配送提成」格副行：rate 显示「按销售额 ×X.X%」（万分比→百分比，1 位小数） */
+const commissionHint = computed(() =>
+  commissionMode.value === "rate" && commissionRate.value > 0
+    ? `按销售额 ×${(commissionRate.value / 100).toFixed(1)}%`
+    : "按单计酬",
+);
 async function load(m = month.value) {
   error.value = false;
   loading.value = true;
   try {
     await session.ensure();
-    bill.value = await api.commissions(session.role, m || undefined);
+    // #112：主数据是佣金账单；计酬模式顺带从 dashboard 根级取（宽位断言，
+    // 拉失败不影响账单展示，缺省「按单计酬」）
+    const [billData, dash] = await Promise.all([
+      api.commissions(session.role, m || undefined),
+      api.dashboard(session.role).catch(() => null),
+    ]);
+    bill.value = billData;
+    const billExtra = billData as unknown as {
+      commissionMode?: Dashboard["commissionMode"];
+      commissionRate?: number;
+    };
+    commissionMode.value = billExtra.commissionMode ?? dash?.commissionMode;
+    commissionRate.value = Number(
+      billExtra.commissionRate ?? dash?.commissionRate ?? 0,
+    );
     if (!m) month.value = nowMonth();
   } catch (e) {
     // IKC4IN：游客进引导态；ADR-0005(IKA00R)：网络/服务故障进整页错误态
@@ -142,7 +166,10 @@ const week = computed(() => {
         ><strong>¥{{ fenToYuan(bill.baseSalary) }}</strong></view
       ><view
         ><text>配送提成</text
-        ><strong>¥{{ fenToYuan(bill.deliveryIncome) }}</strong></view
+        ><strong>¥{{ fenToYuan(bill.deliveryIncome) }}</strong
+        ><!-- #112 计酬模式副行 --><text class="breakdown__hint">{{
+          commissionHint
+        }}</text></view
       ><view
         ><text>跨期调整</text
         ><strong>¥{{ fenToYuan(bill.adjustment) }}</strong></view
@@ -285,6 +312,11 @@ const week = computed(() => {
 .breakdown strong {
   font-size: 26rpx;
   margin-top: 5rpx;
+}
+/* #112 计酬模式小字（配送提成格内副行） */
+.breakdown__hint {
+  margin-top: 4rpx;
+  font-size: 18rpx;
 }
 .green {
   color: $primary;
