@@ -69,7 +69,12 @@ async function loadBuildings() {
     buildings.value = []; // 楼栋列表失败不打断看板，筛选条隐藏
   }
 }
+const bfOpen = ref(false);
+const buildingName = computed(
+  () => buildings.value.find((b) => b.id === buildingId.value)?.name ?? "",
+);
 function pickBuilding(id: string) {
+  bfOpen.value = false;
   if (buildingId.value === id) return;
   buildingId.value = id;
   void load(active.value);
@@ -199,23 +204,41 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
         ><text>单</text></view
       >
     </view>
-    <!-- IKRMQF（道哥 2026-10-30）：楼栋筛选条（仅骑手）——与状态 tab 叠加过滤 -->
-    <scroll-view
+    <!-- IKRMQF（道哥 2026-10-30 定稿）：楼栋筛选改底部弹层网格（仅骑手）——
+         楼栋多时横滑难找，弹层一屏看全；按钮常显当前选中 -->
+    <view
       v-if="isRider && buildings.length"
-      scroll-x
       class="bfilter"
-      :show-scrollbar="false"
-      ><view class="bfilter__inner"
-        ><view
-          v-for="b in [{ id: '', name: '全部楼栋' }, ...buildings]"
-          :key="b.id || 'all'"
-          class="bfilter__chip"
-          :class="{ 'bfilter__chip--active': buildingId === b.id }"
-          role="button"
-          @tap="pickBuilding(b.id)"
-          >{{ b.name }}</view
+      role="button"
+      @tap="bfOpen = true"
+      ><text class="bfilter__icon">◉</text
+      ><text class="bfilter__text"
+        >楼栋：{{ buildingName || "全部" }}</text
+      ><text class="bfilter__caret">▾</text></view
+    >
+    <view v-if="bfOpen" class="bf-sheet" @tap="bfOpen = false"
+      ><view class="bf-sheet__panel" @tap.stop
+        ><view class="bf-sheet__head"
+          ><text class="bf-sheet__title">按楼栋筛选</text
+          ><text
+            v-if="buildingId"
+            class="bf-sheet__clear"
+            role="button"
+            @tap="pickBuilding('')"
+            >清除</text
+          ></view
+        ><view class="bf-sheet__grid"
+          ><view
+            v-for="b in [{ id: '', name: '全部楼栋' }, ...buildings]"
+            :key="b.id || 'all'"
+            class="bf-sheet__cell"
+            :class="{ 'bf-sheet__cell--active': buildingId === b.id }"
+            role="button"
+            @tap="pickBuilding(b.id)"
+            >{{ b.name }}</view
+          ></view
         ></view
-      ></scroll-view
+      ></view
     >
     <scroll-view scroll-x class="tabs" :show-scrollbar="false"
       ><view class="tabs__inner"
@@ -605,27 +628,81 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
   }
 }
 
-/* IKRMQF：楼栋筛选条（仅骑手）——浅色描边 chips，与深色状态 tab 区分层级 */
+/* IKRMQF（道哥定稿）：楼栋筛选——按钮常显当前选中，弹层网格一屏看全 */
 .bfilter {
   margin-top: 16rpx;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.bfilter__inner {
+  align-self: flex-start;
   display: inline-flex;
-  gap: 14rpx;
-  padding: 4rpx 4rpx;
-}
-.bfilter__chip {
-  padding: 12rpx 28rpx;
+  align-items: center;
+  gap: 10rpx;
+  padding: 14rpx 26rpx;
   border-radius: 999rpx;
   background: #fff;
   border: 2rpx solid $line;
-  color: #667069;
-  font-size: 24rpx;
-  font-weight: 600;
+  flex-shrink: 0;
 }
-.bfilter__chip--active {
+.bfilter__icon {
+  font-size: 20rpx;
+  color: var(--brand, #159c55);
+}
+.bfilter__text {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #12241c;
+}
+.bfilter__caret {
+  font-size: 20rpx;
+  color: #8a948e;
+}
+.bf-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(10, 30, 18, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+.bf-sheet__panel {
+  width: 100%;
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 32rpx 30rpx calc(30rpx + env(safe-area-inset-bottom, 0px));
+}
+.bf-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+.bf-sheet__title {
+  font-size: 30rpx;
+  font-weight: 900;
+  color: #12241c;
+}
+.bf-sheet__clear {
+  font-size: 24rpx;
+  color: var(--brand, #159c55);
+  font-weight: 700;
+}
+.bf-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.bf-sheet__cell {
+  padding: 20rpx 10rpx;
+  border-radius: 14rpx;
+  background: #f4f7f4;
+  border: 2rpx solid transparent;
+  text-align: center;
+  font-size: 25rpx;
+  font-weight: 600;
+  color: #3d4a42;
+  word-break: break-all;
+}
+.bf-sheet__cell--active {
   background: #eaf4ee;
   border-color: var(--brand, #159c55);
   color: var(--brand, #159c55);
