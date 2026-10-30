@@ -18,7 +18,6 @@ import type {
   Dashboard,
   Shift,
   StaffRole,
-  StaffStatus,
   Task,
 } from "../../types";
 
