@@ -232,10 +232,9 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
               ><text class="route__tag route__tag--to">送</text
               ><text class="address"
                 >{{ task.building }}<text
-                  v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
                   class="gender-tag"
-                  :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
-                >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
+                  :class="`gender-tag--${task.buildingGender || 'mixed'}`"
+                >{{ { male: '男生', female: '女生' }[task.buildingGender] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
               ></view
             ><view class="route__leg"
               ><text class="route__tag">取</text
@@ -469,6 +468,10 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 .gender-tag--female {
   background: #fdeef3;
   color: #db2777;
+}
+.gender-tag--mixed {
+  background: #eef1ef;
+  color: #667069;
 }
 .warehouse {
   font-size: 21rpx;

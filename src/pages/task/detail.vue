@@ -363,10 +363,9 @@ async function confirmDeliver() {
       ><text class="status-text">{{ task.statusText }}</text
       ><text class="destination"
         >{{ task.building }}<text
-          v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
           class="gender-tag"
-          :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
-        >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
+          :class="`gender-tag--${task.buildingGender || 'mixed'}`"
+        >{{ { male: '男生', female: '女生' }[task.buildingGender] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
       ><text class="muted-light"
         >{{ task.orderNo }}　{{ task.modeText }}</text
       ></view
@@ -579,6 +578,10 @@ async function confirmDeliver() {
 .gender-tag--female {
   background: #fdeef3;
   color: #db2777;
+}
+.gender-tag--mixed {
+  background: #eef1ef;
+  color: #667069;
 }
 .muted-light {
   opacity: 0.82;

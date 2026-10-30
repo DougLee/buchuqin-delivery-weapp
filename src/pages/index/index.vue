@@ -373,10 +373,9 @@ onShow(load);
             ><view
               ><text class="building"
                 >{{ task.building }}<text
-                  v-if="task.buildingGender === 'male' || task.buildingGender === 'female'"
                   class="gender-tag"
-                  :class="task.buildingGender === 'male' ? 'gender-tag--male' : 'gender-tag--female'"
-                >{{ task.buildingGender === 'male' ? '男寝' : '女寝' }}</text> · {{ task.room }}</text
+                  :class="`gender-tag--${task.buildingGender || 'mixed'}`"
+                >{{ { male: '男生', female: '女生' }[task.buildingGender] || '混合' }}</text> · {{ task.room }}</text
               ><!-- 2026-09-07 道哥：时效固定文案与 meta「模式」格重复（同派生自
                deliveryMode），删除；destination 行只留楼栋 · 寝室 --></view
             ></view
@@ -825,6 +824,10 @@ onShow(load);
 .gender-tag--female {
   background: #fdeef3;
   color: #db2777;
+}
+.gender-tag--mixed {
+  background: #eef1ef;
+  color: #667069;
 }
 .task__meta {
   gap: 14rpx;
