@@ -84,7 +84,6 @@ export interface Dashboard {
   profile: StaffProfile;
   /** 统计卡数值；income 键为金额（单位:分），其余为单量/百分比 */
   stats: Record<string, number>;
-  announcement: string;
   tasks: Task[];
 }
 /** 订阅消息额度（IKDQP9）：GET /fulfillment/notify/quota
