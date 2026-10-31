@@ -10,6 +10,15 @@ import { fenToYuan } from "../../utils/money";
 import type { Task } from "../../types";
 const session = useSessionStore(),
   task = ref<Task>();
+/** 【关键判据】待出发（已接单未到店）：task.status 是状态桶（在途单恒为
+ *  "delivering"，2026-10-31 真凶——此前按 status 判断永远为 false），
+ *  原始状态语义只能靠后端精确 statusText 区分：
+ *  已接单待出发=「已接单，待出发」；已到店=「已到店，待出发」（排除） */
+const isWaitDepart = computed(
+  () =>
+    !!task.value?.statusText?.includes("待出发") &&
+    !task.value?.statusText?.includes("已到店"),
+);
 /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
 const error = ref(false);
 /** 首屏加载中（IK9VF8）：驱动骨架屏，对齐 tasks/income 标准 */
@@ -36,12 +45,10 @@ const labels: Record<string, string> = {
  *  配送中（first-mile）仍是「到达楼下」（后端 spec：老语义不受影响），
  *  按当前任务状态取文案，不能全局替换 */
 function actionLabel(action: string): string {
-  if (action === "arrive" && task.value?.status === "waiting-first-mile")
-    return "到店取货";
+  if (action === "arrive" && isWaitDepart.value) return "到店取货";
   // 待出发态的 depart 是「跳过到店直接出发」的兜底路径，与到店后的
   // 「开始配送」区分，避免误以为它是已到店的意思（道哥 2026-10-31 实测反馈）
-  if (action === "depart" && task.value?.status === "waiting-first-mile")
-    return "直接出发";
+  if (action === "depart" && isWaitDepart.value) return "直接出发";
   return labels[action] || action;
 }
 /** 按钮层级：转单/异常=危险描边；待出发态的 depart=次级（兜底路径）；
@@ -49,8 +56,7 @@ function actionLabel(action: string): string {
 function actionClass(action: string): string {
   if (action === "transfer" || action === "absent" || action === "refused")
     return "danger";
-  if (action === "depart" && task.value?.status === "waiting-first-mile")
-    return "secondary-btn";
+  if (action === "depart" && isWaitDepart.value) return "secondary-btn";
   return "primary-btn";
 }
 /** timeline 节点 key → 展示标题（老数据 title 存的是原始 key，IK8W5V） */
@@ -87,7 +93,7 @@ async function load(id: string) {
   }
 }
 // 构建版本标记（2026-10-31 按钮样式修复排查）：控制台打印此行=新包在跑
-const BUILD_TAG = "detail-btn-fix-1031-v2";
+const BUILD_TAG = "detail-btn-fix-1031-v3";
 console.log(`[任务详情] build=${BUILD_TAG}`);
 onLoad((q) => load(String(q?.id ?? "")));
 /**
@@ -524,17 +530,12 @@ async function confirmDeliver() {
     ><view
       class="actions"
       :class="{
-        'actions--dense':
-          task.status === 'waiting-first-mile' &&
-          task.availableActions.length >= 3,
+        'actions--dense': isWaitDepart && task.availableActions.length >= 3,
       }"
       ><!-- #111 扫码到店：待出发（waiting-first-mile）时出——扫小票码免手填直确认到店；
           first-mile 的 arrive（到楼下）不出此钮。四枚同行走 dense 布局 -->
       <button
-        v-if="
-          task.status === 'waiting-first-mile' &&
-          task.availableActions.includes('arrive')
-        "
+        v-if="isWaitDepart && task.availableActions.includes('arrive')"
         class="primary-btn"
         :disabled="scanning"
         @tap="scanArrive"

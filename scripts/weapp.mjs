@@ -74,6 +74,28 @@ console.log(`\n[履约端${platform === "h5" ? "H5" : "微信小程序"}] ${bran
 console.log(`[API] ${environment.VITE_API_BASE_URL}`);
 console.log(`[输出目录] ${outputDir}\n`);
 
+// dev 热更新断链修复（道哥 2026-10-31 实测：挂着的 dev 吃不到源码改动）：
+// uni watch 的是 .cache 品牌副本，而副本只在启动时拷贝一次——src 后续修改
+// 永远进不了编译。这里监听 src 变化防抖重建副本，触发 uni 自动重编译。
+if (command === "dev") {
+  let syncTimer = null;
+  try {
+    fs.watch(sourceDir, { recursive: true }, () => {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        try {
+          prepareBrandInput();
+          console.log("[品牌输入] src 变化已同步，重编译中…");
+        } catch (error) {
+          console.error(`[品牌输入] 同步失败：${error.message}`);
+        }
+      }, 300);
+    });
+  } catch (error) {
+    console.error(`[品牌输入] src 监听不可用（改源码后需重启 dev）：${error.message}`);
+  }
+}
+
 const uniBin = path.join(rootDir, "node_modules", ".bin", process.platform === "win32" ? "uni.cmd" : "uni");
 const args = [command === "dev" ? "dev" : "build", "-p", platform];
 const child = spawn(uniBin, args, { cwd: rootDir, env: environment, stdio: "inherit" });
