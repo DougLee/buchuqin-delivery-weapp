@@ -57,6 +57,7 @@ export function weappEnvironment(
   command,
   brandKey,
   currentEnv = process.env,
+  platform = "mp-weixin",
 ) {
   const brand = getWeappBrand(brandKey, currentEnv);
   return {
@@ -65,7 +66,13 @@ export function weappEnvironment(
     VITE_WECHAT_APP_ID: brand.appId,
     VITE_API_BASE_URL:
       currentEnv.VITE_API_BASE_URL ||
-      (command === "dev" ? TEST_API : PRODUCTION_API),
+      // IKRSIY H5（道哥 2026-10-31）：相对路径——dev 由 vite proxy 同源转发
+      //（免 CORS），生产同域部署（nginx 挂站点目录下）天然同源
+      (platform === "h5"
+        ? "/api/v1"
+        : command === "dev"
+          ? TEST_API
+          : PRODUCTION_API),
   };
 }
 

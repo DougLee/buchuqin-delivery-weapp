@@ -30,28 +30,34 @@ const sourceDir = path.join(rootDir, "src");
 const brandInputDir = path.join(rootDir, ".cache", "weapp-input", brandKey);
 const projectConfigPath = path.join(outputDir, "project.config.json");
 
-fs.rmSync(brandInputDir, { recursive: true, force: true });
-fs.mkdirSync(brandInputDir, { recursive: true });
-for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
-  const source = path.join(sourceDir, entry.name);
-  const destination = path.join(brandInputDir, entry.name);
-  if (entry.name === "manifest.json") {
-    fs.writeFileSync(
-      destination,
-      applyWeappBrandToManifest(fs.readFileSync(source, "utf8"), brandKey),
-    );
-  } else if (entry.isDirectory()) {
-    fs.symlinkSync(source, destination, process.platform === "win32" ? "junction" : undefined);
-  } else if (process.platform === "win32") {
-    try { fs.linkSync(source, destination); } catch { fs.copyFileSync(source, destination); }
-  } else {
-    fs.symlinkSync(source, destination);
+function prepareBrandInput() {
+  fs.rmSync(brandInputDir, { recursive: true, force: true });
+  fs.mkdirSync(brandInputDir, { recursive: true });
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const source = path.join(sourceDir, entry.name);
+    const destination = path.join(brandInputDir, entry.name);
+    if (entry.name === "manifest.json") {
+      fs.writeFileSync(
+        destination,
+        applyWeappBrandToManifest(fs.readFileSync(source, "utf8"), brandKey),
+      );
+    } else if (entry.isDirectory()) {
+      fs.symlinkSync(source, destination, process.platform === "win32" ? "junction" : undefined);
+    } else if (process.platform === "win32") {
+      try { fs.linkSync(source, destination); } catch { fs.copyFileSync(source, destination); }
+    } else {
+      fs.symlinkSync(source, destination);
+    }
   }
 }
+prepareBrandInput();
 
+// H5 平台不走品牌副本（.cache 只有 src 内容，H5 还需要根目录 index.html
+// 等入口文件——用副本构建产物为空壳，道哥 2026-10-31 实测）；品牌差异经
+// VITE_APP_NAME env 注入，mp-weixin 维持副本注入。
 const environment = {
-  ...weappEnvironment(command, brandKey),
-  UNI_INPUT_DIR: brandInputDir,
+  ...weappEnvironment(command, brandKey, process.env, platform),
+  ...(platform === "h5" ? {} : { UNI_INPUT_DIR: brandInputDir }),
   UNI_OUTPUT_DIR: outputDir,
 };
 
