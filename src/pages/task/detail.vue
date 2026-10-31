@@ -38,7 +38,20 @@ const labels: Record<string, string> = {
 function actionLabel(action: string): string {
   if (action === "arrive" && task.value?.status === "waiting-first-mile")
     return "到店取货";
+  // 待出发态的 depart 是「跳过到店直接出发」的兜底路径，与到店后的
+  // 「开始配送」区分，避免误以为它是已到店的意思（道哥 2026-10-31 实测反馈）
+  if (action === "depart" && task.value?.status === "waiting-first-mile")
+    return "直接出发";
   return labels[action] || action;
+}
+/** 按钮层级：转单/异常=危险描边；待出发态的 depart=次级（兜底路径）；
+ *  其余=主操作实底绿（每状态唯一主推路径，顺序由后端状态机门控） */
+function actionClass(action: string): string {
+  if (action === "transfer" || action === "absent" || action === "refused")
+    return "danger";
+  if (action === "depart" && task.value?.status === "waiting-first-mile")
+    return "secondary-btn";
+  return "primary-btn";
 }
 /** timeline 节点 key → 展示标题（老数据 title 存的是原始 key，IK8W5V） */
 const stepTitles: Record<string, string> = {
@@ -498,9 +511,15 @@ async function confirmDeliver() {
           }}</text
         ></view>
       </view></view
-    ><view class="actions"
+    ><view
+      class="actions"
+      :class="{
+        'actions--dense':
+          task.status === 'waiting-first-mile' &&
+          task.availableActions.length >= 3,
+      }"
       ><!-- #111 扫码到店：待出发（waiting-first-mile）时出——扫小票码免手填直确认到店；
-          first-mile 的 arrive（到楼下）不出此钮 -->
+          first-mile 的 arrive（到楼下）不出此钮。四枚同行走 dense 布局 -->
       <button
         v-if="
           task.status === 'waiting-first-mile' &&
@@ -514,11 +533,7 @@ async function confirmDeliver() {
       ><button
         v-for="action in task.availableActions"
         :key="action"
-        :class="
-          action === 'transfer' || action === 'absent'
-            ? 'danger'
-            : 'primary-btn'
-        "
+        :class="actionClass(action)"
         @tap="act(action)"
       >
         {{ actionLabel(action) }}</button
@@ -855,6 +870,28 @@ async function confirmDeliver() {
 }
 .actions button:only-child {
   grid-column: 1 / -1;
+}
+/* 待出发四枚同行（道哥 2026-10-31）：扫码到店/到店取货/直接出发/申请转单，
+   收紧字号与内边距保证一行放得下 */
+.actions--dense {
+  display: flex;
+  gap: 12rpx;
+}
+.actions--dense button {
+  flex: 1;
+  min-height: 76rpx;
+  padding: 0 6rpx;
+  font-size: 26rpx;
+  border-radius: 38rpx;
+}
+/* 次级按钮：兜底路径描边绿，不与主操作抢视觉 */
+.secondary-btn {
+  min-height: 88rpx;
+  border-radius: 44rpx;
+  background: #fff;
+  font-weight: 800;
+  color: $primary-dark;
+  border: 2rpx solid $primary-dark;
 }
 /* 送达确认弹窗（IKA580）：凭证缩略图 + 备注 */
 .deliver-panel {
