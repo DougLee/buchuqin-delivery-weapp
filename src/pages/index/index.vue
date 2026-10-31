@@ -174,6 +174,22 @@ function dismissGuide() {
   guideVisible.value = false;
 }
 onShow(load);
+const isLogged = computed(() => !!uni.getStorageSync("staffToken"));
+// #ifdef H5
+/** H5 测试登录（仅测试环境 H5 产物存在，小程序无此代码）：30 天长效
+ *  测试 token 写死于此——泄漏面=测试环境履约端，生产不可见 */
+const H5_TEST_ACCOUNTS = {
+  rider: { token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN0YWZmLXJpZGVyLWhidXQtdGVzdCIsInJvbGUiOiJmdWxsdGltZS1yaWRlciIsImlhdCI6MTc5MzQyNTc4NCwiZXhwIjoxNzk2MDE3Nzg0fQ.tiyw1euxVLWGuKnV5rikmvutijtnoiAd4obR3L_ogx0", label: "骑手·王99（湖工大）" },
+  manager: { token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtdWV3MTNmazA4dGptdjAxb3h4czRidWwiLCJyb2xlIjoiaW50ZXJuLWJ1aWxkaW5nLW1hbmFnZXIiLCJpYXQiOjE3OTM0MjU3ODQsImV4cCI6MTc5NjAxNzc4NH0.Rv2C5Z_n1xfeD2w9yMmFK9I9_EuhxVGrrWOkwY7GKm8", label: "楼长·TS001（北区18栋）" },
+};
+function h5TestLogin(key: "rider" | "manager") {
+  const acc = H5_TEST_ACCOUNTS[key];
+  uni.setStorageSync("staffToken", acc.token);
+  uni.setStorageSync("staffTokenRole", key === "rider" ? "fulltime-rider" : "intern-building-manager");
+  uni.setStorageSync("staffRole", key === "rider" ? "fulltime-rider" : "intern-building-manager");
+  uni.reLaunch({ url: "/pages/index/index" });
+}
+// #endif
 </script>
 
 <template>
@@ -213,6 +229,18 @@ onShow(load);
         class="home-skeleton__task"
     /></view>
 
+    <!-- H5 测试登录空态（仅 H5 产物存在）：未登录时一键注入测试账号，
+         免真机微信登录流程；小程序无此代码 -->
+    <!-- #ifdef H5 -->
+    <template v-else-if="!isLogged">
+      <view class="card h5-login">
+        <text class="h5-login__title">H5 联调登录</text>
+        <text class="h5-login__desc">选择测试账号（token 30 天有效，仅测试环境）</text>
+        <button class="h5-login__btn" @tap="h5TestLogin('rider')">骑手 · 王99（湖工大）</button>
+        <button class="h5-login__btn h5-login__btn--mgr" @tap="h5TestLogin('manager')">楼长 · TS001（北区18栋）</button>
+      </view>
+    </template>
+    <!-- #endif -->
     <!-- 访客引导态（IKC4IN 审核整改）：先浏览平台介绍，登录由用户自主点击 -->
     <template v-else-if="guest">
       <view class="card guest__hero">
@@ -430,6 +458,38 @@ onShow(load);
 </template>
 
 <style scoped lang="scss">
+/* H5 联调登录卡（仅 H5 产物） */
+.h5-login {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 40rpx;
+  margin-top: 30vh;
+}
+.h5-login__title {
+  font-size: 34rpx;
+  font-weight: 900;
+  color: #10251c;
+}
+.h5-login__desc {
+  font-size: 22rpx;
+  color: #617168;
+}
+.h5-login__btn {
+  margin: 0;
+  min-height: 84rpx;
+  border-radius: 28rpx;
+  background: #073f2d;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 800;
+  line-height: 84rpx;
+}
+.h5-login__btn--mgr {
+  background: #e5f8eb;
+  color: #073f2d;
+}
+
 @import "../../styles/theme.scss";
 .home {
   /* IKA57R：微信 env(safe-area-inset-top) 在 page 级常取 0，用平台注入的
