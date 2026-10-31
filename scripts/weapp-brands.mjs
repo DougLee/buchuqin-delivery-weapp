@@ -44,12 +44,12 @@ export function getWeappBrand(key = "buchuqin", currentEnv = process.env) {
   return Object.freeze({ appId, name });
 }
 
-export function weappOutputDir(rootDir, command, brandKey) {
+export function weappOutputDir(rootDir, command, brandKey, platform = "mp-weixin") {
   return path.resolve(
     rootDir,
     "dist",
     command === "dev" ? "dev" : "build",
-    `mp-weixin-${brandKey}`,
+    `${platform}-${brandKey}`,
   );
 }
 
