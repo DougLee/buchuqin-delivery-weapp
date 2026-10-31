@@ -334,7 +334,7 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
             :disabled="grabbing === task.id"
             @tap.stop="grab(task)"
           >
-            {{ grabbing === task.id ? "抢单中…" : "抢单" }}
+            {{ grabbing === task.id ? "开始配送中…" : "开始配送" }}
           </button><button
             v-else-if="qaOf(task)"
             class="grab-btn"

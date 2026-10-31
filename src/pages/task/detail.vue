@@ -45,27 +45,26 @@ const labels: Record<string, string> = {
  *  配送中（first-mile）仍是「到达楼下」（后端 spec：老语义不受影响），
  *  按当前任务状态取文案，不能全局替换 */
 function actionLabel(action: string): string {
-  // 待出发态：arrive 手动兜底改「手动到店」（与主按钮「扫码到店」区分开）
+  // 待取货态：arrive 手动兜底叫「手动到店」（与主按钮「扫码到店」区分开）
   if (action === "arrive" && isWaitDepart.value) return "手动到店";
+  // 已到店态的 depart（道哥流程第 4 条）：按钮叫「到店取货」——确认货拿到
+  // 手、进入配送；「开始配送」留给抢单池（点它=抢到单）
+  if (action === "depart" && task.value?.statusText === "已到店，待出发")
+    return "到店取货";
   return labels[action] || action;
 }
 /** 按钮层级：转单/异常=危险描边；待出发态的 depart=次级（兜底路径）；
  *  其余=主操作实底绿（每状态唯一主推路径，顺序由后端状态机门控） */
-/** 按钮行动作：剔除 transfer（异常操作统一降为行下文字链）与待出发态的
- *  depart（跳过到店逃生门，同降级）——主行只留流程推进动作 */
+/** 按钮行动作：剔除 transfer（异常操作统一降为行下文字链）与待取货态的
+ *  depart（道哥 2026-10-31 流程定稿：所有单必须到店取货，无跳过通道）——
+ *  主行只留流程推进动作 */
 const rowActions = computed(() =>
   (task.value?.availableActions ?? []).filter(
-    (a) =>
-      a !== "transfer" && !(isWaitDepart.value && a === "depart"),
+    (a) => a !== "transfer" && !(isWaitDepart.value && a === "depart"),
   ),
 );
 const hasTransfer = computed(
   () => task.value?.availableActions.includes("transfer") ?? false,
-);
-const skipLabel = computed(() =>
-  isWaitDepart.value && task.value?.availableActions.includes("depart")
-    ? "跳过到店，直接出发"
-    : "",
 );
 function actionClass(action: string): string {
   if (action === "transfer" || action === "absent" || action === "refused")
@@ -563,16 +562,10 @@ async function confirmDeliver() {
       >
         {{ actionLabel(action) }}</button
       ></view
-    ><!-- 异常/逃生门统一小字链（道哥 2026-10-31）：跳过到店、申请转单——
-        保留入口但不与流程主操作抢视觉 -->
-    <view v-if="skipLabel || hasTransfer" class="action-links"
+    ><!-- 异常操作小字链（道哥 2026-10-31）：申请转单——保留入口但不与
+        流程主操作抢视觉；到店为必经环节，无跳过通道 -->
+    <view v-if="hasTransfer" class="action-links"
       ><text
-        v-if="skipLabel"
-        class="action-links__item"
-        @tap="act('depart')"
-        >{{ skipLabel }}</text
-      ><text
-        v-if="hasTransfer"
         class="action-links__item"
         @tap="act('transfer')"
         >申请转单</text
