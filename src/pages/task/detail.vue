@@ -886,23 +886,44 @@ async function confirmDeliver() {
    收紧字号与内边距保证一行放得下 */
 .actions--dense {
   display: flex;
-  gap: 12rpx;
+  gap: 16rpx;
 }
+/* 一行四枚（道哥 /ui-ux-pro-max 2026-10-31）：主操作实底深绿略宽、
+   兜底浅绿底、转单浅红底——全部去描边，主从一眼可辨；触控高 88rpx=44px */
 .actions--dense button {
-  flex: 1;
-  min-height: 76rpx;
-  padding: 0 6rpx;
+  min-height: 88rpx;
+  padding: 0 8rpx;
   font-size: 26rpx;
-  border-radius: 38rpx;
+  font-weight: 800;
+  border-radius: 28rpx;
+  box-shadow: none;
 }
-/* 次级按钮：兜底路径描边绿，不与主操作抢视觉 */
+.actions--dense .primary-btn {
+  flex: 1.3;
+  background: $primary-dark;
+  box-shadow: 0 8rpx 16rpx rgba(7, 63, 45, 0.14);
+}
+.actions--dense .secondary-btn {
+  flex: 1;
+  background: $soft;
+  color: $primary-dark;
+}
+.actions--dense .danger {
+  flex: 1;
+  background: #fbf0ed;
+  color: #a74432;
+}
+.actions--dense button:active {
+  opacity: 0.85;
+  transform: translateY(2rpx);
+}
+/* 次级按钮（兜底路径）：浅绿底无边框，不与主操作抢视觉 */
 .secondary-btn {
   min-height: 88rpx;
-  border-radius: 44rpx;
-  background: #fff;
+  border-radius: 28rpx;
+  background: $soft;
   font-weight: 800;
   color: $primary-dark;
-  border: 2rpx solid $primary-dark;
 }
 /* 送达确认弹窗（IKA580）：凭证缩略图 + 备注 */
 .deliver-panel {
@@ -946,11 +967,14 @@ async function confirmDeliver() {
 }
 .danger {
   min-height: 88rpx;
-  border-radius: 44rpx;
-  background: #fff;
+  border-radius: 28rpx;
+  background: #fbf0ed;
   font-weight: 800;
   color: #a74432;
-  border: 2rpx solid #efc9c1;
+}
+.danger:active {
+  opacity: 0.85;
+  transform: translateY(2rpx);
 }
 /* 首屏骨架（IK9VF8）：shimmer 与 tasks/income 同款 */
 .detail-skeleton__summary,
