@@ -72,6 +72,13 @@ async function load(id: string) {
   try {
     await session.ensure();
     task.value = await api.task(session.role, id);
+    // 排查标记：status+可用动作一目了然（2026-10-31 按钮样式修复验证）
+    console.log(
+      "[任务详情] status=",
+      task.value.status,
+      "actions=",
+      JSON.stringify(task.value.availableActions),
+    );
   } catch (e) {
     // ADR-0005(IKA00R)：仅网络/服务故障进整页错误态，业务拒绝由 request 层 toast
     if (isRetryable(e)) error.value = true;
@@ -79,6 +86,9 @@ async function load(id: string) {
     loading.value = false;
   }
 }
+// 构建版本标记（2026-10-31 按钮样式修复排查）：控制台打印此行=新包在跑
+const BUILD_TAG = "detail-btn-fix-1031-v2";
+console.log(`[任务详情] build=${BUILD_TAG}`);
 onLoad((q) => load(String(q?.id ?? "")));
 /**
  * 自绘输入弹层（IK9AX1 → IK9U4I 重构）：uni.showModal 的 editable 仅微信
