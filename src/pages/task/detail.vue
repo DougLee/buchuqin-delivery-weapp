@@ -51,11 +51,21 @@ function actionLabel(action: string): string {
 }
 /** 按钮层级：转单/异常=危险描边；待出发态的 depart=次级（兜底路径）；
  *  其余=主操作实底绿（每状态唯一主推路径，顺序由后端状态机门控） */
-/** dense 行动作：待出发态剔除 depart（降级为行下「跳过到店」文字链） */
-const denseActions = computed(() =>
-  isWaitDepart.value
-    ? task.value?.availableActions.filter((a) => a !== "depart") ?? []
-    : task.value?.availableActions ?? [],
+/** 按钮行动作：剔除 transfer（异常操作统一降为行下文字链）与待出发态的
+ *  depart（跳过到店逃生门，同降级）——主行只留流程推进动作 */
+const rowActions = computed(() =>
+  (task.value?.availableActions ?? []).filter(
+    (a) =>
+      a !== "transfer" && !(isWaitDepart.value && a === "depart"),
+  ),
+);
+const hasTransfer = computed(
+  () => task.value?.availableActions.includes("transfer") ?? false,
+);
+const skipLabel = computed(() =>
+  isWaitDepart.value && task.value?.availableActions.includes("depart")
+    ? "跳过到店，直接出发"
+    : "",
 );
 function actionClass(action: string): string {
   if (action === "transfer" || action === "absent" || action === "refused")
@@ -534,7 +544,7 @@ async function confirmDeliver() {
     ><view
       class="actions"
       :class="{
-        'actions--dense': isWaitDepart && denseActions.length >= 2,
+        'actions--dense': isWaitDepart && rowActions.length >= 2,
       }"
       ><!-- #111 扫码到店：待出发时主路径（扫小票码免手填防错单）；手动到店=
           arrive 兜底；跳过到店（depart）降级为行下文字链，不诱导跳过流程 -->
@@ -546,19 +556,27 @@ async function confirmDeliver() {
       >
         {{ scanning ? "扫码中…" : "扫码到店" }}</button
       ><button
-        v-for="action in denseActions"
+        v-for="action in rowActions"
         :key="action"
         :class="actionClass(action)"
         @tap="act(action)"
       >
         {{ actionLabel(action) }}</button
       ></view
-    ><!-- 跳过到店逃生门（IKRSIY 道哥 2026-10-31）：文字链弱化，保留但不诱导 -->
-    <view
-      v-if="isWaitDepart && task.availableActions.includes('depart')"
-      class="skip-arrive"
-      @tap="act('depart')"
-      >跳过到店，直接出发</view
+    ><!-- 异常/逃生门统一小字链（道哥 2026-10-31）：跳过到店、申请转单——
+        保留入口但不与流程主操作抢视觉 -->
+    <view v-if="skipLabel || hasTransfer" class="action-links"
+      ><text
+        v-if="skipLabel"
+        class="action-links__item"
+        @tap="act('depart')"
+        >{{ skipLabel }}</text
+      ><text
+        v-if="hasTransfer"
+        class="action-links__item"
+        @tap="act('transfer')"
+        >申请转单</text
+      ></view
     >
   </view>
   <!-- 自绘输入弹层（IK9AX1）：扫码兜底 / 转单原因 / 异常备注 -->
@@ -913,13 +931,20 @@ async function confirmDeliver() {
   background: $primary-dark;
   box-shadow: 0 8rpx 16rpx rgba(7, 63, 45, 0.14);
 }
-/* 跳过到店逃生门：行下小字链，保留但不诱导 */
-.skip-arrive {
+/* 异常/逃生门小字链区：跳过到店、申请转单（保留但不诱导） */
+.action-links {
+  display: flex;
+  justify-content: center;
+  gap: 48rpx;
   margin-top: 18rpx;
-  text-align: center;
+}
+.action-links__item {
   font-size: 22rpx;
   color: $muted;
   text-decoration: underline;
+}
+.action-links__item:active {
+  opacity: 0.7;
 }
 .actions--dense .secondary-btn {
   flex: 1;
