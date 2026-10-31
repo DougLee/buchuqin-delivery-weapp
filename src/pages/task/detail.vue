@@ -45,14 +45,18 @@ const labels: Record<string, string> = {
  *  配送中（first-mile）仍是「到达楼下」（后端 spec：老语义不受影响），
  *  按当前任务状态取文案，不能全局替换 */
 function actionLabel(action: string): string {
-  if (action === "arrive" && isWaitDepart.value) return "到店取货";
-  // 待出发态的 depart 是「跳过到店直接出发」的兜底路径，与到店后的
-  // 「开始配送」区分，避免误以为它是已到店的意思（道哥 2026-10-31 实测反馈）
-  if (action === "depart" && isWaitDepart.value) return "直接出发";
+  // 待出发态：arrive 手动兜底改「手动到店」（与主按钮「扫码到店」区分开）
+  if (action === "arrive" && isWaitDepart.value) return "手动到店";
   return labels[action] || action;
 }
 /** 按钮层级：转单/异常=危险描边；待出发态的 depart=次级（兜底路径）；
  *  其余=主操作实底绿（每状态唯一主推路径，顺序由后端状态机门控） */
+/** dense 行动作：待出发态剔除 depart（降级为行下「跳过到店」文字链） */
+const denseActions = computed(() =>
+  isWaitDepart.value
+    ? task.value?.availableActions.filter((a) => a !== "depart") ?? []
+    : task.value?.availableActions ?? [],
+);
 function actionClass(action: string): string {
   if (action === "transfer" || action === "absent" || action === "refused")
     return "danger";
@@ -530,10 +534,10 @@ async function confirmDeliver() {
     ><view
       class="actions"
       :class="{
-        'actions--dense': isWaitDepart && task.availableActions.length >= 3,
+        'actions--dense': isWaitDepart && denseActions.length >= 2,
       }"
-      ><!-- #111 扫码到店：待出发（waiting-first-mile）时出——扫小票码免手填直确认到店；
-          first-mile 的 arrive（到楼下）不出此钮。四枚同行走 dense 布局 -->
+      ><!-- #111 扫码到店：待出发时主路径（扫小票码免手填防错单）；手动到店=
+          arrive 兜底；跳过到店（depart）降级为行下文字链，不诱导跳过流程 -->
       <button
         v-if="isWaitDepart && task.availableActions.includes('arrive')"
         class="primary-btn"
@@ -542,15 +546,21 @@ async function confirmDeliver() {
       >
         {{ scanning ? "扫码中…" : "扫码到店" }}</button
       ><button
-        v-for="action in task.availableActions"
+        v-for="action in denseActions"
         :key="action"
         :class="actionClass(action)"
         @tap="act(action)"
       >
         {{ actionLabel(action) }}</button
-      ><!-- IK9U45：无可执行操作时直接不渲染该区域，去掉「当前节点暂无可执行操作」空文案 --></view
-    ></view
-  >
+      ></view
+    ><!-- 跳过到店逃生门（IKRSIY 道哥 2026-10-31）：文字链弱化，保留但不诱导 -->
+    <view
+      v-if="isWaitDepart && task.availableActions.includes('depart')"
+      class="skip-arrive"
+      @tap="act('depart')"
+      >跳过到店，直接出发</view
+    >
+  </view>
   <!-- 自绘输入弹层（IK9AX1）：扫码兜底 / 转单原因 / 异常备注 -->
   <view v-if="dialogVisible" class="input-dialog"
     ><view class="input-dialog__mask" @tap="settleDialog(null)"></view
@@ -899,9 +909,17 @@ async function confirmDeliver() {
   box-shadow: none;
 }
 .actions--dense .primary-btn {
-  flex: 1.3;
+  flex: 1.4;
   background: $primary-dark;
   box-shadow: 0 8rpx 16rpx rgba(7, 63, 45, 0.14);
+}
+/* 跳过到店逃生门：行下小字链，保留但不诱导 */
+.skip-arrive {
+  margin-top: 18rpx;
+  text-align: center;
+  font-size: 22rpx;
+  color: $muted;
+  text-decoration: underline;
 }
 .actions--dense .secondary-btn {
   flex: 1;
