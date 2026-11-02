@@ -101,6 +101,9 @@ export async function grantTimes(n: number): Promise<number> {
   granting = true;
   let ok = 0;
   try {
+    // 授权前确保模板为本组织下发值（道哥 2026-11-02）：所有点击入口
+    // （首页引导/我的页补充）统一在此换模板，不再依赖 onShow 时序
+    await ensureTemplate();
     for (let i = 0; i < n; i++) {
       if (!(await askOnce())) break;
       ok++;
@@ -130,18 +133,19 @@ export async function grantTimes(n: number): Promise<number> {
  * 未登录（游客/登录页阶段）不打接口。「总是保持+允许」用户全程无弹窗；
  * 其余用户无手势调用 requestSubscribeMessage 会直接 fail，循环自然终止。
  */
-/** 模板 ensure（道哥 2026-11-02）：会话内首次推送动作前拉一次 profile，
- *  把组织下发模板换进来——否则冷启动直进首页时仍用 org-a 默认值，
- *  他组织授权弹窗静默失败。拉取失败沿用现有值（可能尚未配置） */
+/** 模板 ensure（道哥 2026-11-02）：授权动作前拉一次 profile，把组织下发
+ *  模板换进来——否则冷启动直进首页时仍用 org-a 默认值，他组织授权
+ *  20001「模板不存在」（本次 DX001 实测）。**成功才置位**，失败允许
+ *  下次授权动作重试（一次 profile 请求成本可接受） */
 let templateEnsured = false;
 async function ensureTemplate(): Promise<void> {
   if (templateEnsured) return;
-  templateEnsured = true;
   try {
     const p = await api.profile(useSessionStore().role);
     setNotifyTemplateId(p.notifyTemplateId);
+    templateEnsured = true;
   } catch {
-    /* 静默：沿用现有值 */
+    /* 静默：沿用现有值，下次授权动作再试 */
   }
 }
 
@@ -157,7 +161,6 @@ export async function silentTopUp(): Promise<void> {
     return;
   if (!uni.getStorageSync("staffToken") || granting) return;
   try {
-    await ensureTemplate();
     const { quota } = await fetchQuota();
     await grantTimes(quota < 5 ? 3 : 1);
   } catch {
