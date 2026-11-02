@@ -73,9 +73,14 @@ function askOnce(): Promise<boolean> {
       success: (r) => {
         // @dcloudio/types 未给 success 结果加模板 ID 索引签名，这里断言取值
         const st = (r as unknown as Record<string, string>)[tmpl];
+        // 授权结果诊断（道哥 2026-11-02 大雄推送排查）：非 accept 打印原因
+        console.error("[notify] subscribe result:", tmpl, st ?? JSON.stringify(r));
         resolve(st === "accept");
       },
-      fail: () => resolve(false),
+      fail: (e) => {
+        console.error("[notify] subscribe fail:", JSON.stringify(e));
+        resolve(false);
+      },
     });
   });
 }
