@@ -29,6 +29,9 @@ export interface StaffProfile {
   phone?: string;
   /** 所属组织服务号二维码（IKP34J）：空串=组织未配置，展示端回落平台兜底 */
   gzhQrcodeUrl?: string;
+  /** 本组织订阅消息模板 ID（道哥 2026-11-02）：profile 下发，授权弹窗
+   *  requestSubscribeMessage 消费——模板跟 AppID 走，硬编码他组织模板必失败 */
+  notifyTemplateId?: string;
 }
 /** 当班卡（IK8W5U）：GET /fulfillment/shifts/current */
 export interface Shift {

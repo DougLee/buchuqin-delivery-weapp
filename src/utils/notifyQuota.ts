@@ -13,8 +13,18 @@ import type { NotifyQuotaInfo } from "../types";
  * 真机已验证全链路（开发者工具会假报错，忽略）。
  */
 
-/** 「新订单提醒」订阅消息模板（履约端私有库，IKDQP9 真机已验证） */
+/** 「新订单提醒」订阅消息模板（履约端私有库，IKDQP9 真机已验证）——
+ *  org-a 默认值：仅作组织未配置时的回落。**授权弹窗必须用本组织小程序
+ *  名下的模板**（模板跟 AppID 走，跨名直接 fail「未开启成功」），实际值
+ *  由 profile.notifyTemplateId 下发（道哥 2026-11-02 大雄推送修复）。 */
 export const NOTIFY_TMPL_ID = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
+
+let notifyTemplateId = NOTIFY_TMPL_ID;
+/** profile 下发组织模板后调用（profile 页/首页 ensure 时） */
+export const setNotifyTemplateId = (v?: string | null) => {
+  if (v) notifyTemplateId = v;
+};
+const currentTemplateId = () => notifyTemplateId;
 
 /**
  * 平台组织兜底二维码（IKI3ZP 配置，IKP34J 更名）：组织未配置自己的
@@ -57,11 +67,12 @@ export async function fetchQuota(): Promise<NotifyQuotaInfo> {
  *  开发者工具假报错、环境不支持）一律 → false 视为本次终止 */
 function askOnce(): Promise<boolean> {
   return new Promise((resolve) => {
+    const tmpl = currentTemplateId();
     uni.requestSubscribeMessage({
-      tmplIds: [NOTIFY_TMPL_ID],
+      tmplIds: [tmpl],
       success: (r) => {
         // @dcloudio/types 未给 success 结果加模板 ID 索引签名，这里断言取值
-        const st = (r as unknown as Record<string, string>)[NOTIFY_TMPL_ID];
+        const st = (r as unknown as Record<string, string>)[tmpl];
         resolve(st === "accept");
       },
       fail: () => resolve(false),
@@ -114,6 +125,21 @@ export async function grantTimes(n: number): Promise<number> {
  * 未登录（游客/登录页阶段）不打接口。「总是保持+允许」用户全程无弹窗；
  * 其余用户无手势调用 requestSubscribeMessage 会直接 fail，循环自然终止。
  */
+/** 模板 ensure（道哥 2026-11-02）：会话内首次推送动作前拉一次 profile，
+ *  把组织下发模板换进来——否则冷启动直进首页时仍用 org-a 默认值，
+ *  他组织授权弹窗静默失败。拉取失败沿用现有值（可能尚未配置） */
+let templateEnsured = false;
+async function ensureTemplate(): Promise<void> {
+  if (templateEnsured) return;
+  templateEnsured = true;
+  try {
+    const p = await api.profile(useSessionStore().role);
+    setNotifyTemplateId(p.notifyTemplateId);
+  } catch {
+    /* 静默：沿用现有值 */
+  }
+}
+
 export async function silentTopUp(): Promise<void> {
   // 道哥 2026-09-09：楼长（含实习）也收到楼下推送，额度体系全员放开——
   // 推送受众 = 骑手两角色 + 楼长系（出库推骑手、到楼下推楼长）
@@ -126,6 +152,7 @@ export async function silentTopUp(): Promise<void> {
     return;
   if (!uni.getStorageSync("staffToken") || granting) return;
   try {
+    await ensureTemplate();
     const { quota } = await fetchQuota();
     await grantTimes(quota < 5 ? 3 : 1);
   } catch {

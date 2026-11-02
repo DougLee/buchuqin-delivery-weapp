@@ -9,6 +9,7 @@ import {
   getCachedQuota,
   grantTimes,
   gzhQrcodeOf,
+  setNotifyTemplateId,
 } from "../../utils/notifyQuota";
 import { isManagerRole } from "../../types";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
@@ -41,6 +42,9 @@ async function load() {
   try {
     await session.ensure();
     profile.value = await api.profile(session.role);
+    // 道哥 2026-11-02：组织下发模板换进授权工具——「＋补充」点授权用
+    // 本组织模板（与后端发送同源），不再用硬编码 org-a 默认值
+    setNotifyTemplateId(profile.value?.notifyTemplateId);
     performance.value = await api.performance(session.role);
     // IKDQP9：接单通知额度卡刷新（拉不到不影响本页主内容，保持缓存值）
     void loadQuota();
