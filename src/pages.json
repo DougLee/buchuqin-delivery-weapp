@@ -41,6 +41,12 @@
       }
     },
     {
+      "path": "pages/arrive/scan",
+      "style": {
+        "navigationBarTitleText": "扫码到店"
+      }
+    },
+    {
       "path": "pages/leave/index",
       "style": {
         "navigationBarTitleText": "请假与调配"

@@ -368,7 +368,16 @@ async function scanArrive() {
   scanning.value = true;
   try {
     const scan = await uni.scanCode({ onlyFromCamera: false });
-    const orderNo = String(scan.result ?? "").trim();
+    // IKSN21：兼容 URL Link——扫到新票（wxaurl.cn/xxx?no=orderNo）提取 no
+    // 参数；纯 orderNo（旧票）原样。容错：无参数链接原样传，后端「订单不
+    // 存在」话术承接
+    const raw = String(scan.result ?? "").trim();
+    const urlMatch = raw.includes("/")
+      ? raw.match(/[?&]no=([^&]+)/)
+      : null;
+    const orderNo = urlMatch
+      ? decodeURIComponent(urlMatch[1])
+      : raw;
     if (!orderNo) {
       uni.showToast({ title: "二维码无有效内容", icon: "none" });
       return;
