@@ -162,6 +162,220 @@ export interface LeaveItem {
   substituteName?: string | null;
 }
 
+/* ==================== 夜宵店（IKSW1F 楼长端 /night-rider/night/*） ==================== */
+
+/** 微信 JSAPI 拉起支付参数（payments jsapiPrepay 下发，与用户端同构） */
+export interface WechatPayParams {
+  appId: string;
+  timeStamp: string;
+  nonceStr: string;
+  package: string;
+  signType: string;
+  paySign: string;
+}
+
+/** 押金档位预览（GET deposit/tiers）：当前余额 + 下一档差额 + 后续三档 */
+export interface NightDepositTiers {
+  deposit: number;
+  nextTier: number;
+  gapToNext: number;
+  tiers: Array<{ tier: number; gap: number }>;
+}
+
+/** 押金流水行（deposit 缴纳 / deduct 扣除 / refund 退还；amount 恒正） */
+export interface NightDepositTxn {
+  id: string;
+  type: string;
+  amount: number;
+  payOrderNo: string | null;
+  remark: string;
+  createdAt: string;
+}
+
+/** 押金详情（GET deposit）：余额 + 流水（时间倒序，上限 100） */
+export interface NightDepositDetail {
+  deposit: number;
+  nextTier: number;
+  gapToNext: number;
+  txns: NightDepositTxn[];
+}
+
+/** 押金支付单发起返回（POST deposit/pay）：ND 单号 + JSAPI 支付参数 */
+export interface NightDepositPayIntent {
+  depositOrderId: string;
+  outTradeNo: string;
+  amount: number;
+  targetTier: number;
+  payParams: WechatPayParams;
+}
+
+/** 押金支付状态（GET deposit/pay-status 轮询：pending/paid/closed） */
+export interface NightDepositPayStatus {
+  outTradeNo: string;
+  amount: number;
+  status: string;
+  paidAt: string | null;
+}
+
+/** 商品池行（GET stock/pool）：夜主档 + 本店楼栋行；attached=false 未配置不可备货 */
+export interface NightPoolItem {
+  catalogProductId: string;
+  name: string;
+  image: string | null;
+  price: number;
+  status: string;
+  attached: boolean;
+  nightProductId: string | null;
+  stock: number;
+  onShelf: boolean;
+  saleAllowed: boolean;
+  stockValue: number;
+}
+
+/** 备货单商品行（快照） */
+export interface NightStockOrderItem {
+  nightProductId?: string;
+  catalogProductId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+/** 备货记录（GET stock/orders） */
+export interface NightStockOrder {
+  id: string;
+  items: NightStockOrderItem[];
+  totalValue: number;
+  status: string;
+  createdAt: string;
+}
+
+/** 佣金/配送费三态金额汇总（分） */
+export interface NightMoneyBucket {
+  estimated: number;
+  pending: number;
+  settled: number;
+}
+
+/** 夜宵工作台（GET dashboard）：场次/营业态/押金/待接单/今日销售/库存货值 */
+export interface NightDashboard {
+  store: {
+    id: string;
+    status: string;
+    buildingName: string;
+    commissionRate: number;
+  };
+  campus: {
+    nightEnabled: boolean;
+    nightStartAt: string | null;
+    nightEndAt: string | null;
+  };
+  inWindow: boolean;
+  deposit: number;
+  gapToNextTier: number;
+  pendingOrders: number;
+  todayOrders: number;
+  todaySales: number;
+  stockValue: number;
+  commission: NightMoneyBucket;
+  deliveryFee: NightMoneyBucket;
+}
+
+/** 本店商品行（GET products）：资料只读（价格/资料引夜主档，楼长不能改） */
+export interface NightProduct {
+  id: string;
+  catalogProductId: string;
+  name: string;
+  image: string | null;
+  price: number;
+  catalogStatus: string;
+  stock: number;
+  onShelf: boolean;
+  saleAllowed: boolean;
+  purchasable: boolean;
+}
+
+/** 夜宵订单商品快照行 */
+export interface NightOrderItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+/** 夜宵订单地址快照（楼长视角含联系方式） */
+export interface NightOrderAddress {
+  buildingName: string;
+  room: string;
+  contactName: string;
+  phone: string;
+}
+
+/** 夜宵订单（GET orders / orders/:id） */
+export interface NightOrder {
+  id: string;
+  orderNo: string;
+  status: string;
+  statusText: string;
+  items: NightOrderItem[];
+  productAmount: number;
+  couponDiscount: number;
+  deliveryFee: number;
+  payableAmount: number;
+  commissionRate: number;
+  address: NightOrderAddress;
+  remark: string;
+  timeline: Array<{
+    key: string;
+    title: string;
+    description: string;
+    done: boolean;
+    time?: string;
+  }>;
+  couponSnapshot: { name?: string; discount?: number } | null;
+  businessDate: string;
+  timeoutAt: string | null;
+  createdAt: string;
+  paidAt: string | null;
+  completedAt: string | null;
+  cancelReason: string | null;
+  afterSaleStatus: string | null;
+  store: { id: string; buildingName: string } | null;
+}
+
+/** 单单佣金明细（GET orders/:id/earning）：券后基数 × 比例 + 配送费 */
+export interface NightOrderEarning {
+  orderNo: string;
+  productAmount: number;
+  couponDiscount: number;
+  commissionBase: number;
+  commissionRate: number;
+  commission: number;
+  deliveryFee: number;
+  total: number;
+}
+
+/** 佣金流水行（每单两条：commission 商品佣金 / deliveryFee 配送费） */
+export interface NightCommissionTxn {
+  id: string;
+  orderNo: string;
+  type: string;
+  base: number | null;
+  rate: number | null;
+  amount: number;
+  status: string;
+  settleBatch: string | null;
+  remark: string;
+  createdAt: string;
+}
+
+/** 夜宵收入（GET income）：两列汇总 + 押金余额 + 佣金流水 */
+export interface NightIncome {
+  summary: { commission: NightMoneyBucket; deliveryFee: NightMoneyBucket };
+  deposit: number;
+  items: NightCommissionTxn[];
+}
+
 /** IKKTTP 楼长作战地图（复用后台口径）：整栋楼层三色格 */
 export interface BattleFloor {
   floor: number;

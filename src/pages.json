@@ -51,6 +51,54 @@
       "style": {
         "navigationBarTitleText": "请假与调配"
       }
+    },
+    {
+      "path": "pages/night/index",
+      "style": {
+        "navigationBarTitleText": "夜宵店工作区"
+      }
+    },
+    {
+      "path": "pages/night/deposit",
+      "style": {
+        "navigationBarTitleText": "经营押金"
+      }
+    },
+    {
+      "path": "pages/night/stock",
+      "style": {
+        "navigationBarTitleText": "备货进货"
+      }
+    },
+    {
+      "path": "pages/night/stock-orders",
+      "style": {
+        "navigationBarTitleText": "备货记录"
+      }
+    },
+    {
+      "path": "pages/night/products",
+      "style": {
+        "navigationBarTitleText": "本店商品"
+      }
+    },
+    {
+      "path": "pages/night/orders",
+      "style": {
+        "navigationBarTitleText": "夜宵订单"
+      }
+    },
+    {
+      "path": "pages/night/order-detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/night/income",
+      "style": {
+        "navigationBarTitleText": "夜宵收入"
+      }
     }
   ],
   "tabBar": {

@@ -6,6 +6,17 @@ import type {
   CommissionRecord,
   Dashboard,
   LeaveItem,
+  NightDashboard,
+  NightDepositDetail,
+  NightDepositPayIntent,
+  NightDepositPayStatus,
+  NightDepositTiers,
+  NightIncome,
+  NightOrder,
+  NightOrderEarning,
+  NightPoolItem,
+  NightProduct,
+  NightStockOrder,
   NotifyQuotaInfo,
   Performance,
   Shift,
@@ -186,4 +197,99 @@ export const api = {
     }),
   /** 订阅额度查询（IKDQP9）：lowWater=quota<5；failedToday=当天有推送因额度耗尽失败 */
   notifyQuota: () => request<NotifyQuotaInfo>("/fulfillment/notify/quota"),
+  // —— 夜宵店（IKSW1F）：楼长端 /night-rider/night/*，Staff JWT 鉴权同履约端 ——
+  /** 夜宵工作台：场次/营业态/押金/待接单/今日销售/库存货值/佣金两列 */
+  nightDashboard: () =>
+    request<NightDashboard>("/night-rider/night/dashboard"),
+  /** 押金档位预览：当前余额 + 下一档差额 + 后续三档 */
+  nightDepositTiers: () =>
+    request<NightDepositTiers>("/night-rider/night/deposit/tiers"),
+  /** 押金详情：余额 + 流水（缴纳/扣除/退还，时间倒序） */
+  nightDeposit: () => request<NightDepositDetail>("/night-rider/night/deposit"),
+  /** 发起押金缴纳：后端按 500 元档递增算差额生成 ND 支付单（金额自算，不接受自选） */
+  nightDepositPay: () =>
+    request<NightDepositPayIntent>("/night-rider/night/deposit/pay", {
+      method: "POST",
+      data: {},
+    }),
+  /** 押金支付结果查询（回调故障兜底：服务端主动查微信单落账） */
+  nightDepositPayStatus: (outTradeNo?: string) =>
+    request<NightDepositPayStatus>(
+      `/night-rider/night/deposit/pay-status${
+        outTradeNo ? `?outTradeNo=${encodeURIComponent(outTradeNo)}` : ""
+      }`,
+    ),
+  /** 商品池：本校区夜主档 + 本店楼栋行（当前库存/上架状态） */
+  nightStockPool: () => request<NightPoolItem[]>("/night-rider/night/stock/pool"),
+  /** 备货下单（免费）：押金额度校验，超额 400 返回差额提示；下单即库存入账 */
+  nightStockOrder: (items: Array<{ catalogProductId: string; quantity: number }>) =>
+    request<{ id: string; totalValue: number; createdAt: string }>(
+      "/night-rider/night/stock/orders",
+      { method: "POST", data: { items } },
+    ),
+  /** 备货记录列表（信封分页） */
+  nightStockOrders: (page = 1, pageSize = 20) =>
+    request<PageResult<NightStockOrder>>(
+      `/night-rider/night/stock/orders?page=${page}&pageSize=${pageSize}`,
+    ),
+  /** 本店商品列表（资料只读，含库存/上下架/可售状态） */
+  nightProducts: () => request<NightProduct[]>("/night-rider/night/products"),
+  /** 上下架切换：PATCH；恢复上架时后端校验主档停售（楼长不能绕过后台停售） */
+  nightToggleShelf: (id: string, onShelf: boolean) =>
+    request<{ id: string; onShelf: boolean }>(
+      `/night-rider/night/products/${id}/shelf`,
+      {
+        method: "PATCH" as UniApp.RequestOptions["method"],
+        data: { onShelf },
+      },
+    ),
+  /** 夜宵订单列表（todo=待办[待接单+配送中]，信封分页） */
+  nightOrders: (status: string, page = 1, pageSize = 20) =>
+    request<PageResult<NightOrder>>(
+      `/night-rider/night/orders?status=${status}&page=${page}&pageSize=${pageSize}`,
+    ),
+  /** 本店订单详情 */
+  nightOrder: (id: string) =>
+    request<NightOrder>(`/night-rider/night/orders/${id}`),
+  /** 接单（pending-accept → delivering） */
+  nightAccept: (id: string) =>
+    request<unknown>(`/night-rider/night/orders/${id}/accept`, {
+      method: "POST",
+      data: {},
+    }),
+  /** 送达（delivering → delivered） */
+  nightDeliver: (id: string) =>
+    request<unknown>(`/night-rider/night/orders/${id}/deliver`, {
+      method: "POST",
+      data: {},
+    }),
+  /** 单单佣金明细（券扣减/基数/比例/佣金/配送费两条） */
+  nightOrderEarning: (id: string) =>
+    request<NightOrderEarning>(`/night-rider/night/orders/${id}/earning`),
+  /** 夜宵收入：佣金/配送费两列汇总 + 押金余额 + 佣金流水 */
+  nightIncome: () => request<NightIncome>("/night-rider/night/income"),
+  /** 开店（互斥/押金/可售商品校验，不满足 400 返回具体原因） */
+  nightOpen: () =>
+    request<{ id: string; status: string }>("/night-rider/night/store/open", {
+      method: "POST",
+      data: {},
+    }),
+  /** 暂停营业（本场次内可恢复） */
+  nightPause: () =>
+    request<{ id: string; status: string }>("/night-rider/night/store/pause", {
+      method: "POST",
+      data: {},
+    }),
+  /** 恢复营业（重验场次窗口与校区闭店互斥） */
+  nightResume: () =>
+    request<{ id: string; status: string }>("/night-rider/night/store/resume", {
+      method: "POST",
+      data: {},
+    }),
+  /** 打烊（停止新单，已付订单继续履约，库存跨场留存） */
+  nightClose: () =>
+    request<{ id: string; status: string }>("/night-rider/night/store/close", {
+      method: "POST",
+      data: {},
+    }),
 };

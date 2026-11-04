@@ -4,9 +4,10 @@ import { APP_NAME as appName } from "../../config/app";
 import { isManagerRole } from "../../types";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
+import { ApiError, isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
+import { nightStoreStatusText } from "../../utils/night";
 import { quickAction, type QuickAction } from "../../utils/task-actions";
 import {
   fetchQuota,
@@ -16,6 +17,7 @@ import {
 } from "../../utils/notifyQuota";
 import type {
   Dashboard,
+  NightDashboard,
   Shift,
   StaffRole,
   Task,
@@ -59,6 +61,8 @@ async function load() {
     shift.value = s;
     // IKDQP9：登录态下查订阅额度（低水位条）；骑手首次「接单中」→ 上岗引导半屏
     void refreshNotifyBar();
+    // IKSW1F 夜宵店入口状态（仅楼长系；失败静默不影响白天工作台首屏）
+    if (isManagerRole(d.profile.role)) void loadNight();
     // 道哥 2026-09-09：授权引导全员放开——楼长（含实习）也收到楼下推送，
     // 登录且上岗同样弹一次授权框（IKEAGE 撤销此前对楼长系的排除）
     if (d.profile.status === "online" && !isGuideShown())
@@ -78,6 +82,45 @@ async function load() {
 const isManager = computed(() =>
   isManagerRole(data.value?.profile.role ?? "fulltime-rider"),
 );
+/* ---------- IKSW1F 夜宵店入口（工作区分开：白天配送照旧，夜宵店独立页） ---------- */
+const nightInfo = ref<NightDashboard | null>(null);
+/** 未绑定夜宵店 = 招募中（后端 404「尚未绑定」，request 层已静默不 toast） */
+const nightRecruiting = ref(false);
+async function loadNight() {
+  try {
+    nightInfo.value = await api.nightDashboard();
+    nightRecruiting.value = false;
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      nightInfo.value = null;
+      nightRecruiting.value = true;
+    }
+    // 其他错误静默：入口不渲染，不打扰白天工作台
+  }
+}
+const goNight = () => uni.navigateTo({ url: "/pages/night/index" });
+const nightBadge = computed(() => {
+  const n = nightInfo.value;
+  if (!n) return "招募中";
+  if (n.store.status === "closed")
+    return n.campus.nightStartAt ? `已歇业 ${n.campus.nightStartAt} 开门` : "已歇业";
+  return nightStoreStatusText(n.store.status);
+});
+const nightBadgeTone = computed(() => {
+  const s = nightInfo.value?.store.status;
+  if (!s) return "muted";
+  if (s === "open") return "on";
+  if (s === "paused") return "warn";
+  if (s === "suspended") return "off";
+  return "muted";
+});
+const nightSub = computed(() => {
+  const n = nightInfo.value;
+  if (!n) return "运营绑定夜宵店后，在这里开启夜间经营";
+  if (n.pendingOrders > 0)
+    return `${n.store.buildingName} · ${n.pendingOrders} 单待接单`;
+  return `${n.store.buildingName} · 今日 ${n.todayOrders} 单 / 销售 ¥${fenToYuan(n.todaySales)}`;
+});
 /** 平均用时（IK8W5V 去演示化）：后端无 averageMinutes 字段时显示"—"，不再硬编码 12 */
 const avgMinutes = computed<number | null>(() => {
   const v = data.value?.stats.averageMinutes;
@@ -353,6 +396,28 @@ function h5TestLogin(key: "rider" | "manager") {
         >
       </view>
 
+      <!-- IKSW1F 夜宵店入口（仅楼长系渲染）：工作区分开，白天配送任务照旧 -->
+      <view
+        v-if="isManager && (nightInfo || nightRecruiting)"
+        class="night-entry card"
+        role="button"
+        @tap="goNight"
+      >
+        <view class="night-entry__icon">
+          <view class="night-entry__moon"></view>
+        </view>
+        <view class="night-entry__main">
+          <text class="night-entry__title">夜宵店</text>
+          <text class="night-entry__sub">{{ nightSub }}</text>
+        </view>
+        <view v-if="nightInfo && nightInfo.pendingOrders > 0" class="night-entry__ping">{{
+          nightBadge
+        }}</view>
+        <text v-else class="night-entry__badge" :class="`night-entry__badge--${nightBadgeTone}`">{{
+          nightBadge
+        }}</text>
+        <text class="link-chip">进入</text>
+      </view>
 
       <view class="section-title"
         ><view
@@ -721,6 +786,98 @@ function h5TestLogin(key: "rider" | "manager") {
 .small {
   font-size: 17rpx;
   margin-left: 2rpx;
+}
+/* ---------- IKSW1F 夜宵店入口卡 ---------- */
+.night-entry {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  min-height: 120rpx;
+  padding: 22rpx 28rpx;
+  margin-top: 22rpx;
+}
+.night-entry:active {
+  background: $soft;
+}
+.night-entry__icon {
+  flex: none;
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 22rpx;
+  background: $primary-deep;
+  display: grid;
+  place-items: center;
+}
+/* 月牙图形（CSS 圆缺法，无 > 形字符）：亮圆叠暗圆留出月牙 */
+.night-entry__moon {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 50%;
+  background: $lime;
+  position: relative;
+  overflow: hidden;
+}
+.night-entry__moon:before {
+  content: "";
+  position: absolute;
+  width: 30rpx;
+  height: 30rpx;
+  border-radius: 50%;
+  background: $primary-deep;
+  left: 12rpx;
+  top: -4rpx;
+}
+.night-entry__main {
+  flex: 1;
+  min-width: 0;
+}
+.night-entry__title {
+  display: block;
+  font-size: 29rpx;
+  font-weight: 900;
+  color: $ink;
+}
+.night-entry__sub {
+  display: block;
+  margin-top: 5rpx;
+  font-size: 20rpx;
+  color: $muted;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.night-entry__badge {
+  flex: none;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 800;
+}
+.night-entry__badge--on {
+  background: $soft;
+  color: var(--brand, #159c55);
+}
+.night-entry__badge--warn {
+  background: $warning;
+  color: #b96f33;
+}
+.night-entry__badge--off {
+  background: #fdece9;
+  color: $danger;
+}
+.night-entry__badge--muted {
+  background: #eef1ef;
+  color: #667069;
+}
+/* 待接单角标：橙底白字强调，替代常规状态徽章 */
+.night-entry__ping {
+  flex: none;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: $accent;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 800;
 }
 .section-kicker {
   display: block;
