@@ -10,7 +10,7 @@ import type { NightDashboard, NightPoolItem } from "../../types";
 
 /**
  * 备货进货页（IKSW1F）：夜主档商品池勾选数量 → POST stock/orders。
- * 免费进货（线下取货），押金额度校验：Σ(现有库存+本次数量)×夜宵售价 ≤ 押金。
+ * 申请预占额度，校区整单审核出库，楼长确认实收后才入库。
  * 顶部实时显示押金余额 / 当前货值 / 可再进货额度；被额度拦截时后端返回
  * 差额提示，前端弹窗引导补缴押金。
  */
@@ -31,15 +31,11 @@ const currentStockValue = computed(() =>
   dash.value?.stockValue ?? 0,
 );
 const usableQuota = computed(() =>
-  Math.max(0, deposit.value - currentStockValue.value),
+  dash.value?.usableQuota ?? 0,
 );
 /** 本次备货货值（勾选 × 夜宵售价） */
 const orderValue = computed(() =>
   pool.value.reduce((s, p) => s + (quantities.value[p.catalogProductId] ?? 0) * p.price, 0),
-);
-/** 入库后库存货值 = 现有库存货值 + 本次备货货值（额度四要素之一） */
-const afterStockValue = computed(
-  () => currentStockValue.value + orderValue.value,
 );
 /** 勾选件数 */
 const pickedCount = computed(() =>
@@ -64,7 +60,7 @@ async function load() {
     pool.value = p;
     dash.value = d;
     // 清掉已不在池中的勾选（主档停售后行消失）
-    const alive = new Set(p.map((i) => i.catalogProductId));
+    const alive = new Set(p.filter(i => i.canStock).map((i) => i.catalogProductId));
     const next: Record<string, number> = {};
     for (const [k, v] of Object.entries(quantities.value))
       if (alive.has(k) && v > 0) next[k] = v;
@@ -79,7 +75,7 @@ async function load() {
 onShow(load);
 
 function setQty(item: NightPoolItem, qty: number) {
-  if (submitting.value) return;
+  if (submitting.value || !item.canStock) return;
   requestId = '';
   const v = Math.max(0, Math.min(999, Math.floor(qty) || 0));
   if (v === 0) delete quantities.value[item.catalogProductId];
@@ -106,8 +102,8 @@ async function submit() {
     return;
   }
   const confirmation = await new Promise<boolean>((resolve) => uni.showModal({
-    title: '确认进货入库',
-    content: `本次 ${pickedCount.value} 件，货值 ¥${fenToYuan(orderValue.value)}；入库后库存货值 ¥${fenToYuan(currentStockValue.value + orderValue.value)}，剩余额度 ¥${fenToYuan(usableQuota.value - orderValue.value)}。确认后立即入库。`,
+    title: '提交备货申请',
+    content: `本次 ${pickedCount.value} 件，预占额度 ¥${fenToYuan(orderValue.value)}。校区审核出库后，请核对实收数量确认收货，届时才增加本店库存。`,
     success: (r) => resolve(Boolean(r.confirm)), fail: () => resolve(false),
   }));
   if (!confirmation || submitting.value) return;
@@ -118,7 +114,7 @@ async function submit() {
       .map(([catalogProductId, quantity]) => ({ catalogProductId, quantity }));
     if (!requestId) requestId = `stock-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     await api.nightStockOrder(items, requestId);
-    uni.showToast({ title: "备货成功，请线下取货", icon: "success" });
+    uni.showToast({ title: "申请已提交，待校区审核", icon: "none" });
     quantities.value = {};
     requestId = '';
     load();
@@ -183,10 +179,14 @@ async function submit() {
           ><text class="quota__label">可再进货额度</text></view
         >
       </view>
+      <view class="hint card" style="padding: 24rpx; margin-top: 18rpx; font-size: 24rpx; line-height: 1.8">
+        <text>备货及收货差异预占 ¥{{ fenToYuan(dash?.reservedValue ?? 0) }}</text>
+        <button class="history-btn" @tap="uni.navigateTo({ url: '/pages/night/stock-orders' })">查看备货进度与收货</button>
+      </view>
 
       <view class="pool-head"
-        ><text class="pool-head__title">商品池（夜主档）</text
-        ><text class="pool-head__sub">备货免费，下单后线下取货</text></view
+        ><text class="pool-head__title">可备货商品</text
+        ><text class="pool-head__sub">申请 → 校区审核出库 → 确认实收</text></view
       >
 
       <view v-for="p in pool" :key="p.catalogProductId" class="row card">
@@ -203,11 +203,12 @@ async function submit() {
           ><text class="row__name">{{ p.name }}</text
           ><view class="row__meta"
             ><text class="row__price">¥{{ fenToYuan(p.price) }}</text
-            ><text class="row__stock">本店库存 {{ p.stock }}</text
+            ><text class="row__stock">可售 {{ p.stock }} · 仓库 {{ p.warehouseAvailable }}</text
             ><text v-if="!p.attached" class="row__tag">首次进货</text></view
           ></view
         >
-        <view class="stepper"
+        <text v-if="!p.canStock" class="row__stock">{{ p.unavailableReason }}</text>
+        <view v-else class="stepper"
           ><button
             class="stepper__btn"
             :aria-label="`减少${p.name}进货数量`"
@@ -243,7 +244,7 @@ async function submit() {
           ></view
         >
         <button class="submit-btn" :disabled="!canSubmit" @tap="submit">
-          {{ submitting ? "提交中…" : overQuota ? '额度不足，去交押金' : "确认进货" }}
+          {{ submitting ? "提交中…" : overQuota ? '额度不足，去交押金' : "提交备货申请" }}
         </button>
       </view>
     </template>
@@ -251,11 +252,17 @@ async function submit() {
 </template>
 
 <style scoped lang="scss">
+/* V4 深色化：功能逻辑不动，仅视觉 token 对齐 night.scss */
 @import "../../styles/theme.scss";
+@import "../../styles/night.scss";
 .stock-page {
-  background: $paper;
+  @include nb-page;
   padding-bottom: calc(210rpx + env(safe-area-inset-bottom));
 }
+.stock-page .card {
+  @include nb-card;
+}
+.history-btn { background: $nb-gold-soft; color: $nb-gold; font-size: 24rpx; border-radius: 99rpx; margin-top: 12rpx; }
 .retry {
   text-align: center;
   padding: 120rpx 30rpx;
@@ -266,11 +273,11 @@ async function submit() {
 }
 .retry__title {
   font-weight: 900;
-  color: $primary-dark;
+  color: $nb-text;
 }
 .retry__sub {
   font-size: 21rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 8rpx;
 }
 /* 额度仪表 */
@@ -281,7 +288,7 @@ async function submit() {
   text-align: center;
 }
 .quota > view + view {
-  border-left: 2rpx solid $line;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
 }
 .quota__value,
 .quota__label {
@@ -290,15 +297,15 @@ async function submit() {
 .quota__value {
   font-size: 30rpx;
   font-weight: 900;
-  color: var(--brand, #159c55);
+  color: $nb-gold;
   font-variant-numeric: tabular-nums;
 }
 .quota__value--tight {
-  color: $danger;
+  color: $nb-danger;
 }
 .quota__label {
   font-size: 19rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 6rpx;
 }
 .pool-head {
@@ -310,11 +317,11 @@ async function submit() {
 .pool-head__title {
   font-size: 28rpx;
   font-weight: 900;
-  color: $ink;
+  color: $nb-text;
 }
 .pool-head__sub {
   font-size: 20rpx;
-  color: $muted;
+  color: $nb-text-sub;
 }
 /* 商品行 */
 .row {
@@ -330,12 +337,12 @@ async function submit() {
   width: 110rpx;
   height: 110rpx;
   border-radius: 20rpx;
-  background: $soft;
+  background: rgba(255, 255, 255, 0.08);
 }
 .row__img--ph {
   display: grid;
   place-items: center;
-  color: $primary-dark;
+  color: $nb-gold;
   font-size: 34rpx;
   font-weight: 900;
 }
@@ -347,7 +354,7 @@ async function submit() {
   display: block;
   font-size: 27rpx;
   font-weight: 800;
-  color: $ink;
+  color: $nb-text;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -361,17 +368,17 @@ async function submit() {
 .row__price {
   font-size: 25rpx;
   font-weight: 900;
-  color: var(--brand, #159c55);
+  color: $nb-gold;
 }
 .row__stock {
   font-size: 20rpx;
-  color: $muted;
+  color: $nb-text-sub;
 }
 .row__tag {
   padding: 2rpx 14rpx;
   border-radius: 8rpx;
-  background: #eef1ef;
-  color: #667069;
+  background: rgba(255, 255, 255, 0.08);
+  color: $nb-text-sub;
   font-size: 19rpx;
 }
 /* 数量步进器 */
@@ -389,36 +396,42 @@ async function submit() {
   margin: 0;
   padding: 0;
   border-radius: 16rpx;
-  background: $soft;
-  color: $primary-dark;
+  background: rgba(255, 255, 255, 0.08);
+  color: $nb-text;
   font-size: 32rpx;
   font-weight: 900;
   line-height: 56rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+}
+.stepper__btn::after {
+  border: none;
 }
 .stepper__btn[disabled] {
   opacity: 0.35;
+  color: $nb-text;
+  background: rgba(255, 255, 255, 0.08);
 }
 .stepper__input {
   width: 64rpx;
   height: 56rpx;
   border-radius: 14rpx;
-  border: 2rpx solid $line;
-  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: $nb-bg;
   text-align: center;
   font-size: 26rpx;
   font-weight: 800;
-  color: $ink;
+  color: $nb-text;
 }
 .empty {
   padding: 70rpx 0;
   text-align: center;
-  color: $muted;
+  color: $nb-text-sub;
   font-size: 24rpx;
 }
-/* 底部结算条 */
+/* 底部结算条（深色） */
 .submit-bar {
   position: fixed;
   left: 0;
@@ -429,8 +442,8 @@ async function submit() {
   align-items: center;
   gap: 20rpx;
   padding: 18rpx 28rpx calc(18rpx + env(safe-area-inset-bottom));
-  background: #fff;
-  box-shadow: 0 -8rpx 30rpx rgba(7, 63, 45, 0.08);
+  background: $nb-hero-gradient;
+  border-top: 1px solid $nb-border;
 }
 .submit-bar__info {
   flex: 1;
@@ -440,43 +453,50 @@ async function submit() {
   display: block;
   font-size: 34rpx;
   font-weight: 900;
-  color: var(--brand, #159c55);
+  color: $nb-gold;
   font-variant-numeric: tabular-nums;
 }
 .submit-bar__label {
   display: block;
   font-size: 19rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 2rpx;
 }
 .submit-bar__warn {
   display: block;
   font-size: 19rpx;
-  color: $danger;
+  color: $nb-warn;
   margin-top: 2rpx;
 }
+/* 确认进货 CTA：金黄 */
 .submit-btn {
   flex: none;
   min-width: 240rpx;
   min-height: 88rpx;
   margin: 0;
   border-radius: 999rpx;
-  background: $primary-dark;
-  color: $lime;
+  background: $nb-cta-gradient;
+  color: $nb-gold-ink;
   font-size: 28rpx;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+}
+.submit-btn::after {
+  border: none;
 }
 .submit-btn[disabled] {
   opacity: 0.5;
+  color: $nb-gold-ink;
+  background: $nb-cta-gradient;
 }
-/* 骨架 */
+/* 骨架（深色 shimmer） */
 .stock-skeleton__bar,
 .stock-skeleton__row {
   border-radius: 30rpx;
-  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  background: linear-gradient(90deg, #121a15, #1a241d, #121a15);
   animation: stock-pulse 1.2s infinite;
 }
 .stock-skeleton__bar {
@@ -490,5 +510,12 @@ async function submit() {
   50% {
     opacity: 0.55;
   }
+}
+</style>
+
+<style lang="scss">
+@import "../../styles/night.scss";
+page {
+  background: $nb-bg;
 }
 </style>

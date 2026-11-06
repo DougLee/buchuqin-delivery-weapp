@@ -241,11 +241,15 @@ function txnView(type: string) {
 </template>
 
 <style scoped lang="scss">
+/* V4 深色化：功能逻辑不动，仅视觉 token 对齐 night.scss */
 @import "../../styles/theme.scss";
+@import "../../styles/night.scss";
 .deposit-page {
-  background:
-    radial-gradient(circle at 90% 7%, rgba(185, 242, 39, 0.18), transparent 24%),
-    $paper;
+  @include nb-page;
+}
+/* 全局 .card 深色覆盖 */
+.deposit-page .card {
+  @include nb-card;
 }
 .retry {
   text-align: center;
@@ -257,22 +261,21 @@ function txnView(type: string) {
 }
 .retry__title {
   font-weight: 900;
-  color: $primary-dark;
+  color: $nb-text;
 }
 .retry__sub {
   font-size: 21rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 8rpx;
 }
+/* hero 暗绿渐变（V4 token） */
 .hero {
+  @include nb-hero;
   position: relative;
   overflow: hidden;
   padding: 36rpx;
   border-radius: 38rpx;
-  /* 夜宵店头统一渐变（IKSZF5）：135deg 深绿→夜绿，金光 glow */
-  background: linear-gradient(135deg, $night-deep, $night-green);
   color: #fff;
-  box-shadow: 0 18rpx 42rpx rgba(3, 45, 34, 0.22);
 }
 .hero__glow {
   position: absolute;
@@ -281,7 +284,7 @@ function txnView(type: string) {
   border-radius: 50%;
   right: -80rpx;
   bottom: -110rpx;
-  background: rgba(185, 242, 39, 0.1);
+  @include nb-halo;
 }
 .hero__kicker,
 .hero__label,
@@ -293,7 +296,7 @@ function txnView(type: string) {
 .hero__kicker {
   font-size: 20rpx;
   letter-spacing: 3rpx;
-  color: $gold;
+  color: $nb-success;
   font-weight: 900;
 }
 .hero__label {
@@ -304,8 +307,10 @@ function txnView(type: string) {
 .hero__amount {
   font-size: 76rpx;
   line-height: 1.1;
-  font-weight: 900;
+  font-weight: 600;
   margin: 20rpx 0;
+  color: $nb-gold;
+  font-variant-numeric: tabular-nums;
 }
 .hero__amount small {
   font-size: 32rpx;
@@ -315,6 +320,7 @@ function txnView(type: string) {
   font-size: 21rpx;
   opacity: 0.72;
 }
+/* 确认到账条：金黄警示（V4 cd 同语义） */
 .checking {
   display: flex;
   align-items: center;
@@ -323,19 +329,20 @@ function txnView(type: string) {
   margin-top: 22rpx;
   padding: 14rpx 24rpx;
   border-radius: 22rpx;
-  background: $warning;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.22);
 }
 .checking__text {
   flex: 1;
   font-size: 23rpx;
-  color: #7a4a12;
+  color: $nb-warn;
   font-weight: 700;
 }
 .checking__act {
   padding: 12rpx 26rpx;
   border-radius: 999rpx;
-  background: $accent;
-  color: #fff;
+  background: $nb-warn;
+  color: $nb-gold-ink;
   font-size: 22rpx;
   font-weight: 800;
 }
@@ -347,13 +354,13 @@ function txnView(type: string) {
   display: block;
   font-size: 27rpx;
   font-weight: 900;
-  color: $ink;
+  color: $nb-text;
 }
 .tier {
   display: flex;
   align-items: center;
   min-height: 92rpx;
-  border-bottom: 2rpx solid $line;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .tier:last-of-type {
   border-bottom: none;
@@ -365,19 +372,19 @@ function txnView(type: string) {
 .tier__name {
   font-size: 26rpx;
   font-weight: 800;
-  color: $ink;
+  color: $nb-text;
 }
 .tier__gap {
   font-size: 20rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 4rpx;
 }
 .tier__flag {
   margin-left: auto;
   padding: 4rpx 18rpx;
   border-radius: 999rpx;
-  background: $soft;
-  color: $primary-dark;
+  background: rgba(255, 215, 94, 0.14);
+  color: $nb-gold;
   font-size: 20rpx;
   font-weight: 800;
 }
@@ -386,40 +393,51 @@ function txnView(type: string) {
   margin-top: 16rpx;
   font-size: 20rpx;
   line-height: 1.6;
-  color: $muted;
+  color: $nb-text-sub;
 }
+/* 缴纳 CTA：金黄（V4 主 CTA 色） */
 .pay-btn {
   width: 100%;
   min-height: 96rpx;
   margin-top: 26rpx;
   border-radius: 999rpx;
-  background: $primary-dark;
-  color: $lime;
+  background: $nb-cta-gradient;
+  color: $nb-gold-ink;
   font-size: 30rpx;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+}
+.pay-btn::after {
+  border: none;
 }
 .pay-btn[disabled] {
   opacity: 0.6;
+  color: $nb-gold-ink;
+  background: $nb-cta-gradient;
 }
 .pay-full {
   display: block;
   margin-top: 26rpx;
   text-align: center;
   font-size: 22rpx;
-  color: $muted;
+  color: $nb-text-sub;
 }
 .section-kicker {
   display: block;
-  color: $primary;
+  color: rgba(255, 215, 94, 0.75);
   font-size: 18rpx;
   font-weight: 900;
   letter-spacing: 2rpx;
 }
 .section-title__main {
   display: block;
+  color: $nb-text;
+}
+.section-title__sub {
+  color: $nb-text-sub;
 }
 .section-title {
   margin-top: 36rpx;
@@ -433,7 +451,7 @@ function txnView(type: string) {
   display: flex;
   align-items: center;
   gap: 18rpx;
-  border-bottom: 2rpx solid $line;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .records > .record:last-child {
   border-bottom: none;
@@ -442,10 +460,10 @@ function txnView(type: string) {
   width: 64rpx;
   height: 64rpx;
   border-radius: 19rpx;
-  background: $soft;
+  background: rgba(255, 215, 94, 0.12);
   display: grid;
   place-items: center;
-  color: $primary-dark;
+  color: $nb-gold;
   font-size: 30rpx;
   font-weight: 900;
 }
@@ -453,7 +471,8 @@ function txnView(type: string) {
   content: "¥";
 }
 .record__icon--neg {
-  background: rgba(200, 90, 34, 0.12);
+  background: rgba(251, 146, 60, 0.12);
+  color: #fb923c;
 }
 .record__content {
   flex: 1;
@@ -461,30 +480,33 @@ function txnView(type: string) {
 .record__title {
   display: block;
   font-weight: 800;
+  color: $nb-text;
 }
 .record .muted {
   display: block;
   font-size: 20rpx;
   margin-top: 5rpx;
+  color: $nb-text-sub;
 }
 .money {
-  color: $primary-dark;
+  color: $nb-success;
   font-size: 30rpx;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 .money--neg {
-  color: #c85a22;
+  color: #fb923c;
 }
 .records__empty {
   padding: 70rpx 0;
   text-align: center;
-  color: $muted;
+  color: $nb-text-sub;
   font-size: 24rpx;
 }
 .deposit-skeleton__hero,
 .deposit-skeleton__row {
   border-radius: 38rpx;
-  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  background: linear-gradient(90deg, #121a15, #1a241d, #121a15);
   animation: deposit-pulse 1.2s infinite;
 }
 .deposit-skeleton__hero {
@@ -499,5 +521,12 @@ function txnView(type: string) {
   50% {
     opacity: 0.55;
   }
+}
+</style>
+
+<style lang="scss">
+@import "../../styles/night.scss";
+page {
+  background: $nb-bg;
 }
 </style>

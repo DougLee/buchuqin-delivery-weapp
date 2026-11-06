@@ -1,170 +1,380 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
+import { computed, ref } from "vue";
+import { onPullDownRefresh, onShow, onReachBottom } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
-import { useSessionStore, isBindRequired } from "../../stores/session";
+import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
-import { nightStockOrderStatusText } from "../../utils/night";
-import type {
-  NightStockOrder,
-  NightStockOrderItem,
-} from "../../types";
+import type { NightStockOrder } from "../../types";
 
-/** 备货记录（IKSW1F）：免费进货单留痕，下单即库存入账，线下取货。 */
 const session = useSessionStore();
 const items = ref<NightStockOrder[]>([]);
 const loading = ref(false);
-const error = ref(false);
-const guest = ref(false);
-
-async function load() {
-  error.value = false;
+const failed = ref(false);
+const busy = ref(false);
+const page = ref(1);
+const total = ref(0);
+const filter = ref("all");
+const selected = ref("");
+const receipt = ref<Record<string, string>>({});
+const statuses: Record<string, string> = {
+  requested: "待校区审核",
+  approved: "已审核 · 待出库",
+  shipped: "已出库 · 待收货",
+  received: "已收货",
+  rejected: "已驳回",
+  cancelled: "已撤回",
+  completed: "历史已入库",
+};
+const shown = computed(() =>
+  items.value.filter(
+    (o) => filter.value === "all" || o.status === filter.value,
+  ),
+);
+async function load(reset = true) {
+  if (loading.value) return;
   loading.value = true;
+  failed.value = false;
   try {
     await session.ensure();
-    const page = await api.nightStockOrders(1, 50);
-    items.value = page.items;
-  } catch (e) {
-    if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    const next = reset ? 1 : page.value + 1;
+    const r = await api.nightStockOrders(next, 50);
+    items.value = reset ? r.items : [...items.value, ...r.items];
+    total.value = r.total;
+    page.value = next;
+  } catch {
+    failed.value = true;
   } finally {
     loading.value = false;
   }
 }
-onShow(load);
+onShow(() => load());
 onPullDownRefresh(async () => {
   await load();
   uni.stopPullDownRefresh();
 });
-
-/** 商品摘要：名称×件数拼接，最多两项 */
-function line(items: NightStockOrderItem[]): string {
-  const head = items
-    .slice(0, 2)
-    .map((i) => `${i.name}×${i.quantity}`)
-    .join(" · ");
-  const rest = items.length - 2;
-  return rest > 0 ? `${head} 等 ${items.length} 项` : head;
+onReachBottom(() => {
+  if (items.value.length < total.value) load(false);
+});
+function editReceipt(order: NightStockOrder) {
+  selected.value = selected.value === order.id ? "" : order.id;
+  receipt.value = Object.fromEntries(
+    order.items.map((i) => [i.catalogProductId, String(i.quantity)]),
+  );
+}
+const confirm = (title: string, content: string) =>
+  new Promise<boolean>((resolve) =>
+    uni.showModal({
+      title,
+      content,
+      success: (r) => resolve(Boolean(r.confirm)),
+      fail: () => resolve(false),
+    }),
+  );
+async function cancel(order: NightStockOrder) {
+  if (
+    busy.value ||
+    !(await confirm(
+      "撤回备货申请",
+      "撤回后释放本单预占额度，校区将不再处理本单。",
+    ))
+  )
+    return;
+  busy.value = true;
+  try {
+    await api.nightCancelStock(order.id, "楼长主动撤回");
+    await load();
+  } catch {
+  } finally {
+    busy.value = false;
+  }
+}
+async function receive(order: NightStockOrder) {
+  if (busy.value) return;
+  const lines = order.items.map((i) => ({
+    catalogProductId: i.catalogProductId,
+    quantity: Number(receipt.value[i.catalogProductId]),
+  }));
+  if (
+    lines.some(
+      (l, n) =>
+        !Number.isInteger(l.quantity) ||
+        l.quantity < 0 ||
+        l.quantity > order.items[n].quantity,
+    )
+  ) {
+    uni.showToast({ title: "实收数量须为0至出库数量的整数", icon: "none" });
+    return;
+  }
+  const missing = order.items.reduce(
+    (s, i, n) => s + i.quantity - lines[n].quantity,
+    0,
+  );
+  if (
+    !(await confirm(
+      "确认实际收货",
+      missing
+        ? `本单少收 ${missing} 件，将自动生成收货报损，审核通过后释放差额。实收数量确认后不可修改。`
+        : "请核对每项实收数量。确认后整单入库，数量不可修改。",
+    ))
+  )
+    return;
+  busy.value = true;
+  try {
+    await api.nightReceiveStock(order.id, lines);
+    selected.value = "";
+    await load();
+    uni.showToast({ title: "已按实收数量入库", icon: "success" });
+  } catch {
+  } finally {
+    busy.value = false;
+  }
+}
+function setReceipt(id: string, e: unknown) {
+  receipt.value[id] = (e as { detail: { value: string } }).detail.value;
+}
+function goReports() {
+  uni.navigateTo({ url: "/pages/night/inventory?tab=reports" });
 }
 </script>
-
 <template>
-  <view class="page sorders-page">
-    <view v-if="error" class="retry card" role="button" @tap="load"
-      ><text class="retry__title">加载失败</text
-      ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
+  <view class="page records-page">
+    <view class="hero"
+      ><text class="eyebrow">STOCK JOURNEY</text
+      ><text class="title">每一份备货，都有迹可循</text
+      ><text class="sub">申请 → 校区审核 → 整单出库 → 实收确认</text></view
     >
-    <view v-else-if="loading" class="sorders-skeleton"
-      ><view v-for="n in 4" :key="n" class="sorders-skeleton__row"
-    /></view>
-    <view v-else-if="guest" class="retry card" role="button" @tap="load">
-      <text class="retry__title">员工专用 · 备货记录</text>
-      <text class="retry__sub">楼长登录后可查看进货单，点击登录</text>
-    </view>
-
-    <template v-else>
-      <view v-for="o in items" :key="o.id" class="row card">
-        <view class="row__head"
-          ><text class="row__date">{{ formatShort(o.createdAt) }}</text
-          ><text class="row__status">{{
-            nightStockOrderStatusText(o.status)
-          }}</text></view
-        >
-        <text class="row__items">{{ line(o.items) }}</text>
-        <view class="row__foot"
-          ><text class="row__note">免费进货 · 线下取货 · 库存已入账</text
-          ><text class="row__value">货值 ¥{{ fenToYuan(o.totalValue) }}</text></view
-        >
-      </view>
-      <view v-if="!items.length" class="empty card"
-        >还没有备货记录，去「备货进货」下第一单</view
+    <view class="filters">
+      <button
+        v-for="s in ['all', 'requested', 'approved', 'shipped', 'received']"
+        :key="s"
+        :class="{ active: filter === s }"
+        @tap="filter = s"
       >
-    </template>
+        {{ s === "all" ? "全部" : statuses[s].split(" · ")[0] }}
+      </button>
+    </view>
+    <view v-if="failed" class="card empty" @tap="load()"
+      >加载失败，点击重试</view
+    >
+    <view v-for="o in shown" :key="o.id" class="card order">
+      <view class="head"
+        ><text>{{ formatShort(o.createdAt) }}</text
+        ><text class="status">{{ statuses[o.status] || o.status }}</text></view
+      >
+      <text class="order-id">单号 {{ o.id.slice(-10).toUpperCase() }}</text>
+      <view v-for="line in o.items" :key="line.catalogProductId" class="line">
+        <view
+          ><text class="name">{{ line.name }}</text
+          ><text class="sub"
+            >申请 {{ line.quantity }} 件 · ¥{{ fenToYuan(line.price) }}/件</text
+          ></view
+        >
+        <input
+          v-if="selected === o.id && o.status === 'shipped'"
+          type="number"
+          :aria-label="line.name + '实收数量'"
+          :value="receipt[line.catalogProductId]"
+          @input="setReceipt(line.catalogProductId, $event)"
+        />
+        <text v-else class="quantity">{{
+          o.status === "received"
+            ? "实收 " + line.receivedQuantity
+            : "×" + line.quantity
+        }}</text>
+      </view>
+      <view class="foot"
+        ><text>申请货值 ¥{{ fenToYuan(o.totalValue) }}</text
+        ><text>预占 ¥{{ fenToYuan(o.heldValue) }}</text></view
+      >
+      <text v-if="o.reason" class="note">处理说明：{{ o.reason }}</text>
+      <text v-if="o.reviewedAt" class="note"
+        >审核 {{ formatShort(o.reviewedAt) }}</text
+      >
+      <text v-if="o.shippedAt" class="note"
+        >出库 {{ formatShort(o.shippedAt) }}</text
+      >
+      <text v-if="o.receivedAt" class="note"
+        >收货 {{ formatShort(o.receivedAt) }}</text
+      >
+      <view v-if="o.status === 'requested'" class="actions"
+        ><button :disabled="busy" @tap="cancel(o)">撤回申请</button></view
+      >
+      <view v-if="o.status === 'shipped'" class="actions">
+        <button @tap="editReceipt(o)">
+          {{ selected === o.id ? "收起" : "填写实收数量" }}
+        </button>
+        <button
+          v-if="selected === o.id"
+          class="primary"
+          :disabled="busy"
+          @tap="receive(o)"
+        >
+          确认收货入库
+        </button>
+      </view>
+      <text v-if="selected === o.id && o.status === 'shipped'" class="note"
+        >逐项核对实物；少收自动报损，审核通过后才释放差额。</text
+      >
+      <button
+        v-if="
+          o.status === 'received' &&
+          o.items.some((i) => (i.receivedQuantity ?? i.quantity) < i.quantity)
+        "
+        class="report-link"
+        @tap="goReports"
+      >
+        查看收货差异报损
+      </button>
+    </view>
+    <view v-if="!shown.length && !loading && !failed" class="empty"
+      >暂无该状态的备货单</view
+    >
+    <button
+      v-if="items.length < total && !loading"
+      class="more"
+      @tap="load(false)"
+    >
+      加载更多记录
+    </button>
+    <text v-if="loading" class="empty">加载中…</text>
   </view>
 </template>
-
 <style scoped lang="scss">
-@import "../../styles/theme.scss";
-.sorders-page {
-  background: $paper;
+@import "../../styles/night.scss";
+.records-page {
+  @include nb-page;
+  min-height: 100vh;
+  padding: 30rpx 24rpx 70rpx;
+  box-sizing: border-box;
 }
-.retry {
-  text-align: center;
-  padding: 120rpx 30rpx;
+.hero {
+  @include nb-hero;
+  padding: 34rpx;
+  margin-bottom: 26rpx;
 }
-.retry__title,
-.retry__sub {
+.eyebrow {
   display: block;
-}
-.retry__title {
-  font-weight: 900;
-  color: $primary-dark;
-}
-.retry__sub {
   font-size: 21rpx;
-  color: $muted;
-  margin-top: 8rpx;
+  letter-spacing: 3rpx;
+  color: $nb-success;
 }
-.row {
-  padding: 26rpx 28rpx;
-  margin-bottom: 16rpx;
+.title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 800;
+  margin: 18rpx 0;
 }
-.row__head {
+.sub,
+.note {
+  display: block;
+  font-size: 23rpx;
+  color: $nb-text-sub;
+  line-height: 1.8;
+}
+.filters {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-bottom: 24rpx;
 }
-.row__date {
+button {
+  background: $nb-gold-soft;
+  color: $nb-gold;
+  border-radius: 99rpx;
+  font-size: 24rpx;
+  margin: 0;
+}
+button::after {
+  border: 0;
+}
+.filters button {
+  padding: 0 22rpx;
   font-size: 22rpx;
-  color: $muted;
+}
+.filters .active,
+.primary {
+  background: $nb-cta-gradient;
+  color: $nb-gold-ink;
+}
+.card {
+  @include nb-card;
+  padding: 28rpx;
+  margin-bottom: 22rpx;
+}
+.head,
+.line,
+.foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18rpx;
+}
+.head {
+  font-size: 23rpx;
+  color: $nb-text-sub;
+}
+.status {
+  color: $nb-gold;
+}
+.order-id {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: $nb-text-dim;
+}
+.line {
+  padding: 22rpx 0;
+  border-bottom: 1px solid $nb-border;
+}
+.name {
+  font-size: 27rpx;
   font-weight: 700;
 }
-.row__status {
-  font-size: 22rpx;
-  font-weight: 800;
-  color: var(--brand, #159c55);
+.quantity {
+  color: $nb-text-soft;
+  font-size: 26rpx;
+  flex-shrink: 0;
 }
-.row__items {
-  display: block;
-  font-size: 27rpx;
-  font-weight: 800;
-  color: $ink;
-  margin-top: 14rpx;
+input {
+  width: 110rpx;
+  height: 70rpx;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.2);
+  color: $nb-gold;
+  border: 1px solid $nb-border;
+  border-radius: 16rpx;
 }
-.row__foot {
+.foot {
+  font-size: 24rpx;
+  padding: 22rpx 0 10rpx;
+  color: $nb-gold;
+  flex-wrap: wrap;
+}
+.actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14rpx;
+  justify-content: flex-end;
+  gap: 16rpx;
+  margin: 18rpx 0;
 }
-.row__note {
-  font-size: 20rpx;
-  color: $muted;
-}
-.row__value {
-  font-size: 27rpx;
-  font-weight: 900;
-  color: $primary-dark;
-  font-variant-numeric: tabular-nums;
+.report-link {
+  margin-top: 18rpx;
 }
 .empty {
-  padding: 70rpx 0;
+  display: block;
   text-align: center;
-  color: $muted;
-  font-size: 24rpx;
+  padding: 50rpx 0;
+  color: $nb-text-sub;
+  font-size: 26rpx;
 }
-.sorders-skeleton__row {
-  height: 170rpx;
-  border-radius: 30rpx;
-  margin-bottom: 16rpx;
-  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
-  animation: sorders-pulse 1.2s infinite;
+.more {
+  width: 70%;
+  margin: 30rpx auto;
 }
-@keyframes sorders-pulse {
-  50% {
-    opacity: 0.55;
-  }
+</style>
+<style lang="scss">
+@import "../../styles/night.scss";
+page {
+  background: $nb-bg;
 }
 </style>

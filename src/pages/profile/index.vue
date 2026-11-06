@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -13,6 +13,13 @@ import {
 } from "../../utils/notifyQuota";
 import { isManagerRole } from "../../types";
 import type { Performance, StaffProfile, StaffStatus } from "../../types";
+/* V4 夜宵模式：本页为白天/夜宵共享 tab 页——夜宵模式渲染深色主题变体 +
+   夜宵经营分组（楼长资格），白天端渲染零变化 */
+import NightTabBar from "../../components/NightTabBar.vue";
+import { fetchBizContext, type BizContext } from "../../utils/nightMode";
+import { nightStoreStatusText } from "../../utils/night";
+import { fenToYuan } from "../../utils/money";
+import type { NightDashboard, NightProduct } from "../../types";
 const session = useSessionStore(),
   profile = ref<StaffProfile>(),
   performance = ref<Performance>(),
@@ -94,7 +101,76 @@ async function addQuota() {
       duration: 3500,
     });
 }
-onShow(load);
+/* ---------- V4 夜宵模式：深色变体 + 夜宵经营分组（纯增量，白天渲染零变化） ---------- */
+/** 夜宵模式态：mode=night 且有夜宵店（服务端隐含楼长资格）→ 整页深色变体 + 自绘 tabbar */
+const nightMode = ref(false);
+/** 夜宵经营分组可见性：有夜宵店即渲染（白天也显示入口，与模式无关），失败不渲染 */
+const hasNightStore = ref(false);
+/** 分组实时摘要（押金/库存货值/额度/商品种数），拉不到显示 "--" */
+const nightDash = ref<NightDashboard>();
+const nightProducts = ref<NightProduct[]>();
+/** 夜宵经营分组摘要行 */
+const nightDepositLine = computed(() =>
+  nightDash.value ? `¥${fenToYuan(nightDash.value.deposit)} · 可进货额度 ¥${fenToYuan(Math.max(0, nightDash.value.deposit - nightDash.value.stockValue))}` : "押金与进货额度",
+);
+const nightStockLine = computed(() => {
+  const d = nightDash.value;
+  const ps = nightProducts.value;
+  if (!d) return "库存货值与商品";
+  const count = ps ? `${ps.length} 种商品` : "-- 种商品";
+  return `库存货值 ¥${fenToYuan(d.stockValue)} · ${count}`;
+});
+/** 夜宵模式导航栏与原生 tabBar 切换（仅 tab 页有效）：深底白字 / 恢复白天 */
+function applyNightChrome(on: boolean) {
+  if (on) {
+    uni.hideTabBar({ fail: () => {} });
+    uni.setNavigationBarColor({
+      frontColor: "#ffffff",
+      backgroundColor: "#091913",
+      fail: () => {},
+    });
+  } else {
+    uni.showTabBar({ fail: () => {} });
+    uni.setNavigationBarColor({
+      frontColor: "#000000",
+      backgroundColor: "#f8fbf8",
+      fail: () => {},
+    });
+  }
+}
+async function loadNightContext() {
+  // 仅登录后拉取（游客不拉，白天态不受影响）
+  if (!uni.getStorageSync("staffToken")) {
+    hasNightStore.value = false;
+    applyNightChrome(false);
+    return;
+  }
+  try {
+    const ctx = await fetchBizContext();
+    hasNightStore.value = ctx.hasNightStore;
+    nightMode.value = ctx.mode === "night" && ctx.hasNightStore;
+    applyNightChrome(nightMode.value);
+    if (!ctx.hasNightStore) return;
+    // 分组摘要数据：失败静默保持 "--"，不影响页面主内容
+    nightDash.value = await api.nightDashboard().catch(() => undefined);
+    nightProducts.value = await api.nightProducts().catch(() => undefined);
+  } catch {
+    /* 静默：兜底 day（fetchBizContext 已兜），此处只防未处理拒绝 */
+  }
+}
+function updateBusinessContext(ctx: BizContext) {
+  hasNightStore.value = ctx.hasNightStore;
+  nightMode.value = ctx.mode === 'night' && ctx.hasNightStore;
+  applyNightChrome(nightMode.value);
+}
+onMounted(() => uni.$on('business:context', updateBusinessContext));
+onUnmounted(() => uni.$off('business:context', updateBusinessContext));
+/** 夜宵分组行跳转（navigateTo 二级页，保留返回栈） */
+const goNightPage = (url: string) => uni.navigateTo({ url });
+onShow(() => {
+  load();
+  void loadNightContext();
+});
 /** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
 const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 /** 上下线切换（IKA57R，自首页迁入）：三态 ActionSheet + 确认，真实 staff.status */
@@ -214,25 +290,28 @@ async function logout() {
 }
 </script>
 <template>
-  <view v-if="error" class="page profile"
+  <!-- V4：四个渲染态根节点都带 profile--night 钩子（夜宵模式整页深色变体）；
+       NightTabBar 在夜宵模式下常挂（原生 tabBar 已隐藏），白天端不渲染 -->
+  <NightTabBar v-if="nightMode" active="profile" />
+  <view v-if="error" class="page profile" :class="{ 'profile--night': nightMode }"
     ><view class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     ></view
   >
   <!-- 首屏骨架（IK9VF8）：profile 卡 + KPI + 菜单占位 -->
-  <view v-else-if="loading" class="page profile"
+  <view v-else-if="loading" class="page profile" :class="{ 'profile--night': nightMode }"
     ><view class="profile-skeleton__card" /><view class="profile-skeleton__kpi" /><view
       class="profile-skeleton__menu"
     /></view
   >
-  <view v-else-if="guest" class="page profile">
+  <view v-else-if="guest" class="page profile" :class="{ 'profile--night': nightMode }">
     <view class="retry card" role="button" @tap="goLogin">
       <text class="retry__title">员工专用 · 个人中心</text>
       <text class="retry__sub">工号绑定后可查看个人信息与上下线状态，点击登录</text>
     </view>
   </view>
-  <view v-else-if="profile" class="page profile"
+  <view v-else-if="profile" class="page profile" :class="{ 'profile--night': nightMode }"
     ><view class="profile-card"
       ><view class="person"
         ><view class="avatar"
@@ -330,6 +409,37 @@ async function logout() {
       ><view class="notify__icon"></view
       ><text class="gzh-guide__title">服务号通知已开启</text></view
     >
+    <!-- V4 夜宵经营分组（画面④）：与白天分组同款白卡行，仅月牙小标识别；
+         仅「有夜宵店（楼长资格）」渲染，配送员不渲染；三行带实时数据摘要 -->
+    <view v-if="hasNightStore" class="menu card night-group">
+      <view class="night-group__head">
+        <view class="night-group__moon"></view>
+        <text class="night-group__title">夜宵经营{{ nightDash?.store.buildingName ? ` · ${nightDash.store.buildingName}店` : "" }}</text>
+        <text v-if="nightDash" class="night-group__chip" :class="{ 'night-group__chip--on': nightDash.store.status === 'open' }">{{
+          nightStoreStatusText(nightDash.store.status)
+        }}</text>
+      </view>
+      <view role="button" @tap="goNightPage('/pages/night/deposit')"
+        ><view class="menu__icon night-ic-deposit"></view
+        ><view class="menu__body"
+          ><text>押金</text><text>{{ nightDepositLine }}</text></view
+        ><text class="link-chip">进入</text></view
+      >
+      <view role="button" @tap="goNightPage('/pages/night/stock')"
+        ><view class="menu__icon night-ic-stock"></view
+        ><view class="menu__body"
+          ><text>进货备货</text><text>{{ nightStockLine }}</text></view
+        ><text class="link-chip">进入</text></view
+      >
+      <view role="button" @tap="goNightPage('/pages/night/products')"
+        ><view class="menu__icon night-ic-goods"></view
+        ><view class="menu__body"
+          ><text>商品管理</text><text>上下架 · 停售以后台为准</text></view
+        ><text class="link-chip">进入</text></view
+      >
+      <view role="button" @tap="goNightPage('/pages/night/stock-orders')"><view class="menu__icon night-ic-stock"></view><view class="menu__body"><text>备货进度与收货</text><text>审核进度 · 核对实收数量</text></view><text class="link-chip">进入</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/inventory')"><view class="menu__icon night-ic-goods"></view><view class="menu__body"><text>库存盘点与报损</text><text>申报差异 · 审核记录 · 库存流水</text></view><text class="link-chip">进入</text></view>
+    </view>
 <view class="section-title"
       ><view
         ><text class="kicker">ACCOUNT</text
@@ -1005,5 +1115,323 @@ async function logout() {
 }
 .gzh-guide--done .gzh-guide__title {
   color: $primary-dark;
+}
+
+/* ========== V4 夜宵模式深色变体（规格 6 token）：仅 .profile--night 生效，
+   白天端选择器不受影响；覆盖底色/卡面/文字色，布局与行高零变化 ========== */
+@import "../../styles/night.scss";
+.profile--night {
+  @include nb-page;
+}
+.profile--night.profile {
+  @include nb-page;
+}
+/* 头卡 → pf-head 暗绿渐变 + 细描边 */
+.profile--night .profile-card {
+  @include nb-hero;
+  position: relative;
+  overflow: hidden;
+}
+.profile--night .profile-card:after {
+  content: "";
+  position: absolute;
+  width: 260rpx;
+  height: 180rpx;
+  right: -80rpx;
+  bottom: -100rpx;
+  border: 1px solid rgba(223, 228, 162, 0.18);
+  border-radius: 50%;
+  transform: rotate(-32deg);
+  pointer-events: none;
+}
+.profile--night .avatar {
+  background: $nb-gold;
+  color: $nb-gold-ink;
+}
+.profile--night .avatar__dot {
+  border-color: #15241b;
+  background: $nb-gold;
+}
+.profile--night .badge {
+  background: rgba(255, 215, 94, 0.14);
+  color: $nb-gold;
+}
+.profile--night .badge--intern {
+  background: rgba(74, 222, 128, 0.12);
+  color: $nb-success;
+}
+/* 通用卡 → 深卡 */
+.profile--night .kpi,
+.profile--night .notify,
+.profile--night .menu,
+.profile--night .retry {
+  @include nb-card;
+}
+.profile--night .kpi > view + view,
+.profile--night .menu > view {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+.profile--night .kpi text:first-child {
+  color: $nb-text;
+}
+.profile--night .kpi text:last-child {
+  color: $nb-text-sub;
+}
+.profile--night .retry__title {
+  color: $nb-text;
+}
+.profile--night .retry__sub {
+  color: $nb-text-sub;
+}
+.profile--night .menu__body text:first-child {
+  color: $nb-text;
+}
+.profile--night .menu__body text:last-child {
+  color: $nb-text-sub;
+}
+.profile--night .menu__icon {
+  background: rgba(255, 255, 255, 0.08);
+}
+.profile--night .notify__num {
+  color: $nb-gold;
+}
+.profile--night .notify__title {
+  color: $nb-text;
+}
+.profile--night .notify__unit {
+  color: $nb-text-sub;
+}
+.profile--night .notify__icon {
+  background: rgba(255, 215, 94, 0.12);
+}
+.profile--night .notify__icon:before,
+.profile--night .notify__icon:after {
+  background: $nb-gold;
+}
+.profile--night .notify__icon:before {
+  background: transparent;
+  border-color: $nb-gold;
+}
+.profile--night .gmv-nums__num {
+  color: $nb-text;
+}
+.profile--night .gmv-nums__num--gmv {
+  color: $nb-gold;
+}
+.profile--night .gmv-nums__unit {
+  color: $nb-text-sub;
+}
+.profile--night .gmv-icon {
+  background: rgba(255, 215, 94, 0.12);
+}
+.profile--night .gzh-guide__title {
+  color: $nb-text;
+}
+.profile--night .gzh-guide__sub {
+  color: $nb-text-sub;
+}
+.profile--night .gzh-guide__arrow {
+  color: $nb-text-dim;
+}
+.profile--night .online-text {
+  color: $nb-success;
+}
+.profile--night .kicker {
+  color: $nb-gold;
+}
+.profile--night .link-chip {
+  background: rgba(255, 215, 94, 0.12);
+  color: $nb-gold;
+}
+.profile--night .menu__logout,
+.profile--night .menu__logout .menu__body text {
+  color: $nb-danger;
+}
+.profile--night .help:before {
+  border-color: $nb-gold;
+  color: $nb-gold;
+}
+.profile--night .logout:before {
+  border-color: $nb-danger;
+  color: $nb-danger;
+}
+/* 白天菜单图标在深色下的描边色（before/after 均用 $primary-dark 画线） */
+.profile--night .menu__icon:before,
+.profile--night .menu__icon:after {
+  border-color: $nb-gold;
+}
+.profile--night .pulse:before {
+  background: $nb-success;
+}
+.profile--night .pulse:after {
+  border-color: rgba(74, 222, 128, 0.28);
+}
+.profile--night .notify__add {
+  background: $nb-gold;
+  color: $nb-gold-ink;
+}
+/* 骨架 shimmer 深色 */
+.profile--night .profile-skeleton__card,
+.profile--night .profile-skeleton__kpi,
+.profile--night .profile-skeleton__menu {
+  background: linear-gradient(90deg, #121a15, #1a241d, #121a15);
+}
+/* 电话弹层深色（夜宵模式下弹出观感一致；白天端不受影响） */
+.profile--night ~ .phone-sheet-mask {
+  background: rgba(0, 0, 0, 0.6);
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet {
+  @include nb-card;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__title {
+  color: #eef4ef;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__close,
+.profile--night ~ .phone-sheet-mask .phone-sheet__current {
+  color: $nb-text-sub;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__divider {
+  color: #5d6f63;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__divider::before,
+.profile--night ~ .phone-sheet-mask .phone-sheet__divider::after {
+  background: rgba(255, 255, 255, 0.08);
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__input {
+  background: $nb-bg;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #eef4ef;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__ph {
+  color: #5d6f63;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__submit {
+  background: rgba(255, 215, 94, 0.14);
+  color: #ffd75e;
+}
+.profile--night ~ .phone-sheet-mask .phone-sheet__submit[disabled] {
+  opacity: 0.45;
+  color: #ffd75e;
+  background: rgba(255, 215, 94, 0.14);
+}
+
+/* ========== V4 夜宵经营分组（画面④）：白天同款白卡行，仅月牙小标识别 ========== */
+.night-group__head {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  min-height: 88rpx;
+  border-bottom: 2rpx solid $line;
+}
+/* 月牙：金黄亮面 + 卡面缺口（CSS 圆缺法） */
+.night-group__moon {
+  flex: none;
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffd75e, #f5b81e);
+  position: relative;
+}
+.night-group__moon:after {
+  content: "";
+  position: absolute;
+  right: -3rpx;
+  top: -4rpx;
+  width: 26rpx;
+  height: 26rpx;
+  border-radius: 50%;
+  background: #fff;
+}
+.profile--night .night-group__moon:after {
+  background: $nb-card;
+}
+.night-group__title {
+  flex: 1;
+  font-size: 27rpx;
+  font-weight: 900;
+  color: $ink;
+}
+.profile--night .night-group__title {
+  color: $nb-text;
+}
+.night-group__chip {
+  flex: none;
+  font-size: 20rpx;
+  font-weight: 800;
+  background: #fff2d8;
+  color: #b07800;
+  border-radius: 999rpx;
+  padding: 6rpx 16rpx;
+}
+.night-group__chip--on {
+  background: #ffd75e;
+  color: #6b4a00;
+}
+/* 分组行图标（复用 menu__icon 底 + CSS 字形）：押金 ¥ 金 / 备货 袋 绿 / 商品 列表 蓝 */
+.night-ic-deposit:before {
+  content: "¥";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 30rpx;
+  font-weight: 900;
+  color: #b07800;
+}
+.night-ic-stock {
+  overflow: hidden;
+}
+.night-ic-stock:before {
+  content: "";
+  position: absolute;
+  left: 17rpx;
+  right: 17rpx;
+  top: 20rpx;
+  bottom: 12rpx;
+  border: 4rpx solid #0d6b3a;
+  border-radius: 8rpx;
+}
+.night-ic-stock:after {
+  content: "";
+  position: absolute;
+  left: 24rpx;
+  right: 24rpx;
+  top: 8rpx;
+  height: 14rpx;
+  border: 4rpx solid #0d6b3a;
+  border-bottom: none;
+  border-radius: 10rpx 10rpx 0 0;
+}
+.night-ic-goods:before,
+.night-ic-goods:after {
+  content: "";
+  position: absolute;
+  height: 4rpx;
+  left: 14rpx;
+  right: 14rpx;
+  border-radius: 2rpx;
+  background: #2563eb;
+}
+.night-ic-goods:before {
+  top: 18rpx;
+  box-shadow: 0 11rpx 0 #2563eb;
+}
+.night-ic-goods:after {
+  top: 40rpx;
+}
+/* 深色变体下的分组行图标 */
+.profile--night .night-ic-deposit:before {
+  color: $nb-gold;
+}
+.profile--night .night-ic-stock:before,
+.profile--night .night-ic-stock:after {
+  border-color: $nb-success;
+}
+.profile--night .night-ic-goods:before,
+.profile--night .night-ic-goods:after {
+  background: #93c5fd;
+}
+.profile--night .night-ic-goods:before {
+  box-shadow: 0 11rpx 0 #93c5fd;
 }
 </style>

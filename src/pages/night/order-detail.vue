@@ -288,15 +288,22 @@ function rateText(rate: number | null | undefined): string {
 </template>
 
 <style scoped lang="scss">
+/* V4 深色化：功能逻辑不动（押金档位/凭证上传/接单倒计时全部保留），仅视觉
+   token 对齐 night.scss */
 @import "../../styles/theme.scss";
+@import "../../styles/night.scss";
 .detail-page {
-  background: $paper;
+  @include nb-page;
+}
+.detail-page .card {
+  @include nb-card;
 }
 .proof-grid { display:flex; flex-wrap:wrap; gap:16rpx; margin-top:20rpx; }
 .proof-item { width:160rpx; }
 .proof-item image, .proof-thumb { width:160rpx; height:160rpx; border-radius:18rpx; }
-.proof-item button, .proof-add { min-height:88rpx; margin:0; font-size:26rpx; color:#174a36; background:#edf4ee; display:flex; align-items:center; justify-content:center; }
-.proof-add { width:180rpx; border:1px dashed #a4b9ac; border-radius:18rpx; }
+.proof-item button, .proof-add { min-height:88rpx; margin:0; font-size:26rpx; color:$nb-text; background:rgba(255,255,255,.08); border:none; display:flex; align-items:center; justify-content:center; }
+.proof-item button::after, .proof-add::after { border:none; }
+.proof-add { width:180rpx; border:1px dashed rgba(255,255,255,.25); border-radius:18rpx; }
 .retry {
   text-align: center;
   padding: 120rpx 30rpx;
@@ -307,22 +314,21 @@ function rateText(rate: number | null | undefined): string {
 }
 .retry__title {
   font-weight: 900;
-  color: $primary-dark;
+  color: $nb-text;
 }
 .retry__sub {
   font-size: 21rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 8rpx;
 }
+/* 状态头：暗绿渐变 + 细描边（V4 token） */
 .hero {
+  @include nb-hero;
   position: relative;
   overflow: hidden;
   padding: 36rpx;
   border-radius: 38rpx;
-  /* 夜宵店头统一渐变（IKSZF5）：135deg 深绿→夜绿 */
-  background: linear-gradient(135deg, $night-deep, $night-green);
   color: #fff;
-  box-shadow: 0 18rpx 42rpx rgba(3, 45, 34, 0.22);
 }
 .hero__glow {
   position: absolute;
@@ -331,7 +337,7 @@ function rateText(rate: number | null | undefined): string {
   border-radius: 50%;
   right: -80rpx;
   top: -110rpx;
-  background: rgba(185, 242, 39, 0.12);
+  @include nb-halo;
 }
 .hero__status,
 .hero__no,
@@ -353,7 +359,7 @@ function rateText(rate: number | null | undefined): string {
 .hero__as {
   padding: 6rpx 18rpx;
   border-radius: 999rpx;
-  background: rgba(255, 138, 52, 0.9);
+  background: rgba(251, 146, 60, 0.9);
   color: #fff;
   font-size: 20rpx;
   font-weight: 800;
@@ -368,15 +374,15 @@ function rateText(rate: number | null | undefined): string {
   font-size: 21rpx;
   opacity: 0.6;
 }
-/* 接单倒计时徽章：金黄底深绿字（夜宵锚点色），超时也不换底色只换文案 */
+/* 接单倒计时徽章：金黄底深字（V4 夜宵锚点色），超时也不换底色只换文案 */
 .hero__countdown {
   display: inline-block;
   align-self: flex-start;
   margin-top: 16rpx;
   padding: 8rpx 22rpx;
   border-radius: 999rpx;
-  background: $gold;
-  color: $night-deep;
+  background: $nb-gold;
+  color: $nb-gold-ink;
   font-size: 22rpx;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
@@ -384,7 +390,7 @@ function rateText(rate: number | null | undefined): string {
 .hero__cancel {
   margin-top: 12rpx;
   font-size: 21rpx;
-  color: #ffd9d3;
+  color: #fca5a5;
 }
 .block {
   padding: 28rpx;
@@ -394,7 +400,7 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   font-size: 27rpx;
   font-weight: 900;
-  color: $ink;
+  color: $nb-text;
   margin-bottom: 18rpx;
 }
 .goods {
@@ -405,18 +411,18 @@ function rateText(rate: number | null | undefined): string {
 .goods__name {
   flex: 1;
   font-size: 25rpx;
-  color: $ink;
+  color: $nb-text;
   font-weight: 700;
 }
 .goods__qty {
   font-size: 21rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin: 0 18rpx;
 }
 .goods__amount {
   font-size: 24rpx;
   font-weight: 800;
-  color: $ink;
+  color: $nb-text;
   font-variant-numeric: tabular-nums;
 }
 .coupon {
@@ -426,20 +432,20 @@ function rateText(rate: number | null | undefined): string {
   margin-top: 12rpx;
   padding: 14rpx 20rpx;
   border-radius: 16rpx;
-  background: rgba(255, 138, 52, 0.08);
+  background: rgba(251, 146, 60, 0.1);
 }
 .coupon__name {
   font-size: 21rpx;
-  color: #b96f33;
+  color: $nb-warn;
 }
 .coupon__cut {
   font-size: 21rpx;
   font-weight: 900;
-  color: #c85a22;
+  color: #fb923c;
 }
 .amounts {
   margin-top: 16rpx;
-  border-top: 2rpx dashed $line;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
   padding-top: 14rpx;
 }
 .amount {
@@ -448,10 +454,10 @@ function rateText(rate: number | null | undefined): string {
   min-height: 52rpx;
   align-items: center;
   font-size: 22rpx;
-  color: $muted;
+  color: $nb-text-sub;
 }
 .amount--sum text {
-  color: $ink;
+  color: $nb-text;
   font-weight: 900;
   font-size: 25rpx;
 }
@@ -459,7 +465,7 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   margin-top: 12rpx;
   font-size: 21rpx;
-  color: $muted;
+  color: $nb-text-sub;
   line-height: 1.6;
 }
 .addr {
@@ -474,19 +480,19 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   font-size: 30rpx;
   font-weight: 900;
-  color: $ink;
+  color: $nb-text;
 }
 .addr__contact {
   display: block;
   margin-top: 6rpx;
   font-size: 22rpx;
-  color: $muted;
+  color: $nb-text-sub;
 }
 .addr__act {
   padding: 12rpx 28rpx;
   border-radius: 999rpx;
-  background: $soft;
-  color: $primary-dark;
+  background: rgba(255, 215, 94, 0.12);
+  color: $nb-gold;
   font-size: 22rpx;
   font-weight: 800;
 }
@@ -496,7 +502,7 @@ function rateText(rate: number | null | undefined): string {
   align-items: center;
   justify-content: space-between;
   min-height: 76rpx;
-  border-bottom: 2rpx solid $line;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .earn--sum {
   border-bottom: none;
@@ -505,18 +511,18 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   font-size: 24rpx;
   font-weight: 800;
-  color: $ink;
+  color: $nb-text;
 }
 .earn__formula {
   display: block;
   font-size: 19rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 3rpx;
 }
 .earn__amount {
   font-size: 26rpx;
   font-weight: 900;
-  color: var(--brand, #159c55);
+  color: $nb-success;
   font-variant-numeric: tabular-nums;
 }
 .earn--sum .earn__amount {
@@ -526,7 +532,7 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   margin-top: 14rpx;
   font-size: 19rpx;
-  color: $muted;
+  color: $nb-text-sub;
   line-height: 1.6;
 }
 /* 时间线 */
@@ -541,13 +547,13 @@ function rateText(rate: number | null | undefined): string {
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  border: 4rpx solid $line;
+  border: 4rpx solid rgba(255, 255, 255, 0.12);
   margin-top: 8rpx;
-  background: #fff;
+  background: transparent;
 }
 .tl__dot--done {
-  background: var(--brand, #159c55);
-  border-color: var(--brand, #159c55);
+  background: $nb-success;
+  border-color: $nb-success;
 }
 .tl__main {
   flex: 1;
@@ -556,19 +562,19 @@ function rateText(rate: number | null | undefined): string {
   display: block;
   font-size: 23rpx;
   font-weight: 700;
-  color: $ink;
+  color: $nb-text;
 }
 .tl__title--dim {
-  color: $muted;
+  color: $nb-text-sub;
   font-weight: 500;
 }
 .tl__time {
   display: block;
   font-size: 19rpx;
-  color: $muted;
+  color: $nb-text-sub;
   margin-top: 2rpx;
 }
-/* 动作区 */
+/* 动作区：金黄 CTA */
 .actions {
   margin-top: 30rpx;
   padding-bottom: 20rpx;
@@ -582,18 +588,25 @@ function rateText(rate: number | null | undefined): string {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+}
+.act-btn::after {
+  border: none;
 }
 .act-btn--primary {
-  background: $primary-dark;
-  color: $lime;
+  background: $nb-cta-gradient;
+  color: $nb-gold-ink;
+  box-shadow: 0 12rpx 28rpx rgba(255, 201, 60, 0.22);
 }
 .act-btn[disabled] {
   opacity: 0.6;
+  color: $nb-gold-ink;
+  background: $nb-cta-gradient;
 }
 .detail-skeleton__hero,
 .detail-skeleton__block {
   border-radius: 38rpx;
-  background: linear-gradient(90deg, #edf2ed, #fff, #edf2ed);
+  background: linear-gradient(90deg, #121a15, #1a241d, #121a15);
   animation: detail-pulse 1.2s infinite;
 }
 .detail-skeleton__hero {
@@ -607,5 +620,12 @@ function rateText(rate: number | null | undefined): string {
   50% {
     opacity: 0.55;
   }
+}
+</style>
+
+<style lang="scss">
+@import "../../styles/night.scss";
+page {
+  background: $nb-bg;
 }
 </style>

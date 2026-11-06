@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import BusinessWorkspace from '../../components/BusinessWorkspace.vue';
 import { computed, ref } from "vue";
 import {
   onPullDownRefresh,
@@ -13,6 +12,8 @@ import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction } from "../../utils/task-actions";
 import { isManagerRole, type Task } from "../../types";
+/* V4 夜宵模式守卫：night 模式 reLaunch 夜宵订单页（接口异常兜底 day 不影响本页） */
+import { dayTabGuard } from "../../utils/nightMode";
 const session = useSessionStore(),
   items = ref<Task[]>([]),
   // 默认选中抢单池（道哥 2026-09-08）：骑手最关心待抢单；楼长无池回退全部
@@ -181,7 +182,12 @@ async function runAction(task: Task) {
     load(active.value).catch(() => {});
   }
 }
-onShow(() => {
+onShow(async () => {
+  // V4 夜宵模式守卫（骨架门）：night → reLaunch 夜宵订单页（本页只出骨架防闪屏）
+  loading.value = true;
+  const mode = await dayTabGuard("orders");
+  if (mode === "night") return;
+  loading.value = false;
   // IKRMQF 时序（道哥 2026-10-30）：无条件调——onShow 时 session.role 常未
   // 就绪，外层判 isRider 会永久跳过且登录完成后无人重触发
   void loadBuildings();
@@ -191,7 +197,6 @@ onShow(() => {
 const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 </script>
 <template>
-  <BusinessWorkspace section="orders">
   <view class="page tasks-page">
     <view class="overview">
       <view
@@ -356,7 +361,6 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
       <view v-else-if="active !== 'pool'" class="list-foot">没有更多了</view>
     </template>
   </view>
-  </BusinessWorkspace>
 </template>
 <style scoped lang="scss">
 @import "../../styles/theme.scss";

@@ -219,6 +219,10 @@ export interface NightDepositPayStatus {
 
 /** 商品池行（GET stock/pool）：夜主档 + 本店楼栋行；attached=false 未配置不可备货 */
 export interface NightPoolItem {
+  warehouseAvailable: number;
+  canStock: boolean;
+  unavailableReason: string;
+  retailUnit: string;
   catalogProductId: string;
   name: string;
   image: string | null;
@@ -234,6 +238,7 @@ export interface NightPoolItem {
 
 /** 备货单商品行（快照） */
 export interface NightStockOrderItem {
+  receivedQuantity?: number;
   nightProductId?: string;
   catalogProductId: string;
   name: string;
@@ -243,6 +248,11 @@ export interface NightStockOrderItem {
 
 /** 备货记录（GET stock/orders） */
 export interface NightStockOrder {
+  heldValue: number;
+  reason: string;
+  reviewedAt: string | null;
+  shippedAt: string | null;
+  receivedAt: string | null;
   id: string;
   items: NightStockOrderItem[];
   totalValue: number;
@@ -259,6 +269,10 @@ export interface NightMoneyBucket {
 
 /** 夜宵工作台（GET dashboard）：场次/营业态/押金/待接单/今日销售/库存货值 */
 export interface NightDashboard {
+  reservedValue: number;
+  frozenValue: number;
+  usedQuota: number;
+  usableQuota: number;
   store: {
     id: string;
     status: string;
@@ -283,6 +297,11 @@ export interface NightDashboard {
 
 /** 本店商品行（GET products）：资料只读（价格/资料引夜主档，楼长不能改） */
 export interface NightProduct {
+  retailUnit: string;
+  frozenStock: number;
+  inventoryValue: number;
+  inventoryVersion: number;
+  pendingQuantity: number;
   id: string;
   catalogProductId: string;
   name: string;
@@ -293,6 +312,28 @@ export interface NightProduct {
   onShelf: boolean;
   saleAllowed: boolean;
   purchasable: boolean;
+}
+
+export interface NightInventoryReport {
+  id: string;
+  kind: string;
+  status: string;
+  reason: string;
+  reviewReason: string;
+  heldValue: number;
+  photos: string[] | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  items: Array<{ nightProductId: string; name: string; quantity: number; delta: number; value: number; bookQuantity: number; countedQuantity?: number }>;
+}
+export interface NightInventoryTxn {
+  id: string;
+  type: string;
+  delta: number;
+  afterStock: number;
+  remark: string;
+  createdAt: string;
+  product: { catalogProduct: { name: string } };
 }
 
 /** 夜宵订单商品快照行 */

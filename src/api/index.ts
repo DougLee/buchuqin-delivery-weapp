@@ -17,6 +17,8 @@ import type {
   NightPoolItem,
   NightProduct,
   NightStockOrder,
+  NightInventoryReport,
+  NightInventoryTxn,
   NotifyQuotaInfo,
   Performance,
   Shift,
@@ -225,7 +227,7 @@ export const api = {
     ),
   /** 商品池：本校区夜主档 + 本店楼栋行（当前库存/上架状态） */
   nightStockPool: () => request<NightPoolItem[]>("/night-rider/night/stock/pool"),
-  /** 备货下单（免费）：押金额度校验，超额 400 返回差额提示；下单即库存入账 */
+  /** 备货申请：占用额度，审核出库后按实收数量入库。 */
   nightStockOrder: (items: Array<{ catalogProductId: string; quantity: number }>, requestId: string) =>
     request<{ id: string; totalValue: number; createdAt: string }>(
       "/night-rider/night/stock/orders",
@@ -236,6 +238,12 @@ export const api = {
     request<PageResult<NightStockOrder>>(
       `/night-rider/night/stock/orders?page=${page}&pageSize=${pageSize}`,
     ),
+  nightCancelStock: (id: string, reason: string) => request<NightStockOrder>(`/night-rider/night/stock/orders/${id}/cancel`, { method: "POST", data: { reason } }),
+  nightReceiveStock: (id: string, items: Array<{ catalogProductId: string; quantity: number }>) => request<NightStockOrder>(`/night-rider/night/stock/orders/${id}/receive`, { method: "POST", data: { items } }),
+  nightInventoryReports: () => request<NightInventoryReport[]>("/night-rider/night/inventory/reports"),
+  nightInventoryReport: (data: { requestId: string; kind: "loss" | "stocktake"; reason: string; photos: string[]; items: Array<{ nightProductId: string; quantity: number; inventoryVersion: number }> }) => request<NightInventoryReport>("/night-rider/night/inventory/reports", { method: "POST", data }),
+  nightResubmitLoss: (id: string, reason: string, photos: string[]) => request<NightInventoryReport>(`/night-rider/night/inventory/reports/${id}/resubmit`, { method: "POST", data: { reason, photos } }),
+  nightInventoryTxns: (productId?: string) => request<NightInventoryTxn[]>(`/night-rider/night/inventory/txns${productId ? `?productId=${encodeURIComponent(productId)}` : ""}`),
   /** 本店商品列表（资料只读，含库存/上下架/可售状态） */
   nightProducts: () => request<NightProduct[]>("/night-rider/night/products"),
   /** 上下架切换：PATCH；恢复上架时后端校验主档停售（楼长不能绕过后台停售） */

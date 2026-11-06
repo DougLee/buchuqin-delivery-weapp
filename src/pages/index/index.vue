@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import BusinessWorkspace from '../../components/BusinessWorkspace.vue';
 import { computed, nextTick, ref, watch } from "vue";
 import { APP_NAME as appName } from "../../config/app";
 import { isManagerRole } from "../../types";
@@ -15,6 +14,9 @@ import {
   isGuideShown,
   markGuideShown,
 } from "../../utils/notifyQuota";
+/* V4 夜宵模式：onShow 模式守卫（night → reLaunch 夜宵工作台）+ 工作台插槽卡（纯增量） */
+import NightSlotCard from "../../components/NightSlotCard.vue";
+import { dayTabGuard } from "../../utils/nightMode";
 import type {
   Dashboard,
   Shift,
@@ -175,27 +177,46 @@ function dismissGuide() {
   markGuideShown();
   guideVisible.value = false;
 }
-onShow(load);
+/* V4 夜宵模式守卫（骨架门）：onShow 先等守卫结论——night 直接 reLaunch
+   夜宵工作台（本页只出骨架，白天内容从未画出 → 无闪屏）；day 才渲染白天内容 */
+onShow(async () => {
+  loading.value = true;
+  const mode = await dayTabGuard("home");
+  if (mode === "night") return;
+  loading.value = false;
+  load();
+});
 const isLogged = computed(() => !!uni.getStorageSync("staffToken"));
 // #ifdef H5
-/** H5 测试登录（仅测试环境 H5 产物存在，小程序无此代码）：30 天长效
- *  测试 token 写死于此——泄漏面=测试环境履约端，生产不可见 */
+const h5Development = import.meta.env.DEV;
+/** H5 联调入口（小程序不包含此代码）；夜宵使用本机独立预览的动态会话。 */
 const H5_TEST_ACCOUNTS = {
-  rider: { token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InN0YWZmLXJpZGVyLWhidXQtdGVzdCIsInJvbGUiOiJmdWxsdGltZS1yaWRlciIsImlhdCI6MTc5MzQyNTc4NCwiZXhwIjoxNzk2MDE3Nzg0fQ.tiyw1euxVLWGuKnV5rikmvutijtnoiAd4obR3L_ogx0", label: "骑手·王99（湖工大）" },
-  manager: { token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNtdWV3MTNmazA4dGptdjAxb3h4czRidWwiLCJyb2xlIjoiaW50ZXJuLWJ1aWxkaW5nLW1hbmFnZXIiLCJpYXQiOjE3OTM0MjU3ODQsImV4cCI6MTc5NjAxNzc4NH0.Rv2C5Z_n1xfeD2w9yMmFK9I9_EuhxVGrrWOkwY7GKm8", label: "楼长·TS001（北区18栋）" },
+  rider: { token: import.meta.env.DEV ? import.meta.env.VITE_H5_RIDER_TOKEN || "" : "", label: "骑手·王99（湖工大）" },
+  manager: { token: import.meta.env.DEV ? import.meta.env.VITE_H5_MANAGER_TOKEN || "" : "", label: "楼长·TS001（北区18栋）" },
 };
-function h5TestLogin(key: "rider" | "manager") {
+function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
+  if (key === "night") {
+    // 5188 仍连共享测试 API；夜宵新功能使用5192的独立 schema，不能混用令牌。
+    const preview = new URL("/__night-preview/start", window.location.href);
+    preview.port = "5192";
+    window.location.assign(preview.href);
+    return;
+  }
   const acc = H5_TEST_ACCOUNTS[key];
+  if (!acc.token) {
+    uni.showToast({ title: "请先配置本机 H5 测试账号", icon: "none" });
+    return;
+  }
+  const role: StaffRole = key === "rider" ? "fulltime-rider" : "intern-building-manager";
   uni.setStorageSync("staffToken", acc.token);
-  uni.setStorageSync("staffTokenRole", key === "rider" ? "fulltime-rider" : "intern-building-manager");
-  uni.setStorageSync("staffRole", key === "rider" ? "fulltime-rider" : "intern-building-manager");
+  uni.setStorageSync("staffTokenRole", role);
+  uni.setStorageSync("staffRole", role);
   uni.reLaunch({ url: "/pages/index/index" });
 }
 // #endif
 </script>
 
 <template>
-  <BusinessWorkspace section="home">
   <view class="page home">
     <view class="nav">
       <view class="identity">
@@ -220,6 +241,10 @@ function h5TestLogin(key: "rider" | "manager") {
     <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
          当班状态由下方 hero 徽章继续展示 -->
 
+    <!-- V4 夜宵插槽卡（纯增量）：楼长且有夜宵店时常显白卡，整卡进夜宵工作台；
+         配送员/游客/加载失败一律不渲染，白天其余区块零影响 -->
+    <NightSlotCard />
+
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
@@ -235,12 +260,13 @@ function h5TestLogin(key: "rider" | "manager") {
     <!-- H5 测试登录空态（仅 H5 产物存在）：未登录时一键注入测试账号，
          免真机微信登录流程；小程序无此代码 -->
     <!-- #ifdef H5 -->
-    <template v-else-if="!isLogged">
+    <template v-else-if="!isLogged && h5Development">
       <view class="card h5-login">
         <text class="h5-login__title">H5 联调登录</text>
-        <text class="h5-login__desc">选择测试账号（token 30 天有效，仅测试环境）</text>
+        <text class="h5-login__desc">选择测试账号（仅测试环境）</text>
         <button class="h5-login__btn" @tap="h5TestLogin('rider')">骑手 · 王99（湖工大）</button>
         <button class="h5-login__btn h5-login__btn--mgr" @tap="h5TestLogin('manager')">楼长 · TS001（北区18栋）</button>
+        <button class="h5-login__btn h5-login__btn--night" @tap="h5TestLogin('night')">夜宵楼长 · 方福宁（西区9栋）</button>
       </view>
     </template>
     <!-- #endif -->
@@ -458,7 +484,6 @@ function h5TestLogin(key: "rider" | "manager") {
       </view>
     </view>
   </view>
-  </BusinessWorkspace>
 </template>
 
 <style scoped lang="scss">
@@ -492,6 +517,10 @@ function h5TestLogin(key: "rider" | "manager") {
 .h5-login__btn--mgr {
   background: #e5f8eb;
   color: #073f2d;
+}
+.h5-login__btn--night {
+  background: #ffd75e;
+  color: #302400;
 }
 
 @import "../../styles/theme.scss";

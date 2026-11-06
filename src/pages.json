@@ -53,51 +53,97 @@
       }
     },
     {
-      "path": "pages/night/index",
+      "path": "pages/night/home",
       "style": {
-        "navigationBarTitleText": "夜宵店工作区"
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "夜宵店",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/night/deposit",
       "style": {
-        "navigationBarTitleText": "经营押金"
+        "navigationBarTitleText": "经营押金",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
       }
     },
     {
       "path": "pages/night/stock",
       "style": {
-        "navigationBarTitleText": "备货进货"
+        "navigationBarTitleText": "备货进货",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
       }
     },
     {
       "path": "pages/night/stock-orders",
       "style": {
-        "navigationBarTitleText": "备货记录"
+        "navigationBarTitleText": "备货记录",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
+      }
+    },
+    {
+      "path": "pages/night/inventory",
+      "style": {
+        "navigationBarTitleText": "盘点与报损",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d"
       }
     },
     {
       "path": "pages/night/products",
       "style": {
-        "navigationBarTitleText": "本店商品"
+        "navigationBarTitleText": "本店商品",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
       }
     },
     {
-      "path": "pages/night/orders",
+      "path": "pages/night/orders-tab",
       "style": {
-        "navigationBarTitleText": "夜宵订单"
+        "navigationBarTitleText": "夜宵订单",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     },
     {
       "path": "pages/night/order-detail",
       "style": {
-        "navigationBarTitleText": "订单详情"
+        "navigationBarTitleText": "订单详情",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
       }
     },
     {
-      "path": "pages/night/income",
+      "path": "pages/night/income-tab",
       "style": {
-        "navigationBarTitleText": "夜宵收入"
+        "navigationBarTitleText": "夜宵收入",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
       }
     }
   ],

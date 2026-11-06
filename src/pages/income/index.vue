@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import BusinessWorkspace from '../../components/BusinessWorkspace.vue';
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -8,6 +7,8 @@ import { useSessionStore, isBindRequired } from "../../stores/session";
 import { formatShort } from "../../utils/datetime";
 import { fenToYuan } from "../../utils/money";
 import type { CommissionBill, Dashboard } from "../../types";
+/* V4 夜宵模式守卫：night 模式 reLaunch 夜宵收入页（接口异常兜底 day 不影响本页） */
+import { dayTabGuard } from "../../utils/nightMode";
 const session = useSessionStore(),
   bill = ref<CommissionBill & { total?: number }>(),
   /** IK8W5V：加载失败标记，展示重试入口避免页面永久空白 */
@@ -62,7 +63,14 @@ async function load(m = month.value) {
     loading.value = false;
   }
 }
-onShow(load);
+/* V4 夜宵模式守卫（骨架门）：night → reLaunch 夜宵收入页（本页只出骨架防闪屏） */
+onShow(async () => {
+  loading.value = true;
+  const mode = await dayTabGuard("income");
+  if (mode === "night") return;
+  loading.value = false;
+  load();
+});
 /** 访客登录入口（IKC4IN）：用户自主点击后进登录页 */
 const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 /** 月份切换（IK9AWZ）：picker fields=month，回调即按月重查 */
@@ -105,7 +113,6 @@ const week = computed(() => {
 });
 </script>
 <template>
-  <BusinessWorkspace section="income">
   <view v-if="error" class="page income-page"
     ><view class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -202,7 +209,6 @@ const week = computed(() => {
       ></view
     ></view
   >
-  </BusinessWorkspace>
 </template>
 <style scoped lang="scss">
 @import "../../styles/theme.scss";

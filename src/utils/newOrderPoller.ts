@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { useSessionStore } from "../stores/session";
 import { isManagerRole } from "../types";
+import { syncWorkspaceMode } from "./nightMode";
 
 /**
  * 新单轮询（IKDNVW 方案A，2026-09-07 道哥）：前台期间每 30s 拉一次
@@ -25,6 +26,7 @@ async function poll() {
     // IKEAGE：实习楼长与正式楼长同权（到楼待接货口径一致）
     if (isManagerRole(role)) {
       const context = await api.businessContext();
+      syncWorkspaceMode(context);
       if (context.hasNightStore) {
         const night = await api.nightOrders('pending-accept', 1, 1);
         if (lastNightCount >= 0 && night.total > lastNightCount) {
