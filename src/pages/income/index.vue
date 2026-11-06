@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BusinessWorkspace from '../../components/BusinessWorkspace.vue';
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -104,6 +105,7 @@ const week = computed(() => {
 });
 </script>
 <template>
+  <BusinessWorkspace section="income">
   <view v-if="error" class="page income-page"
     ><view class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -200,6 +202,7 @@ const week = computed(() => {
       ></view
     ></view
   >
+  </BusinessWorkspace>
 </template>
 <style scoped lang="scss">
 @import "../../styles/theme.scss";

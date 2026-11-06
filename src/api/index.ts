@@ -46,6 +46,10 @@ interface PageResult<T> {
   total: number;
 }
 export const api = {
+  businessContext: () => request<{
+    mode: 'day' | 'night' | 'rest'; hasNightStore: boolean; campusName: string;
+    nightStartAt: string | null; nightEndAt: string | null; reason: string;
+  }>('/fulfillment/business-context'),
   /** 微信员工登录（IK8W5Q）：appid 路由到履约端凭证；openid 未绑定 Staff 时 404 */
   wechatStaffLogin: (code: string) =>
     request<WechatLoginResult>("/auth/wechat-login", {
@@ -207,10 +211,10 @@ export const api = {
   /** 押金详情：余额 + 流水（缴纳/扣除/退还，时间倒序） */
   nightDeposit: () => request<NightDepositDetail>("/night-rider/night/deposit"),
   /** 发起押金缴纳：后端按 500 元档递增算差额生成 ND 支付单（金额自算，不接受自选） */
-  nightDepositPay: () =>
+  nightDepositPay: (targetTier?: number) =>
     request<NightDepositPayIntent>("/night-rider/night/deposit/pay", {
       method: "POST",
-      data: {},
+      data: { targetTier },
     }),
   /** 押金支付结果查询（回调故障兜底：服务端主动查微信单落账） */
   nightDepositPayStatus: (outTradeNo?: string) =>
@@ -222,10 +226,10 @@ export const api = {
   /** 商品池：本校区夜主档 + 本店楼栋行（当前库存/上架状态） */
   nightStockPool: () => request<NightPoolItem[]>("/night-rider/night/stock/pool"),
   /** 备货下单（免费）：押金额度校验，超额 400 返回差额提示；下单即库存入账 */
-  nightStockOrder: (items: Array<{ catalogProductId: string; quantity: number }>) =>
+  nightStockOrder: (items: Array<{ catalogProductId: string; quantity: number }>, requestId: string) =>
     request<{ id: string; totalValue: number; createdAt: string }>(
       "/night-rider/night/stock/orders",
-      { method: "POST", data: { items } },
+      { method: "POST", data: { items, requestId } },
     ),
   /** 备货记录列表（信封分页） */
   nightStockOrders: (page = 1, pageSize = 20) =>
@@ -258,10 +262,10 @@ export const api = {
       data: {},
     }),
   /** 送达（delivering → delivered） */
-  nightDeliver: (id: string) =>
+  nightDeliver: (id: string, images: string[], remark = '') =>
     request<unknown>(`/night-rider/night/orders/${id}/deliver`, {
       method: "POST",
-      data: {},
+      data: { images, remark },
     }),
   /** 单单佣金明细（券扣减/基数/比例/佣金/配送费两条） */
   nightOrderEarning: (id: string) =>

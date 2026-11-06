@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted, onUnmounted } from "vue";
 import { onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -41,6 +41,8 @@ const pendingCount = computed(
 );
 
 async function load() {
+  if (loading.value) return;
+  guest.value = false;
   error.value = false;
   loading.value = true;
   try {
@@ -57,6 +59,10 @@ async function load() {
   }
 }
 onShow(load);
+onMounted(load);
+const onNewOrders = () => { if (!loading.value) void load(); };
+onMounted(() => uni.$on('night:new-orders', onNewOrders));
+onUnmounted(() => uni.$off('night:new-orders', onNewOrders));
 
 function switchTab(v: "todo" | "all") {
   if (active.value === v) return;
@@ -102,6 +108,32 @@ function itemsLine(o: NightOrder): string {
     .join(" · ");
   const rest = o.items.length - 2;
   return rest > 0 ? `${lines} 等 ${o.items.length} 件` : lines;
+}
+
+/* ---------- 接单倒计时（IKSZF5）：待接单卡显示 timeoutAt 剩余时间 ---------- */
+const nowTick = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | undefined;
+function startTick() {
+  nowTick.value = Date.now();
+  if (!tickTimer)
+    tickTimer = setInterval(() => (nowTick.value = Date.now()), 1000);
+}
+function stopTick() {
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = undefined;
+}
+onShow(startTick);
+// onHide 未在此页注册：用 onUnmounted 兜底清理（页面销毁时）
+onUnmounted(stopTick);
+/** 待接单剩余时间文案：超时显示「已超时」；无 timeoutAt 返回空不渲染 */
+function countdown(o: NightOrder): string {
+  if (o.status !== "pending-accept" || !o.timeoutAt) return "";
+  const rest = new Date(o.timeoutAt).getTime() - nowTick.value;
+  if (Number.isNaN(rest)) return "";
+  if (rest <= 0) return "接单已超时";
+  const m = Math.floor(rest / 60000);
+  const s = Math.floor((rest % 60000) / 1000);
+  return `接单剩余 ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 </script>
 
@@ -155,6 +187,9 @@ function itemsLine(o: NightOrder): string {
           ></view
         >
         <text class="order__items">{{ itemsLine(o) }}</text>
+        <text v-if="countdown(o)" class="order__countdown">{{
+          countdown(o)
+        }}</text>
         <view class="order__foot"
           ><text class="order__addr"
             >{{ o.address.buildingName }} · {{ o.address.room }}</text
@@ -271,6 +306,18 @@ function itemsLine(o: NightOrder): string {
   font-weight: 800;
   color: $ink;
   margin-top: 16rpx;
+}
+/* 接单倒计时：紧迫感用橙红，超时保持红显（色彩+文字双重表达） */
+.order__countdown {
+  display: inline-block;
+  margin-top: 10rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 138, 52, 0.12);
+  color: #b96f33;
+  font-size: 20rpx;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .order__foot {
   display: flex;

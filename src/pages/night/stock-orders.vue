@@ -6,6 +6,7 @@ import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
+import { nightStockOrderStatusText } from "../../utils/night";
 import type {
   NightStockOrder,
   NightStockOrderItem,
@@ -67,7 +68,9 @@ function line(items: NightStockOrderItem[]): string {
       <view v-for="o in items" :key="o.id" class="row card">
         <view class="row__head"
           ><text class="row__date">{{ formatShort(o.createdAt) }}</text
-          ><text class="row__status">已完成</text></view
+          ><text class="row__status">{{
+            nightStockOrderStatusText(o.status)
+          }}</text></view
         >
         <text class="row__items">{{ line(o.items) }}</text>
         <view class="row__foot"

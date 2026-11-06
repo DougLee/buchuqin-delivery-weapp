@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -39,6 +39,8 @@ const grandTotal = computed(
 );
 
 async function load() {
+  if (loading.value) return;
+  guest.value = false;
   error.value = false;
   loading.value = true;
   try {
@@ -57,12 +59,18 @@ async function load() {
   }
 }
 onShow(load);
+onMounted(load);
 
 const goDeposit = () => uni.navigateTo({ url: "/pages/night/deposit" });
 
 function rateLine(t: { base: number | null; rate: number | null }): string {
   if (t.base == null || !t.rate) return "按单计酬";
   return `基数 ¥${fenToYuan(t.base)} × ${(t.rate / 100).toFixed(1).replace(/\.0$/, "")}%`;
+}
+
+/** 佣金流水金额行（IKSZF5）：退款冲销为负数流水 → -¥x.xx 橙红，不再显示「+¥-1.23」 */
+function moneyLine(amount: number): string {
+  return `${amount < 0 ? "-" : "+"}¥${fenToYuan(Math.abs(amount))}`;
 }
 </script>
 
@@ -111,6 +119,9 @@ function rateLine(t: { base: number | null; rate: number | null }): string {
           <text class="ledger__row ledger__row--strong">已结算 ¥{{ fenToYuan(income.summary.deliveryFee.settled) }}</text>
         </view>
       </view>
+      <text class="ledger__note"
+        >预计→待结算→已结算依次推进；订单退款时对应佣金按负数流水冲回，押金不计入收入。</text
+      >
 
       <!-- 押金余额入口（额度随流水变动，详情进押金页） -->
       <view class="deposit-strip card" role="button" @tap="goDeposit"
@@ -155,8 +166,11 @@ function rateLine(t: { base: number | null; rate: number | null }): string {
             ><text v-if="r.type === 'commission'" class="muted">{{
               rateLine(r)
             }}</text
+            ><text v-if="r.remark" class="muted">{{ r.remark }}</text
             ></view
-          ><text class="money">+¥{{ fenToYuan(r.amount) }}</text></view
+          ><text class="money" :class="{ 'money--neg': r.amount < 0 }">{{
+            moneyLine(r.amount)
+          }}</text></view
         >
         <view v-if="!income.items.length" class="records__empty"
           >还没有佣金流水，接单送达后自动入账</view
@@ -297,6 +311,13 @@ function rateLine(t: { base: number | null; rate: number | null }): string {
 .ledger__row--strong {
   color: var(--brand, #159c55);
   font-weight: 900;
+}
+.ledger__note {
+  display: block;
+  margin: 16rpx 28rpx 0;
+  font-size: 19rpx;
+  line-height: 1.6;
+  color: $muted;
 }
 /* 押金余额条 */
 .deposit-strip {

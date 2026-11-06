@@ -24,10 +24,11 @@ const guest = ref(false);
 const quantities = ref<Record<string, number>>({});
 /** 提交防重 */
 const submitting = ref(false);
+let requestId = '';
 
 const deposit = computed(() => dash.value?.deposit ?? 0);
 const currentStockValue = computed(() =>
-  pool.value.reduce((s, p) => s + p.stockValue, 0),
+  dash.value?.stockValue ?? 0,
 );
 const usableQuota = computed(() =>
   Math.max(0, deposit.value - currentStockValue.value),
@@ -36,11 +37,19 @@ const usableQuota = computed(() =>
 const orderValue = computed(() =>
   pool.value.reduce((s, p) => s + (quantities.value[p.catalogProductId] ?? 0) * p.price, 0),
 );
+/** 入库后库存货值 = 现有库存货值 + 本次备货货值（额度四要素之一） */
+const afterStockValue = computed(
+  () => currentStockValue.value + orderValue.value,
+);
 /** 勾选件数 */
 const pickedCount = computed(() =>
   Object.values(quantities.value).reduce((s, n) => s + n, 0),
 );
 const overQuota = computed(() => orderValue.value > usableQuota.value);
+/** 超出押金的差额（整单被拒时说明的金额） */
+const overGap = computed(() =>
+  overQuota.value ? orderValue.value - usableQuota.value : 0,
+);
 const canSubmit = computed(() => pickedCount.value > 0 && !submitting.value);
 
 async function load() {
@@ -50,7 +59,7 @@ async function load() {
     await session.ensure();
     const [p, d] = await Promise.all([
       api.nightStockPool(),
-      api.nightDashboard().catch(() => undefined),
+      api.nightDashboard(),
     ]);
     pool.value = p;
     dash.value = d;
@@ -70,7 +79,8 @@ async function load() {
 onShow(load);
 
 function setQty(item: NightPoolItem, qty: number) {
-  if (!item.attached) return;
+  if (submitting.value) return;
+  requestId = '';
   const v = Math.max(0, Math.min(999, Math.floor(qty) || 0));
   if (v === 0) delete quantities.value[item.catalogProductId];
   else quantities.value[item.catalogProductId] = v;
@@ -91,14 +101,26 @@ function onQtyInput(item: NightPoolItem, event: unknown) {
 
 async function submit() {
   if (!canSubmit.value) return;
+  if (overQuota.value) {
+    uni.showModal({ title: '押金额度不足', content: `还差 ¥${fenToYuan(orderValue.value - usableQuota.value)} 额度，请先缴纳押金。`, confirmText: '去交押金', success: (r) => { if (r.confirm) uni.navigateTo({ url: '/pages/night/deposit' }); } });
+    return;
+  }
+  const confirmation = await new Promise<boolean>((resolve) => uni.showModal({
+    title: '确认进货入库',
+    content: `本次 ${pickedCount.value} 件，货值 ¥${fenToYuan(orderValue.value)}；入库后库存货值 ¥${fenToYuan(currentStockValue.value + orderValue.value)}，剩余额度 ¥${fenToYuan(usableQuota.value - orderValue.value)}。确认后立即入库。`,
+    success: (r) => resolve(Boolean(r.confirm)), fail: () => resolve(false),
+  }));
+  if (!confirmation || submitting.value) return;
   submitting.value = true;
   try {
     const items = Object.entries(quantities.value)
       .filter(([, q]) => q > 0)
       .map(([catalogProductId, quantity]) => ({ catalogProductId, quantity }));
-    await api.nightStockOrder(items);
+    if (!requestId) requestId = `stock-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    await api.nightStockOrder(items, requestId);
     uni.showToast({ title: "备货成功，请线下取货", icon: "success" });
     quantities.value = {};
+    requestId = '';
     load();
   } catch (e) {
     // 押金额度不足：后端 400 返回差额提示（request 层已 toast 原文），
@@ -182,22 +204,25 @@ async function submit() {
           ><view class="row__meta"
             ><text class="row__price">¥{{ fenToYuan(p.price) }}</text
             ><text class="row__stock">本店库存 {{ p.stock }}</text
-            ><text v-if="!p.attached" class="row__tag">未配置</text></view
+            ><text v-if="!p.attached" class="row__tag">首次进货</text></view
           ></view
         >
-        <view v-if="p.attached" class="stepper"
+        <view class="stepper"
           ><button
             class="stepper__btn"
+            :aria-label="`减少${p.name}进货数量`"
             :disabled="!qtyOf(p.catalogProductId)"
             @tap="setQty(p, qtyOf(p.catalogProductId) - 1)"
           >−</button
           ><input
             class="stepper__input"
+            :aria-label="`${p.name}进货数量`"
             type="number"
             :value="String(qtyOf(p.catalogProductId))"
             @input="onQtyInput(p, $event)"
           /><button
             class="stepper__btn"
+            :aria-label="`增加${p.name}进货数量`"
             @tap="setQty(p, qtyOf(p.catalogProductId) + 1)"
           >+</button></view
         >
@@ -214,11 +239,11 @@ async function submit() {
           ><text class="submit-bar__label"
             >{{ pickedCount ? `已选 ${pickedCount} 件 · ` : "" }}本次货值</text
           ><text v-if="overQuota" class="submit-bar__warn"
-            >已超出可再进货额度，提交后会提示差额</text
+            >还差 ¥{{ fenToYuan(orderValue - usableQuota) }}，请先交押金</text
           ></view
         >
         <button class="submit-btn" :disabled="!canSubmit" @tap="submit">
-          {{ submitting ? "提交中…" : "提交备货单" }}
+          {{ submitting ? "提交中…" : overQuota ? '额度不足，去交押金' : "确认进货" }}
         </button>
       </view>
     </template>
@@ -229,6 +254,7 @@ async function submit() {
 @import "../../styles/theme.scss";
 .stock-page {
   background: $paper;
+  padding-bottom: calc(210rpx + env(safe-area-inset-bottom));
 }
 .retry {
   text-align: center;
@@ -293,6 +319,7 @@ async function submit() {
 /* 商品行 */
 .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 18rpx;
   padding: 22rpx 24rpx;
@@ -349,14 +376,16 @@ async function submit() {
 }
 /* 数量步进器 */
 .stepper {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 10rpx;
 }
 .stepper__btn {
-  width: 56rpx;
-  height: 56rpx;
-  min-height: 56rpx;
+  min-width: 44px;
+  width: 88rpx;
+  height: 88rpx;
+  min-height: 44px;
   margin: 0;
   padding: 0;
   border-radius: 16rpx;

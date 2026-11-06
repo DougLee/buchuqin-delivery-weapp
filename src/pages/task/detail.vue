@@ -460,7 +460,7 @@ async function confirmDeliver() {
         >{{ task.building }}<text
           class="gender-tag"
           :class="`gender-tag--${task.buildingGender || 'mixed'}`"
-        >{{ { male: '男生', female: '女生' }[task.buildingGender] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
+        >{{ { male: '男生', female: '女生' }[task.buildingGender || 'mixed'] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
       ><text class="muted-light"
         >{{ task.orderNo }}　{{ task.modeText }}</text
       ></view

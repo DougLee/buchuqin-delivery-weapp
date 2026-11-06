@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BusinessWorkspace from '../../components/BusinessWorkspace.vue';
 import { computed, ref } from "vue";
 import {
   onPullDownRefresh,
@@ -190,6 +191,7 @@ onShow(() => {
 const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
 </script>
 <template>
+  <BusinessWorkspace section="orders">
   <view class="page tasks-page">
     <view class="overview">
       <view
@@ -300,7 +302,7 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
                 >{{ task.building }}<text
                   class="gender-tag"
                   :class="`gender-tag--${task.buildingGender || 'mixed'}`"
-                >{{ { male: '男生', female: '女生' }[task.buildingGender] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
+                >{{ { male: '男生', female: '女生' }[task.buildingGender || 'mixed'] || '混合' }}</text> · {{ task.floor }} 楼 · {{ task.room }}</text
               ></view
             ><view class="route__leg"
               ><text class="route__tag">取</text
@@ -354,6 +356,7 @@ const goLogin = () => uni.navigateTo({ url: "/pages/login/index" });
       <view v-else-if="active !== 'pool'" class="list-foot">没有更多了</view>
     </template>
   </view>
+  </BusinessWorkspace>
 </template>
 <style scoped lang="scss">
 @import "../../styles/theme.scss";

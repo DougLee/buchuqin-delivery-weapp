@@ -18,6 +18,8 @@ const error = ref(false);
 const guest = ref(false);
 /** 切换防重（商品行 id） */
 const acting = ref<string | null>(null);
+/** 库存为 0 的行给「去备货」引导（IKSZF5 空态带动作） */
+const goStock = () => uni.navigateTo({ url: "/pages/night/stock" });
 
 async function load() {
   error.value = false;
@@ -100,7 +102,14 @@ function shelfNote(p: NightProduct): string {
             ></view
           ><text class="row__note" :class="{ 'row__note--warn': !p.purchasable }">{{
             shelfNote(p)
-          }}</text></view
+          }}</text
+          ><text
+            v-if="p.stock <= 0 && p.saleAllowed && p.catalogStatus === 'on-sale'"
+            class="row__stock-link"
+            role="button"
+            @tap.stop="goStock"
+            >去备货</text
+          ></view
         >
         <!-- 楼长唯一可控项：本店上下架；后台停售的行锁死（saleAllowed=false） -->
         <view class="shelf"
@@ -217,6 +226,17 @@ function shelfNote(p: NightProduct): string {
 }
 .row__note--warn {
   color: #b96f33;
+}
+/* 「去备货」引导 chip（可点暗示，无箭头形状） */
+.row__stock-link {
+  display: inline-block;
+  margin-top: 10rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: rgba(24, 169, 87, 0.12);
+  color: $primary-dark;
+  font-size: 20rpx;
+  font-weight: 800;
 }
 .shelf {
   flex: none;

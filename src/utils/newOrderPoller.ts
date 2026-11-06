@@ -14,6 +14,7 @@ import { isManagerRole } from "../types";
 const INTERVAL_MS = 30_000;
 let timer: ReturnType<typeof setInterval> | undefined;
 let lastCount = -1;
+let lastNightCount = -1;
 
 async function poll() {
   // 未登录静默跳过（游客态/登录页阶段不打接口）
@@ -23,6 +24,16 @@ async function poll() {
     let count = 0;
     // IKEAGE：实习楼长与正式楼长同权（到楼待接货口径一致）
     if (isManagerRole(role)) {
+      const context = await api.businessContext();
+      if (context.hasNightStore) {
+        const night = await api.nightOrders('pending-accept', 1, 1);
+        if (lastNightCount >= 0 && night.total > lastNightCount) {
+          uni.vibrateShort({ fail: () => {} });
+          uni.showToast({ title: `夜宵店有 ${night.total} 单待接单`, icon: 'none' });
+          uni.$emit('night:new-orders');
+        }
+        lastNightCount = night.total;
+      } else lastNightCount = -1;
       const page = await api.tasksPage("waiting-handover", 1, 1);
       count = page.total ?? 0;
     } else {
@@ -46,6 +57,7 @@ async function poll() {
 export function startPolling() {
   if (timer) return;
   lastCount = -1;
+  lastNightCount = -1;
   void poll();
   timer = setInterval(() => void poll(), INTERVAL_MS);
 }

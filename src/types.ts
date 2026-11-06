@@ -326,6 +326,7 @@ export interface NightOrder {
   address: NightOrderAddress;
   remark: string;
   timeline: Array<{
+    proof?: { images: string[]; remark?: string };
     key: string;
     title: string;
     description: string;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { ApiError, isRetryable } from "../../api/request";
@@ -9,15 +9,17 @@ import {
   nightStoreStatusText,
   nightStoreStatusTone,
 } from "../../utils/night";
-import type { NightDashboard } from "../../types";
+import type { NightDashboard, NightProduct } from "../../types";
 
 /**
  * 夜宵店工作区（IKSW1F 楼长端）：白天配送任务照旧在原工作台，夜宵店
  * 独立成工作区——场次状态、营业操作（开店/暂停/恢复/打烊）、备货、
- * 商品、订单、收入入口全部收敛到本页。
+ * 商品、订单、收入入口全部收敛到本页。开店前展示条件自查
+ * （窗口/押金/可售商品），缺项给对应引导（IKSZF5）。
  */
 const session = useSessionStore();
 const data = ref<NightDashboard>();
+const products = ref<NightProduct[]>([]);
 const loading = ref(false);
 const error = ref(false);
 const guest = ref(false);
@@ -40,25 +42,75 @@ const windowLine = computed(() => {
 });
 /** 佣金比例（万分比 → 百分比） */
 const rateText = computed(() => {
-  const r = data.value?.store.commissionRate ?? 0;
-  return r ? `佣金 ${(r / 100).toFixed(1)}% + 配送费全额` : "佣金比例待配置";
+  const r = data.value?.store.commissionRate;
+  return r != null ? `佣金 ${(r / 100).toFixed(1)}% + 配送费全额` : "佣金比例待配置";
 });
 
 async function load() {
+  if (loading.value) return;
+  guest.value = false;
+  notBound.value = false;
   error.value = false;
   loading.value = true;
   try {
     await session.ensure();
     data.value = await api.nightDashboard();
+    // 可售商品数（开店自查用）：拉失败不拦工作台，自查按 0 处理
+    products.value = await api
+      .nightProducts()
+      .catch(() => [] as NightProduct[]);
   } catch (e) {
-    if (isBindRequired(e)) guest.value = true;
-    else if (e instanceof ApiError && e.status === 404) notBound.value = true;
+    if (e instanceof ApiError && e.status === 404) notBound.value = true;
+    else if (isBindRequired(e)) guest.value = true;
     else if (isRetryable(e)) error.value = true;
   } finally {
     loading.value = false;
   }
 }
 onShow(load);
+onMounted(load);
+
+/* ---------- 开店前自查（IKSZF5）：与后端 openStore 校验同口径，缺项给引导 ---------- */
+const sellableCount = computed(
+  () =>
+    products.value.filter(
+      (p) =>
+        p.onShelf &&
+        p.saleAllowed &&
+        p.stock > 0 &&
+        p.catalogStatus === "on-sale",
+    ).length,
+);
+type CheckItem = { key: string; label: string; ok: boolean; hint: string; url?: string };
+const openChecks = computed<CheckItem[]>(() => {
+  const d = data.value;
+  if (!d) return [];
+  return [
+    {
+      key: "window",
+      label: "夜宵场次窗口",
+      ok: d.inWindow,
+      hint: d.inWindow
+        ? "场次进行中"
+        : `未到场次时间（${d.campus.nightStartAt ?? "--:--"} ~ ${d.campus.nightEndAt ?? "--:--"}）`,
+    },
+    {
+      key: "deposit",
+      label: "经营押金",
+      ok: d.deposit > 0,
+      hint: d.deposit > 0 ? `已缴 ¥${fenToYuan(d.deposit)}` : "未缴纳，首次 500 元",
+      url: "/pages/night/deposit",
+    },
+    {
+      key: "products",
+      label: "上架可售商品",
+      ok: sellableCount.value > 0,
+      hint: sellableCount.value > 0 ? `可售 ${sellableCount.value} 项` : "请备货并上架至少 1 项",
+      url: "/pages/night/stock",
+    },
+  ];
+});
+const openBlockers = computed(() => openChecks.value.filter((c) => !c.ok));
 
 const go = (url: string) => uni.navigateTo({ url });
 const goOrders = () => uni.navigateTo({ url: "/pages/night/orders" });
@@ -174,7 +226,8 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
         <view class="hero__glow"></view>
         <view class="hero__top">
           <view>
-            <text class="hero__kicker">NIGHT STORE</text>
+            <!-- 🌙 月牙品牌符号（IKSZF5 夜宵锚点，与用户端夜宵组件一致） -->
+            <text class="hero__kicker">🌙 NIGHT STORE</text>
             <text class="hero__title">{{ data.store.buildingName }} 夜宵店</text>
           </view>
           <view class="hero__badge" :class="`hero__badge--${tone}`">{{
@@ -185,6 +238,11 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
           data.inWindow ? `${windowLine} · 场次中` : windowLine
         }}</text>
         <text class="hero__rate">{{ rateText }}</text>
+      </view>
+
+      <view class="capital card">
+        <view><text class="capital__label">剩余可进货额度</text><text class="capital__amount">¥{{ fenToYuan(Math.max(0, data.deposit - data.stockValue)) }}</text><text class="capital__note">押金 ¥{{ fenToYuan(data.deposit) }} · 库存货值 ¥{{ fenToYuan(data.stockValue) }}</text></view>
+        <view class="capital__actions"><button @tap="go('/pages/night/deposit')">交押金</button><button class="capital__primary" @tap="go('/pages/night/stock')">进货入库</button></view>
       </view>
 
       <view class="stats card">
@@ -223,14 +281,38 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
            不满足时后端 400 返回具体原因，request 层直接 toast 原文 -->
       <view class="ops card">
         <text class="ops__head">营业管理</text>
-        <button
-          v-if="data.store.status === 'closed'"
-          class="ops__btn ops__btn--primary"
-          :disabled="acting"
-          @tap="act('open')"
-        >
-          {{ acting ? "处理中…" : "开 夜 宵 店" }}
-        </button>
+        <!-- 开店前自查（IKSZF5）：窗口/押金/可售商品逐项显示，缺项可点引导 -->
+        <template v-if="data.store.status === 'closed'">
+          <view class="checks">
+            <view
+              v-for="c in openChecks"
+              :key="c.key"
+              class="check"
+              role="button"
+              @tap="c.url && !c.ok && go(c.url)"
+              ><view
+                class="check__dot"
+                :class="{ 'check__dot--ok': c.ok }"
+              ></view
+              ><view class="check__main"
+                ><text class="check__label">{{ c.label }}</text
+                ><text class="check__hint" :class="{ 'check__hint--miss': !c.ok }">{{
+                  c.hint
+                }}</text></view
+              ><text v-if="!c.ok && c.url" class="check__act">去处理</text></view
+            >
+          </view>
+          <button
+            class="ops__btn ops__btn--primary"
+            :disabled="acting"
+            @tap="act('open')"
+          >
+            {{ acting ? "处理中…" : "开 夜 宵 店" }}
+          </button>
+          <text v-if="openBlockers.length" class="ops__hint"
+            >条件不满足时开店会被拒绝并提示原因；建议先处理缺项。</text
+          >
+        </template>
         <template v-else-if="data.store.status === 'open'">
           <button
             class="ops__btn ops__btn--warn"
@@ -299,6 +381,13 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
     radial-gradient(circle at 92% 6%, rgba(185, 242, 39, 0.16), transparent 26%),
     $paper;
 }
+.capital { padding:30rpx; margin-top:24rpx; }
+.capital__label { display:block; color:#52665b; font-size:26rpx; }
+.capital__amount { display:block; color:#123e2e; font-size:52rpx; font-weight:700; font-variant-numeric:tabular-nums; margin:10rpx 0; }
+.capital__note { color:#52665b; font-size:24rpx; }
+.capital__actions { display:flex; gap:18rpx; margin-top:26rpx; }
+.capital__actions button { flex:1; margin:0; min-height:88rpx; display:flex; align-items:center; justify-content:center; border-radius:22rpx; font-size:28rpx; font-weight:600; background:#eaf2eb; color:#164a36; }
+.capital__actions .capital__primary { background:#104a36; color:white; }
 .retry {
   text-align: center;
   padding: 120rpx 30rpx;
@@ -340,7 +429,8 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
   overflow: hidden;
   padding: 36rpx;
   border-radius: 38rpx;
-  background: linear-gradient(150deg, $primary-deep, $primary-dark 70%, #126c43);
+  /* 夜宵店头统一渐变（IKSZF5）：135deg 深绿→夜绿 */
+  background: linear-gradient(135deg, $night-deep, $night-green);
   color: #fff;
   box-shadow: 0 18rpx 42rpx rgba(3, 45, 34, 0.22);
 }
@@ -369,20 +459,21 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
   font-size: 19rpx;
   font-weight: 900;
   letter-spacing: 2rpx;
-  color: $lime;
+  color: $gold;
 }
 .hero__title {
   font-size: 38rpx;
   font-weight: 900;
   margin-top: 10rpx;
 }
+/* 营业态徽章（IKSZF5 语义色）：营业中金黄 / 暂停橙 / 停业红 / 打烊灰白 */
 .hero__badge {
   padding: 8rpx 22rpx;
   border-radius: 999rpx;
   font-size: 22rpx;
   font-weight: 800;
-  background: rgba(185, 242, 39, 0.9);
-  color: $primary-deep;
+  background: $gold;
+  color: $night-deep;
 }
 .hero__badge--closed {
   background: rgba(255, 255, 255, 0.18);
@@ -489,6 +580,73 @@ const entries: Array<{ key: string; label: string; sub: string; url: string }> =
   font-size: 27rpx;
   font-weight: 900;
   color: $ink;
+}
+/* 开店前自查清单（IKSZF5）：绿点=满足 / 空心=缺项，缺项行可点跳转 */
+.checks {
+  margin-top: 6rpx;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  min-height: 80rpx;
+  border-bottom: 2rpx solid $line;
+}
+.check:last-of-type {
+  border-bottom: none;
+}
+.check__dot {
+  flex: none;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 50%;
+  border: 4rpx solid $line;
+  background: #fff;
+}
+.check__dot--ok {
+  border-color: var(--brand, #159c55);
+  background: var(--brand, #159c55);
+  position: relative;
+}
+.check__dot--ok:after {
+  content: "";
+  position: absolute;
+  left: 9rpx;
+  top: 4rpx;
+  width: 8rpx;
+  height: 15rpx;
+  border: solid #fff;
+  border-width: 0 4rpx 4rpx 0;
+  transform: rotate(45deg);
+}
+.check__main {
+  flex: 1;
+  min-width: 0;
+}
+.check__label {
+  display: block;
+  font-size: 25rpx;
+  font-weight: 800;
+  color: $ink;
+}
+.check__hint {
+  display: block;
+  margin-top: 2rpx;
+  font-size: 20rpx;
+  color: $muted;
+}
+.check__hint--miss {
+  color: #b96f33;
+  font-weight: 700;
+}
+.check__act {
+  flex: none;
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  background: rgba(24, 169, 87, 0.12);
+  color: $primary-dark;
+  font-size: 20rpx;
+  font-weight: 800;
 }
 .ops__btn {
   width: 100%;

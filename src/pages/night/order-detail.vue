@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onUnmounted, ref } from "vue";
+import { uploadImage } from '../../api/upload';
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { isRetryable } from "../../api/request";
@@ -14,7 +15,8 @@ import type { NightOrder, NightOrderEarning } from "../../types";
 
 /**
  * 夜宵订单详情（IKSW1F 楼长端）：商品快照 / 地址（可拨号）/ 金额 / 时间线；
- * 接单、送达两个动作；单单佣金明细（券后基数 × 比例 = 商品佣金，配送费全额）。
+ * 接单（倒计时）、送达（凭证必填）两个动作；单单佣金明细
+ * （券后基数 × 比例 = 商品佣金，配送费全额）。
  */
 const session = useSessionStore();
 const orderId = ref("");
@@ -25,6 +27,43 @@ const error = ref(false);
 const guest = ref(false);
 /** 动作防重 */
 const acting = ref(false);
+const images = ref<string[]>([]);
+const uploading = ref(false);
+
+/* ---------- 接单倒计时（IKSZF5）：待接单时 hero 显示剩余时间 ---------- */
+const nowTick = ref(Date.now());
+let tickTimer: ReturnType<typeof setInterval> | undefined;
+function startTick() {
+  nowTick.value = Date.now();
+  if (!tickTimer)
+    tickTimer = setInterval(() => (nowTick.value = Date.now()), 1000);
+}
+function stopTick() {
+  if (tickTimer) clearInterval(tickTimer);
+  tickTimer = undefined;
+}
+onShow(startTick);
+onUnmounted(stopTick);
+const countdown = () => {
+  const o = order.value;
+  if (!o || o.status !== "pending-accept" || !o.timeoutAt) return "";
+  const rest = new Date(o.timeoutAt).getTime() - nowTick.value;
+  if (Number.isNaN(rest)) return "";
+  if (rest <= 0) return "接单已超时，请尽快处理";
+  const m = Math.floor(rest / 60000);
+  const s = Math.floor((rest % 60000) / 1000);
+  return `接单剩余 ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+async function chooseProof() {
+  if (uploading.value) return;
+  uni.chooseImage({ count: 3 - images.value.length, sizeType: ['compressed'], success: async (result) => {
+    uploading.value = true;
+    try {
+      for (const path of result.tempFilePaths) images.value.push(await uploadImage(path));
+    } catch { uni.showToast({ title: '照片上传失败，请重试', icon: 'none' }); }
+    finally { uploading.value = false; }
+  }});
+}
 
 async function load() {
   if (!orderId.value) return;
@@ -50,12 +89,15 @@ onShow(load);
 
 async function act(kind: "accept" | "deliver") {
   if (acting.value || !order.value) return;
+  if (kind === 'deliver' && !images.value.length) {
+    uni.showToast({ title: '请先上传送达照片', icon: 'none' }); return;
+  }
   acting.value = true;
   try {
     if (kind === "accept") await api.nightAccept(order.value.id);
-    else await api.nightDeliver(order.value.id);
+    else await api.nightDeliver(order.value.id, images.value);
     uni.showToast({
-      title: kind === "accept" ? "已接单" : "已送达",
+      title: kind === "accept" ? "已接单" : "已送达完成",
       icon: "success",
     });
   } finally {
@@ -108,6 +150,9 @@ function rateText(rate: number | null | undefined): string {
         >
         <text class="hero__no">单号 {{ order.orderNo }}</text>
         <text class="hero__time">下单 {{ formatShort(order.createdAt) }}</text>
+        <text v-if="countdown()" class="hero__countdown">{{
+          countdown()
+        }}</text>
         <text v-if="order.cancelReason" class="hero__cancel"
           >{{ order.statusText }}：{{ order.cancelReason }}</text
         >
@@ -205,6 +250,21 @@ function rateText(rate: number | null | undefined): string {
       </view>
 
       <!-- 动作区：接单 / 送达 -->
+      <view v-if="order.status === 'delivering'" class="card block">
+        <text class="block__head">送达凭证</text>
+        <text class="remark">请拍摄放置位置，确保用户能找到商品。送达后订单即完成。</text>
+        <view class="proof-grid">
+          <view v-for="(image, i) in images" :key="image" class="proof-item">
+            <image :src="image" mode="aspectFill" @tap="uni.previewImage({ urls: images, current: image })" />
+            <button :disabled="acting" @tap="images.splice(i, 1)">移除</button>
+          </view>
+          <button v-if="images.length < 3" class="proof-add" :disabled="uploading || acting" @tap="chooseProof">{{ uploading ? '上传中…' : '拍照 / 上传' }}</button>
+        </view>
+      </view>
+      <view v-for="step in order.timeline.filter(t => t.proof?.images?.length)" :key="step.key" class="card block">
+        <text class="block__head">已提交送达凭证</text>
+        <view class="proof-grid"><image v-for="image in step.proof?.images" :key="image" class="proof-thumb" :src="image" mode="aspectFill" /></view>
+      </view>
       <view class="actions">
         <button
           v-if="order.status === 'pending-accept'"
@@ -217,10 +277,10 @@ function rateText(rate: number | null | undefined): string {
         <button
           v-else-if="order.status === 'delivering'"
           class="act-btn act-btn--primary"
-          :disabled="acting"
+          :disabled="acting || uploading || !images.length"
           @tap="act('deliver')"
         >
-          {{ acting ? "处理中…" : "确认送达" }}
+          {{ acting ? "处理中…" : "确认送达并完成" }}
         </button>
       </view>
     </template>
@@ -232,6 +292,11 @@ function rateText(rate: number | null | undefined): string {
 .detail-page {
   background: $paper;
 }
+.proof-grid { display:flex; flex-wrap:wrap; gap:16rpx; margin-top:20rpx; }
+.proof-item { width:160rpx; }
+.proof-item image, .proof-thumb { width:160rpx; height:160rpx; border-radius:18rpx; }
+.proof-item button, .proof-add { min-height:88rpx; margin:0; font-size:26rpx; color:#174a36; background:#edf4ee; display:flex; align-items:center; justify-content:center; }
+.proof-add { width:180rpx; border:1px dashed #a4b9ac; border-radius:18rpx; }
 .retry {
   text-align: center;
   padding: 120rpx 30rpx;
@@ -254,7 +319,8 @@ function rateText(rate: number | null | undefined): string {
   overflow: hidden;
   padding: 36rpx;
   border-radius: 38rpx;
-  background: linear-gradient(145deg, $primary-deep, $primary-dark);
+  /* 夜宵店头统一渐变（IKSZF5）：135deg 深绿→夜绿 */
+  background: linear-gradient(135deg, $night-deep, $night-green);
   color: #fff;
   box-shadow: 0 18rpx 42rpx rgba(3, 45, 34, 0.22);
 }
@@ -301,6 +367,19 @@ function rateText(rate: number | null | undefined): string {
   margin-top: 6rpx;
   font-size: 21rpx;
   opacity: 0.6;
+}
+/* 接单倒计时徽章：金黄底深绿字（夜宵锚点色），超时也不换底色只换文案 */
+.hero__countdown {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 16rpx;
+  padding: 8rpx 22rpx;
+  border-radius: 999rpx;
+  background: $gold;
+  color: $night-deep;
+  font-size: 22rpx;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 .hero__cancel {
   margin-top: 12rpx;
