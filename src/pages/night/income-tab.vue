@@ -2,13 +2,12 @@
 import { computed, ref } from "vue";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
 import { nightTabGuard } from "../../utils/nightMode";
 import NightTabBar from "../../components/NightTabBar.vue";
-import type { NightCommissionTxn, NightIncome } from "../../types";
+import type { NightIncome } from "../../types";
 
 /**
  * 夜宵收入（夜宵模式第三 tab）——白天收入页（pages/income/index.vue）逐块复刻，
@@ -16,108 +15,72 @@ import type { NightCommissionTxn, NightIncome } from "../../types";
  * income-hero（NIGHT INCOME kicker/月份 picker/大金额待结算口径金黄/近 7 日柱状）→
  * breakdown 三列明细卡（佣金/配送费/退款冲回橙红）→ section-title（DETAILS/
  * 夜宵流水/共 N 笔）→ records 流水列表（record 同骨架，按单合并佣金+配送费）→
- * 同款空态。接口口径沿用既有实现：night-income 暂不支持按月查询，大金额展示
- * 「待结算」口径（commission+deliveryFee 的 pending 桶累计），历史月份占位提示。
+ * 同款空态。接口按营业日归属月份、收入状态分页，汇总和趋势使用全月账本。
+ * 大金额展示本月「待结算」佣金与配送费的 pending 桶合计。
  */
 const session = useSessionStore();
 const income = ref<NightIncome>();
 const loading = ref(false);
 const error = ref(false);
 const guest = ref(false);
-/** 查看月份（picker）：YYYY-MM，仅当月有真实数据（接口暂不支持按月） */
+/** 按场次营业日归属月份，数据与分页明细分开汇总。 */
 const month = ref("");
-const nowMonth = (): string => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-};
-const isCurrent = computed(() => !month.value || month.value === nowMonth());
-
+const statusFilter = ref("all");
+const moreLoading = ref(false);
+let generation = 0;
+const nowMonth = () => new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 7);
+const isCurrent = computed(() => !month.value || month.value === (income.value?.businessDate?.slice(0, 7) || nowMonth()));
 /** 大金额：待结算口径（pending 桶两列合计） */
 const pendingAmount = computed(() => {
   const s = income.value?.summary;
   if (!s) return 0;
   return s.commission.pending + s.deliveryFee.pending;
 });
-/** 明细卡第三列：退款冲回合计（负数流水聚合，橙红展示） */
-const refundTotal = computed(() => {
-  const rows = income.value?.items ?? [];
-  return rows.filter((r) => r.amount < 0).reduce((s, r) => s + r.amount, 0);
-});
-
-/* ---------- 近 7 日柱状（流水真实聚合，无数据画底点） ---------- */
+const refundTotal = computed(() => income.value?.refundTotal ?? 0);
+const settledAmount = computed(() => (income.value?.summary.commission.settled ?? 0) + (income.value?.summary.deliveryFee.settled ?? 0));
+const estimatedAmount = computed(() => (income.value?.summary.commission.estimated ?? 0) + (income.value?.summary.deliveryFee.estimated ?? 0));
+const confirmedCommission = computed(() => (income.value?.summary.commission.pending ?? 0) + (income.value?.summary.commission.settled ?? 0));
+const confirmedDeliveryFee = computed(() => (income.value?.summary.deliveryFee.pending ?? 0) + (income.value?.summary.deliveryFee.settled ?? 0));
+/** 全月聚合日序列，不从当前已加载20条流水推算趋势。 */
 const week = computed(() => {
-  const rows = income.value?.items ?? [];
-  const days: Array<{ label: string; count: number; height: number }> = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - i);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    const count = rows.filter((r) => {
-      const t = new Date(r.createdAt).getTime();
-      return t >= start.getTime() && t < end.getTime();
-    }).length;
-    days.push({
-      label: `${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`,
-      count,
-      height: 0,
-    });
+  const selected = month.value || income.value?.month || nowMonth();
+  const today = income.value?.businessDate || new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  const endpoint = isCurrent.value ? Number(today.slice(8, 10)) : new Date(Date.UTC(Number(selected.slice(0, 4)), Number(selected.slice(5, 7)), 0)).getUTCDate();
+  const days = [];
+  for (let n = Math.max(1, endpoint - 6); n <= endpoint; n++) {
+    const day = selected + '-' + String(n).padStart(2, '0');
+    const value = income.value?.days?.find(d => d.day === day);
+    days.push({ label: day.slice(5), count: value?.orderCount ?? 0, commission: value?.commission ?? 0, deliveryFee: value?.deliveryFee ?? 0, height: 4 });
   }
-  const max = Math.max(0, ...days.map((d) => d.count));
-  days.forEach((d) => {
-    d.height =
-      d.count === 0 ? 4 : Math.max(8, Math.round((d.count / (max || 1)) * 44));
-  });
-  return { days, total: days.reduce((s, d) => s + d.count, 0) };
+  const max = Math.max(1, ...days.map(d => Math.abs(d.commission + d.deliveryFee)));
+  for (const d of days) d.height = d.count ? Math.max(8, Math.round(Math.abs(d.commission + d.deliveryFee) / max * 44)) : 4;
+  return { days, total: days.reduce((sum, d) => sum + d.count, 0) };
 });
-/** 近 7 日摘要行：完成 N 笔 · 佣金 ¥X + 配送费 ¥Y */
-const weekLine = computed(() => {
-  const rows = income.value?.items ?? [];
-  const now = new Date();
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - 6);
-  const recent = rows.filter(
-    (r) => new Date(r.createdAt).getTime() >= start.getTime(),
-  );
-  let c = 0;
-  let dFee = 0;
-  for (const r of recent) {
-    if (r.type === "deliveryFee") dFee += r.amount;
-    else c += r.amount;
-  }
-  return `近 7 日 ${week.value.total} 笔 · 佣金 ¥${fenToYuan(c)} + 配送费 ¥${fenToYuan(dFee)}`;
-});
+const weekLine = computed(() => (isCurrent.value ? '本月' : '所选月份') + '近7日 · 佣金 ¥' + fenToYuan(week.value.days.reduce((n,d) => n+d.commission,0)) + ' + 配送费 ¥' + fenToYuan(week.value.days.reduce((n,d) => n+d.deliveryFee,0)));
 
-async function load() {
-  if (loading.value) return;
-  guest.value = false;
-  error.value = false;
-  loading.value = true;
+async function load(append = false) {
+  if (append && (loading.value || moreLoading.value || !income.value)) return;
+  const current = ++generation;
+  if (append) moreLoading.value = true; else loading.value = true;
+  guest.value = false; error.value = false;
   try {
     await session.ensure();
-    income.value = await api.nightIncome();
-    if (!month.value) month.value = nowMonth();
+    const result = await api.nightIncome(month.value || undefined, statusFilter.value, append ? (income.value?.page ?? 0) + 1 : 1);
+    if (current !== generation) return;
+    if (append && income.value) result.items = [...income.value.items, ...result.items.filter(item => !income.value!.items.some(old => old.id === item.id))];
+    income.value = result;
+    month.value = result.month;
   } catch (e) {
+    if (current !== generation) return;
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
-  } finally {
-    loading.value = false;
-  }
+    else if (!append) error.value = true;
+  } finally { if (current === generation) { loading.value = false; moreLoading.value = false; } }
 }
-onPullDownRefresh(async () => {
-  await load();
-  uni.stopPullDownRefresh();
-});
+onPullDownRefresh(async () => { await load(); uni.stopPullDownRefresh(); });
+function onMonthChange(e: { detail: { value: string } }) { month.value = e.detail.value; void load(); }
+function changeStatus(value: string) { statusFilter.value = value; void load(); }
 
-/** 月份切换（picker fields=month）：接口暂不支持按月，历史月显示占位 */
-function onMonthChange(e: { detail: { value: string } }) {
-  month.value = e.detail.value;
-}
-
-/* ---------- 流水按单合并（沿用既有：佣金/配送费分列文案合一行；退款冲回独立橙红） ---------- */
+/* ---------- 账本逐笔展示，佣金与配送费分列，退款冲回单独留痕 ---------- */
 interface RecordRow {
   status: string;
   key: string;
@@ -132,47 +95,12 @@ interface RecordRow {
   /** 退款冲回行（橙红展示） */
   refund: boolean;
 }
-const records = computed<RecordRow[]>(() => {
-  const items = income.value?.items ?? [];
-  const map = new Map<string, RecordRow>();
-  for (const r of items) {
-    // 退款冲回（负数流水）独立成行，不与正常收入合并
-    if (r.amount < 0) {
-      map.set(`refund-${r.id}`, {
-        status: r.status,
-        key: `refund-${r.id}`,
-        orderNo: r.orderNo || "—",
-        time: r.createdAt,
-        commission: r.type === "commission" ? r.amount : null,
-        deliveryFee: r.type === "deliveryFee" ? r.amount : null,
-        total: r.amount,
-        refund: true,
-      });
-      continue;
-    }
-    const recordKey = `${r.orderNo || r.id}-${r.status}`;
-    const row = map.get(recordKey) ?? {
-      status: r.status,
-      key: recordKey,
-      orderNo: r.orderNo || "—",
-      time: r.createdAt,
-      commission: null,
-      deliveryFee: null,
-      total: 0,
-      refund: false,
-    };
-    if (r.type === "deliveryFee") row.deliveryFee = r.amount;
-    else row.commission = r.amount;
-    row.total += r.amount;
-    // 行时间取该单最新一笔
-    if (new Date(r.createdAt).getTime() > new Date(row.time).getTime())
-      row.time = r.createdAt;
-    map.set(row.key, row);
-  }
-  return [...map.values()].sort(
-    (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime(),
-  );
-});
+const records = computed<RecordRow[]>(() => (income.value?.items ?? []).map(r => ({
+  status: r.status, key: r.id, orderNo: r.orderNo || "—", time: r.createdAt,
+  commission: r.type === 'commission' ? r.amount : null,
+  deliveryFee: r.type === 'deliveryFee' ? r.amount : null,
+  total: r.amount, refund: r.amount < 0,
+})));
 /** 副行文案：佣金 ¥X + 配送费 ¥Y（缺失类型不显示该段） */
 function rowSub(r: RecordRow): string {
   const parts: string[] = [];
@@ -182,7 +110,7 @@ function rowSub(r: RecordRow): string {
         ? `佣金冲回 ¥${fenToYuan(-r.commission)}`
         : `佣金 ¥${fenToYuan(r.commission)}`,
     );
-  if (r.deliveryFee != null) parts.push(`配送费 ¥${fenToYuan(r.deliveryFee)}`);
+  if (r.deliveryFee != null) parts.push(r.deliveryFee < 0 ? `配送费冲回 ¥${fenToYuan(-r.deliveryFee)}` : `配送费 ¥${fenToYuan(r.deliveryFee)}`);
   const status = ({ estimated: '预计收入', pending: '待结算', settled: '已结算', reversed: '已冲销' } as Record<string, string>)[r.status] || r.status;
   return `${status} · ${formatShort(r.time)} · ${parts.join(" + ") || "—"}`;
 }
@@ -199,12 +127,12 @@ onShow(() => {
 
 <template>
   <view v-if="error" class="page income-page"
-    ><view class="retry card" role="button" @tap="load"
+    ><view class="retry card" role="button" @tap="load()"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
     ></view
   >
-  <view v-else-if="loading" class="page income-page"
+  <view v-else-if="loading && !income" class="page income-page"
     ><!-- 加载骨架（白天 income-skeleton 同构，深色） -->
 <view class="income-skeleton__hero" /><view
       class="income-skeleton__break"
@@ -224,14 +152,15 @@ onShow(() => {
         ><view
           ><text class="kicker">NIGHT INCOME</text
           ><text class="label">{{
-            isCurrent ? "本月夜宵收入 · 待结算" : "该月夜宵收入"
+            isCurrent ? "夜宵收入 · 本月待结算" : "夜宵收入 · 所选月待结算"
           }}</text></view
-        ><!-- 月份切换（白天 picker 同构）：接口暂不支持按月，历史月占位 -->
+        ><!-- 按营业日归属月份查询 -->
 <picker
           class="month-picker"
           mode="date"
           fields="month"
           :value="month"
+          :end="nowMonth()"
           aria-label="选择收入月份"
           @change="onMonthChange"
           ><view class="bill-tag">
@@ -239,10 +168,10 @@ onShow(() => {
             <view class="bill-tag__chevron" aria-hidden="true"></view>
           </view></picker
         ></view
-      ><text class="amount"><small>¥</small>{{ isCurrent ? fenToYuan(pendingAmount) : "--" }}</text
+      ><text class="amount"><small>¥</small>{{ fenToYuan(pendingAmount) }}</text
       ><view class="trend"
-        ><!-- 柱状由近 7 天夜宵流水驱动，非当月视图不画（画了必错） -->
-<view v-if="isCurrent" class="trend__bars"
+        ><!-- 柱状按所选月份的完整日汇总绘制，不依赖分页 -->
+<view class="trend__bars"
           ><view
             v-for="d in week.days"
             :key="d.label"
@@ -250,62 +179,64 @@ onShow(() => {
             :class="{ 'trend__bar--dim': !d.count }"
             :style="{ height: d.height + 'px' }"
           ></view></view
-        ><text>{{
-          isCurrent
-            ? week.total
-              ? weekLine
-              : "近 7 日暂无夜宵流水"
-            : "该月暂不可查（明细接口按累计口径，历史月份待后端支持）"
-        }}</text></view
+        ><text>{{ week.total ? weekLine : "所选月份近7日暂无确认收入" }}</text></view
       ></view
     ><!-- breakdown 明细卡（白天三列同构）：佣金/配送费分列，退款冲回橙红 -->
     <view class="breakdown card"
       ><view
-        ><text>佣金</text
-        ><strong>¥{{ fenToYuan(income.summary.commission.pending) }}</strong></view
+        ><text>确认佣金</text
+        ><strong>¥{{ fenToYuan(confirmedCommission) }}</strong></view
       ><view
-        ><text>配送费</text
-        ><strong>¥{{ fenToYuan(income.summary.deliveryFee.pending) }}</strong></view
+        ><text>确认配送费</text
+        ><strong>¥{{ fenToYuan(confirmedDeliveryFee) }}</strong></view
       ><view
-        ><text>退款冲回</text
+        ><text>冲销调整</text
         ><strong class="breakdown__neg"
-          >¥{{ fenToYuan(refundTotal) }}</strong
+          >{{ refundTotal < 0 ? '-¥' : '¥' }}{{ fenToYuan(Math.abs(refundTotal)) }}</strong
         ></view
       ></view
-    ><view class="section-title"
+    >
+    <view class="income-buckets"><text>已结算 ¥{{ fenToYuan(settledAmount) }}</text><text>预计 ¥{{ fenToYuan(estimatedAmount) }}</text></view>
+    <text class="income-note">按营业日归属月份。预计收入在订单完成且无进行中售后后转待结算；跨期冲回计入调整月份。</text>
+    <view class="income-filters"><button v-for="option in [{ key: 'all', label: '全部' }, { key: 'pending', label: '待结算' }, { key: 'settled', label: '已结算' }, { key: 'estimated', label: '预计' }]" :key="option.key" :class="{ active: statusFilter === option.key }" @tap="changeStatus(option.key)">{{ option.label }}</button></view>
+    <text v-if="loading" class="income-note">正在加载所选月份与状态…</text>
+    <view class="section-title"
       ><view
         ><text class="kicker green">DETAILS</text
         ><text class="section-title__main">夜宵流水</text></view
-      ><!-- 流水笔数：按单合并后的行数（接口全量返回 items） -->
+      ><!-- 全部符合筛选的流水数，独立于当前分页 -->
 <text class="section-title__sub"
-        >共 {{ records.length }} 笔</text
+        >{{ loading ? '正在核对流水…' : `共 ${income.total} 条流水` }}</text
       ></view
-    ><!-- records 流水列表（白天 record 同骨架）：按单合并一行，
-        退款负数冲回橙红独立行 -->
-    <view class="records card"
+    ><!-- 逐笔流水，退款负数冲回单独显示 -->
+    <view class="records card" :style="loading ? 'opacity: .5' : ''"
       ><view v-for="r in records" :key="r.key" class="record"
         ><view class="record__icon" :class="{ 'record__icon--neg': r.refund }"></view
         ><view class="record__content"
-          ><text class="record__title">{{ r.refund ? `退款冲回 ${r.orderNo}` : `订单 ${r.orderNo}` }}</text
+          ><text class="record__title">{{ r.refund ? `冲销调整 ${r.orderNo}` : `${r.commission != null ? "商品佣金" : "配送费"} ${r.orderNo}` }}</text
           ><text class="muted"
             >{{ rowSub(r) }}</text
           ></view
         ><text class="money" :class="{ 'money--neg': r.refund }">{{
           amountLine(r)
         }}</text></view
-      ><view v-if="!records.length" class="records__empty"
-        >还没有佣金流水，接单送达后自动入账</view
-      ><view v-if="!isCurrent" class="records__empty records__empty--note"
-        >历史月份明细待接口支持，以上为累计口径流水</view
-      ></view
-    ></view
-  >
+      ><view v-if="!records.length" class="records__empty">所选月份和状态暂无流水</view>
+    </view>
+    <button v-if="income.items.length < income.total" class="load-more" :disabled="loading || moreLoading" @tap="load(true)">{{ moreLoading ? '加载中…' : '加载更多流水' }}</button>
+  </view>
   <!-- 夜宵自绘 TabBar（error/loading/guest 态也常驻，模式锚点） -->
   <NightTabBar active="income" />
 </template>
 
 <style scoped lang="scss">
 @import "../../styles/night.scss";
+.income-buckets { display: flex; justify-content: space-between; gap: 16rpx; margin: 20rpx 8rpx; color: #d5e4c7; font-size: 25rpx; }
+.income-note { display: block; color: #a6b9a7; font-size: 22rpx; line-height: 1.7; margin: 12rpx 8rpx 24rpx; }
+.income-filters { display: flex; gap: 12rpx; margin: 22rpx 0; }
+.income-filters button, .load-more { flex: 1; min-height: 44px; margin: 0; padding: 0 16rpx; display: flex; align-items: center; justify-content: center; background: #19352a; color: #bcd0bc; border: 1px solid #365643; border-radius: 22rpx; font-size: 25rpx; line-height: 1.2; }
+.income-filters button.active { background: #e7d99a; color: #213b2b; border-color: #e7d99a; font-weight: 750; }
+.load-more { width: 100%; margin: 24rpx 0; }
+.income-filters button::after, .load-more::after { border: none; }
 /* 夜宵收入：白天 income-page 布局复用全局 .page，页内覆盖深色 */
 .income-page {
   @include nb-page;
@@ -433,7 +364,7 @@ onShow(() => {
   color: $nb-text-sub;
 }
 .trend__bars {
-  height: 48rpx;
+  height: 48px;
   display: flex;
   align-items: flex-end;
   gap: 12rpx;

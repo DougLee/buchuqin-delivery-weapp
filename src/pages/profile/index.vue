@@ -16,7 +16,7 @@ import type { Performance, StaffProfile, StaffStatus } from "../../types";
 /* V4 夜宵模式：本页为白天/夜宵共享 tab 页——夜宵模式渲染深色主题变体 +
    夜宵经营分组（楼长资格），白天端渲染零变化 */
 import NightTabBar from "../../components/NightTabBar.vue";
-import { fetchBizContext, type BizContext } from "../../utils/nightMode";
+import { canSwitchWorkspace, clearWorkspaceSelection, fetchBizContext, workspaceOf, type BizContext } from "../../utils/nightMode";
 import { nightStoreStatusText } from "../../utils/night";
 import { fenToYuan } from "../../utils/money";
 import type { NightDashboard, NightProduct } from "../../types";
@@ -102,9 +102,9 @@ async function addQuota() {
     });
 }
 /* ---------- V4 夜宵模式：深色变体 + 夜宵经营分组（纯增量，白天渲染零变化） ---------- */
-/** 夜宵模式态：mode=night 且有夜宵店（服务端隐含楼长资格）→ 整页深色变体 + 自绘 tabbar */
+/** 主题和Tab跟随当前工作台，正式楼长的手动选择优先于营业时段默认值。 */
 const nightMode = ref(false);
-/** 夜宵经营分组可见性：有夜宵店即渲染（白天也显示入口，与模式无关），失败不渲染 */
+/** 夜宵经营入口仅向已绑定夜宵店的正式楼长展示。 */
 const hasNightStore = ref(false);
 /** 分组实时摘要（押金/库存货值/额度/商品种数），拉不到显示 "--" */
 const nightDash = ref<NightDashboard>();
@@ -139,18 +139,20 @@ function applyNightChrome(on: boolean) {
   }
 }
 async function loadNightContext() {
+  hasNightStore.value = false;
   // 仅登录后拉取（游客不拉，白天态不受影响）
   if (!uni.getStorageSync("staffToken")) {
     hasNightStore.value = false;
+    nightMode.value = false;
     applyNightChrome(false);
     return;
   }
   try {
     const ctx = await fetchBizContext();
-    hasNightStore.value = ctx.hasNightStore;
-    nightMode.value = ctx.mode === "night" && ctx.hasNightStore;
+    hasNightStore.value = canSwitchWorkspace(ctx);
+    nightMode.value = workspaceOf(ctx) === "night";
     applyNightChrome(nightMode.value);
-    if (!ctx.hasNightStore) return;
+    if (!hasNightStore.value) return;
     // 分组摘要数据：失败静默保持 "--"，不影响页面主内容
     nightDash.value = await api.nightDashboard().catch(() => undefined);
     nightProducts.value = await api.nightProducts().catch(() => undefined);
@@ -159,8 +161,8 @@ async function loadNightContext() {
   }
 }
 function updateBusinessContext(ctx: BizContext) {
-  hasNightStore.value = ctx.hasNightStore;
-  nightMode.value = ctx.mode === 'night' && ctx.hasNightStore;
+  hasNightStore.value = canSwitchWorkspace(ctx);
+  nightMode.value = workspaceOf(ctx) === "night";
   applyNightChrome(nightMode.value);
 }
 onMounted(() => uni.$on('business:context', updateBusinessContext));
@@ -283,6 +285,7 @@ async function logout() {
       } catch {
         /* request 层已 toast */
       }
+      clearWorkspaceSelection();
       uni.removeStorageSync("staffToken");
       uni.reLaunch({ url: "/pages/index/index" });
     },

@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { nightTabGuard } from "../../utils/nightMode";
@@ -94,7 +93,7 @@ async function load() {
     }
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }

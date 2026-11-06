@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { uploadImage } from "../../api/upload";
+import ProofImagePicker from "../../components/ProofImagePicker.vue";
 import { useSessionStore } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
@@ -16,6 +16,9 @@ const tab = ref("stocktake");
 const products = ref<NightProduct[]>([]);
 const reports = ref<NightInventoryReport[]>([]);
 const txns = ref<NightInventoryTxn[]>([]);
+const reportPage = ref(1), reportTotal = ref(0), txnPage = ref(1), txnTotal = ref(0);
+const moreLoading = ref(false);
+let loadGeneration = 0;
 const loading = ref(false),
   failed = ref(false),
   busy = ref(false),
@@ -80,27 +83,57 @@ onLoad((query) => {
   if (query?.tab) tab.value = String(query.tab);
 });
 async function load(reset = false) {
+  const generation = ++loadGeneration;
   loading.value = true;
   failed.value = false;
   try {
     await session.ensure();
-    [products.value, reports.value, txns.value] = await Promise.all([
+    const [catalog, reportResult, txnResult] = await Promise.all([
       api.nightProducts(),
       api.nightInventoryReports(),
       api.nightInventoryTxns(),
     ]);
+    if (generation !== loadGeneration) return;
+    products.value = catalog;
+    reports.value = reportResult.items;
+    txns.value = txnResult.items;
+    reportPage.value = reportResult.page;
+    reportTotal.value = reportResult.total;
+    txnPage.value = txnResult.page;
+    txnTotal.value = txnResult.total;
     if (reset) {
       selected.value = {};
       counts.value = {};
       versions.value = {};
     }
   } catch {
-    failed.value = true;
+    if (generation === loadGeneration) failed.value = true;
   } finally {
-    loading.value = false;
+    if (generation === loadGeneration) loading.value = false;
   }
 }
-onShow(load);
+onShow(() => { void load(); });
+async function loadMore(kind: 'reports' | 'txns') {
+  if (loading.value || moreLoading.value) return;
+  const generation = loadGeneration;
+  moreLoading.value = true;
+  try {
+    if (kind === 'reports') {
+      const result = await api.nightInventoryReports(reportPage.value + 1);
+      if (generation !== loadGeneration) return;
+      const seen = new Set(reports.value.map(row => row.id));
+      reports.value.push(...result.items.filter(row => !seen.has(row.id)));
+      reportPage.value = result.page; reportTotal.value = result.total;
+    } else {
+      const result = await api.nightInventoryTxns(undefined, txnPage.value + 1);
+      if (generation !== loadGeneration) return;
+      const seen = new Set(txns.value.map(row => row.id));
+      txns.value.push(...result.items.filter(row => !seen.has(row.id)));
+      txnPage.value = result.page; txnTotal.value = result.total;
+    }
+  } catch { uni.showToast({ title: '加载失败，可点击重试', icon: 'none' }); }
+  finally { moreLoading.value = false; }
+}
 function select(p: NightProduct) {
   if (busy.value) return;
   selected.value[p.id] = !selected.value[p.id];
@@ -111,23 +144,6 @@ function select(p: NightProduct) {
 }
 function setCount(id: string, e: unknown) {
   counts.value[id] = (e as { detail: { value: string } }).detail.value;
-}
-function choosePhotos() {
-  if (uploading.value || busy.value) return;
-  uni.chooseImage({
-    count: 6 - photos.value.length,
-    sizeType: ["compressed"],
-    success: async (result) => {
-      uploading.value = true;
-      try {
-        for (const path of result.tempFilePaths)
-          photos.value.push(await uploadImage(path));
-      } catch {
-      } finally {
-        uploading.value = false;
-      }
-    },
-  });
 }
 function removePhoto(index: number) {
   if (!busy.value) photos.value.splice(index, 1);
@@ -166,8 +182,11 @@ async function submit() {
     )
       return toast("账实一致，无需提交差异");
   }
+  busy.value = true;
   const confirmed = await new Promise<boolean>((resolve) =>
     uni.showModal({
+      confirmText: '确认申报',
+      cancelText: '再核对',
       title: resubmitId.value
         ? "补充报损说明"
         : tab.value === "loss"
@@ -179,8 +198,7 @@ async function submit() {
       fail: () => resolve(false),
     }),
   );
-  if (!confirmed) return;
-  busy.value = true;
+  if (!confirmed) { busy.value = false; return; }
   try {
     if (resubmitId.value)
       await api.nightResubmitLoss(
@@ -337,6 +355,7 @@ function resubmit(report: NightInventoryReport) {
           </button>
         </view>
         <text v-if="!reports.length" class="empty">暂无盘点或报损记录</text>
+        <button v-if="reports.length < reportTotal" class="load-more" :disabled="moreLoading" @tap="loadMore('reports')">{{ moreLoading ? '加载中…' : '查看更早申报记录' }}</button>
       </template>
       <template v-if="tab === 'txns'">
         <view v-for="t in txns" :key="t.id" class="card"
@@ -352,8 +371,9 @@ function resubmit(report: NightInventoryReport) {
           ><text class="sub">{{ formatShort(t.createdAt) }}</text></view
         >
         <text class="hint"
-          >显示最近200条可售库存流水。冻结已扣可售，审核损耗时不重复扣减。</text
+          >共{{ txnTotal }}条可售库存流水，已加载{{ txns.length }}条。冻结已扣可售，审核损耗时不重复扣减。</text
         >
+        <button v-if="txns.length < txnTotal" class="load-more" :disabled="moreLoading" @tap="loadMore('txns')">{{ moreLoading ? '加载中…' : '查看更早库存流水' }}</button>
       </template>
       <view v-if="isForm || resubmitId" class="card form">
         <text class="name">{{ resubmitId ? "补充报损说明" : "申报说明" }}</text>
@@ -371,13 +391,7 @@ function resubmit(report: NightInventoryReport) {
             /><button @tap="removePhoto(n)">移除</button></view
           ></view
         >
-        <button
-          v-if="photos.length < 6"
-          :disabled="uploading || busy"
-          @tap="choosePhotos"
-        >
-          {{ uploading ? "上传中…" : "拍照 / 上传凭证（选填）" }}
-        </button>
+        <ProofImagePicker v-if="photos.length < 6" v-model="photos" :max="6" :disabled="busy" label="拍照 / 上传凭证（选填）" @busy="uploading = $event" />
         <button
           class="primary submit"
           :disabled="busy || uploading"
@@ -390,6 +404,7 @@ function resubmit(report: NightInventoryReport) {
   </view>
 </template>
 <style scoped lang="scss">
+.load-more { min-height: 88rpx; background: transparent; color: #ffe082; font-size: 24rpx; }
 @import "../../styles/night.scss";
 .inventory-page {
   @include nb-page;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { onPullDownRefresh, onShow, onReachBottom } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import { useSessionStore } from "../../stores/session";
@@ -11,6 +11,8 @@ const session = useSessionStore();
 const items = ref<NightStockOrder[]>([]);
 const loading = ref(false);
 const failed = ref(false);
+const moreFailed = ref(false);
+let generation = 0;
 const busy = ref(false);
 const page = ref(1);
 const total = ref(0);
@@ -26,26 +28,27 @@ const statuses: Record<string, string> = {
   cancelled: "已撤回",
   completed: "历史已入库",
 };
-const shown = computed(() =>
-  items.value.filter(
-    (o) => filter.value === "all" || o.status === filter.value,
-  ),
-);
+const shown = computed(() => items.value);
+watch(filter, () => { selected.value = ''; void load(); });
 async function load(reset = true) {
-  if (loading.value) return;
+  if (loading.value && !reset) return;
+  const current = reset ? ++generation : generation;
   loading.value = true;
   failed.value = false;
+  moreFailed.value = false;
+  if (reset) { items.value = []; total.value = 0; }
   try {
     await session.ensure();
     const next = reset ? 1 : page.value + 1;
-    const r = await api.nightStockOrders(next, 50);
+    const r = await api.nightStockOrders(next, 20, filter.value);
+    if (current !== generation) return;
     items.value = reset ? r.items : [...items.value, ...r.items];
     total.value = r.total;
     page.value = next;
   } catch {
-    failed.value = true;
+    if (current === generation) { if (reset) failed.value = true; else moreFailed.value = true; }
   } finally {
-    loading.value = false;
+    if (current === generation) loading.value = false;
   }
 }
 onShow(() => load());
@@ -67,20 +70,21 @@ const confirm = (title: string, content: string) =>
     uni.showModal({
       title,
       content,
+      confirmText: '确认',
+      cancelText: '取消',
       success: (r) => resolve(Boolean(r.confirm)),
       fail: () => resolve(false),
     }),
   );
 async function cancel(order: NightStockOrder) {
+  if (busy.value) return;
+  busy.value = true;
   if (
-    busy.value ||
     !(await confirm(
       "撤回备货申请",
       "撤回后释放本单预占额度，校区将不再处理本单。",
     ))
-  )
-    return;
-  busy.value = true;
+  ) { busy.value = false; return; }
   try {
     await api.nightCancelStock(order.id, "楼长主动撤回");
     await load();
@@ -110,6 +114,7 @@ async function receive(order: NightStockOrder) {
     (s, i, n) => s + i.quantity - lines[n].quantity,
     0,
   );
+  busy.value = true;
   if (
     !(await confirm(
       "确认实际收货",
@@ -117,9 +122,7 @@ async function receive(order: NightStockOrder) {
         ? `本单少收 ${missing} 件，将自动生成收货报损，审核通过后释放差额。实收数量确认后不可修改。`
         : "请核对每项实收数量。确认后整单入库，数量不可修改。",
     ))
-  )
-    return;
-  busy.value = true;
+  ) { busy.value = false; return; }
   try {
     await api.nightReceiveStock(order.id, lines);
     selected.value = "";
@@ -140,13 +143,13 @@ function goReports() {
 <template>
   <view class="page records-page">
     <view class="hero"
-      ><text class="eyebrow">STOCK JOURNEY</text
+      ><button class="refresh-records" role="button" :disabled="loading" @tap="load()">{{ loading ? '刷新中' : '刷新' }}</button><text class="eyebrow">STOCK JOURNEY</text
       ><text class="title">每一份备货，都有迹可循</text
       ><text class="sub">申请 → 校区审核 → 整单出库 → 实收确认</text></view
     >
     <view class="filters">
       <button
-        v-for="s in ['all', 'requested', 'approved', 'shipped', 'received']"
+        v-for="s in ['all', 'requested', 'approved', 'shipped', 'received', 'rejected', 'cancelled']"
         :key="s"
         :class="{ active: filter === s }"
         @tap="filter = s"
@@ -235,7 +238,7 @@ function goReports() {
       class="more"
       @tap="load(false)"
     >
-      加载更多记录
+      {{ moreFailed ? '加载失败，点击重试' : '加载更多记录' }}
     </button>
     <text v-if="loading" class="empty">加载中…</text>
   </view>
@@ -249,10 +252,13 @@ function goReports() {
   box-sizing: border-box;
 }
 .hero {
+  position: relative;
   @include nb-hero;
   padding: 34rpx;
   margin-bottom: 26rpx;
 }
+.refresh-records { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 10px; margin: 0; border-radius: 12px; background: rgba(255,255,255,.06); color: #ffe082; font-size: 12px; }
+.hero .title { padding-right: 48px; }
 .eyebrow {
   display: block;
   font-size: 21rpx;

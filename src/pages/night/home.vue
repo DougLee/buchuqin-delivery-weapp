@@ -2,12 +2,12 @@
 import { computed, onUnmounted, ref } from "vue";
 import { onHide, onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { nightStoreStatusText } from "../../utils/night";
 import { nightTabGuard, switchNightTab } from "../../utils/nightMode";
 import NightTabBar from "../../components/NightTabBar.vue";
+import WorkspaceSwitch from "../../components/WorkspaceSwitch.vue";
 /* 自定义导航（navigationStyle: custom）：内容避开状态栏+胶囊区 */
 const statusBarH = uni.getSystemInfoSync().statusBarHeight || 0;
 import type {
@@ -18,16 +18,13 @@ import type {
 } from "../../types";
 
 /**
- * 夜宵工作台（夜宵模式第一 tab）——白天工作台（pages/index/index.vue）逐块复刻，
- * 数据换源 nightApi、深色主题取 night.scss token：
- * nav（logo/品牌/楼栋）→ hero（TONIGHT eyebrow/问候/营业徽章金黄/大数字「N 单待接单」/
- * route 三点装饰）→ 开店/打烊按钮（hero 下方，对应白天主操作位）→ stats 四联
- * （今日/本月 × 销售额/收入）→ section-title + 最新待接单卡预览（task card 同骨架，
- * 行内金黄接单钮，整卡/link-chip 进订单 tab）→ 库存货值紧凑行卡（押金行卡按道哥
- * 2026-11 反馈移除，押金详情走「我的」夜宵经营分组）→ 场次 hint。
- * 挂自绘夜宵 TabBar；nightTabGuard 守卫（day 态栈深 1 弹回白天工作台）。
+ * 夜宵首页沿用翡翠与暖金：身份栏 → 单行经营态/工作台切换 → 紧凑月光主卡
+ * → 营业操作 → 经营数据 → 待接订单 → 库存摘要。主卡只展示真实待办数据，
+ * 不再使用装饰流程线；无切换资格时仍在主卡保留营业状态。
+ * 日夜页面守卫尊重已授权正式楼长的手动选择，订单和库存仍读取夜宵API。
  */
 const session = useSessionStore();
+const workspaceSwitchVisible = ref(false);
 const dash = ref<NightDashboard>();
 const products = ref<NightProduct[]>([]);
 const profile = ref<StaffProfile>();
@@ -44,10 +41,10 @@ const accepting = ref(false);
 const statusText = computed(() =>
   dash.value ? nightStoreStatusText(dash.value.store.status) : "",
 );
-const hour = new Date().getHours();
+const hour = new Date(Date.now() + 8 * 3600000).getUTCHours();
 const greeting = computed(
   () =>
-    `${hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好"}${
+    `${hour < 5 || hour >= 23 ? "夜深了" : hour < 11 ? "早上好" : hour < 14 ? "中午好" : hour < 18 ? "下午好" : "晚上好"}${
       profile.value?.name ? `，${profile.value.name}` : ""
     }`,
 );
@@ -87,7 +84,7 @@ async function load() {
     preview.value = p?.items[0];
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }
@@ -96,21 +93,23 @@ async function load() {
 /* ---------- 营业操作（沿用 M2 已有逻辑：互斥/押金/可售商品校验在后端） ---------- */
 async function act(kind: "open" | "pause" | "resume" | "close") {
   if (acting.value || !dash.value) return;
+  acting.value = true;
+  try {
   if (kind === "close") {
     const okToGo = await confirmClose();
     if (!okToGo) return;
   }
-  acting.value = true;
-  try {
     if (kind === "open") await api.nightOpen();
     else if (kind === "pause") await api.nightPause();
     else if (kind === "resume") await api.nightResume();
     else await api.nightClose();
     uni.showToast({ title: "操作成功", icon: "success" });
+  } catch {
+    // request层显示服务端原因，刷新后仍可操作。
   } finally {
-    acting.value = false;
     // 成功/失败都重拉纠偏（开店被拒时 request 层已 toast 具体原因）
-    load().catch(() => {});
+    await load();
+    acting.value = false;
   }
 }
 /** 打烊确认（提示未完订单）：待办单 >0 时明示数量——已付订单继续履约 */
@@ -129,6 +128,7 @@ async function confirmClose(): Promise<boolean> {
         ? `还有 ${todo} 个未完订单，打烊后今晚不再接新单，已付订单请继续配送；剩货留存，次日场次可继续售卖。`
         : "打烊后今晚不再接新单；剩货留存，次日场次可继续售卖。",
       confirmText: "打烊",
+      cancelText: '继续营业',
       success: (r) => resolve(!!r.confirm),
       fail: () => resolve(false),
     }),
@@ -143,9 +143,11 @@ async function acceptPreview() {
   try {
     await api.nightAccept(o.id);
     uni.showToast({ title: "已接单", icon: "success" });
+  } catch {
+    // 订单可能已经变化，请求层提示后重拉真实待办。
   } finally {
+    await load();
     accepting.value = false;
-    load().catch(() => {});
   }
 }
 
@@ -221,6 +223,8 @@ onPullDownRefresh(async () => {
       </view>
     </view>
 
+    <WorkspaceSwitch current="night" :status="statusText" @visibility-change="workspaceSwitchVisible = $event" />
+
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
       ><text class="retry__sub">网络异常或服务暂不可用，点击重试</text></view
@@ -237,8 +241,7 @@ onPullDownRefresh(async () => {
     </view>
 
     <template v-else-if="dash">
-      <!-- hero 暗绿描边渐变卡（白天绿渐变 hero 的夜宵分层版）：
-           eyebrow / 问候 / 营业徽章（营业中金黄）→ 大数字 → route 三点装饰 -->
+      <!-- 紧凑主卡：问候与真实待接单数；月光轨道仅作低对比背景。 -->
       <view class="hero">
         <view class="hero__glow"></view>
         <view class="hero__sky" aria-hidden="true">
@@ -253,7 +256,7 @@ onPullDownRefresh(async () => {
             ><text class="eyebrow">TONIGHT · 夜宵经营</text
             ><text class="hello">{{ greeting }}</text></view
           ><!-- 营业状态徽章：营业中金黄实底（shift--on），其余灰 -->
-          <text class="shift" :class="{ 'shift--on': dash.store.status === 'open' }">{{
+          <text v-if="!workspaceSwitchVisible" class="shift" :class="{ 'shift--on': dash.store.status === 'open' }">{{
             statusText
           }}</text></view
         >
@@ -261,59 +264,53 @@ onPullDownRefresh(async () => {
           ><text class="metric__number">{{ dash.pendingOrders }}</text
           ><view><text class="metric__unit">单待接单</text></view></view
         >
-        <!-- route 三点装饰（纯视觉，同白天）：接单 → 配送中 → 送达完成 -->
-        <view class="route"
-          ><view class="route__point route__point--done" :class="{ 'route__point--idle': dash.pendingOrders > 0 }"></view
-          ><view class="route__line"></view
-          ><view class="route__point route__point--active" :class="{ 'route__point--idle': !dash.todayOrders }"></view
-          ><view class="route__line"></view
-          ><view class="route__point" :class="{ 'route__point--done': dash.todayOrders > 0 }"></view
-        ></view>
-        <view class="route-label"
-          ><text>接单</text><text>配送中</text><text>送达完成</text></view
-        >
       </view>
 
-      <!-- 营业开关（hero 下方主操作位）：营业中=打烊收店（暗底）；
-           未开店/暂停=开店/恢复（金黄 CTA）；打烊确认沿用既有逻辑 -->
-      <view v-if="dash.store.status === 'closed'" class="night-cta night-cta--open" role="button" @tap="act('open')">
+      <!-- 营业操作同一行：暂停保留已有订单，打烊停止新单；恢复使用金色主操作。 -->
+      <view class="operating-actions">
+      <view v-if="dash.store.status === 'closed'" class="night-cta night-cta--open" role="button" :aria-disabled="acting" @tap="act('open')">
         {{ acting ? "处理中…" : "开始营业" }}
       </view>
-      <view v-else-if="dash.store.status === 'open'" class="night-cta night-cta--close" role="button" @tap="act('close')">
+      <template v-else-if="dash.store.status === 'open'">
+      <view class="night-cta night-cta--pause" role="button" :aria-disabled="acting" @tap="act('pause')">{{ acting ? '处理中…' : '暂停接单' }}</view>
+      <view class="night-cta night-cta--close" role="button" :aria-disabled="acting" @tap="act('close')">
         {{ acting ? "处理中…" : "打烊收店" }}
       </view>
+      </template>
       <template v-else-if="dash.store.status === 'paused'">
-        <view class="night-cta night-cta--open" role="button" @tap="act('resume')">
+        <view class="night-cta night-cta--open" role="button" :aria-disabled="acting" @tap="act('resume')">
           {{ acting ? "处理中…" : "恢复营业" }}
         </view>
-        <view class="night-cta night-cta--close" role="button" @tap="act('close')">
+        <view class="night-cta night-cta--close" role="button" :aria-disabled="acting" @tap="act('close')">
           打烊收店
         </view>
       </template>
       <text v-else-if="dash.store.status === 'suspended'" class="store-hint"
         >店铺已被平台停业，请联系运营</text
       >
+      </view>
 
-      <!-- 两列经营数据：今日/本月 × 销售额/收入。
-           接口暂缺口径的三格显示 "--" 占位（不伪造数据，待后端补字段） -->
+      <!-- 商品净销售额与确认收入使用全量账本；预计收入不计入确认收入。 -->
       <view class="stats">
         <view class="stats__tile stats__tile--sales"
-          ><text class="stats__label">今日夜宵销售额</text
+          ><text class="stats__label">今日商品净销售额</text
           ><text class="stats__value" :class="{ 'stats__value--zero': !dash.todaySales }">¥{{ fenToYuan(dash.todaySales) }}</text></view
         >
         <view class="stats__tile stats__tile--income"
           ><text class="stats__label">今日夜宵收入</text
-          ><text class="stats__value stats__value--na">--</text></view
+          ><text class="stats__value" :class="{ 'stats__value--zero': !dash.todayIncome }">¥{{ fenToYuan(dash.todayIncome) }}</text></view
         >
         <view class="stats__tile"
-          ><text class="stats__label">本月夜宵销售额</text
-          ><text class="stats__value stats__value--na">--</text></view
+          ><text class="stats__label">本月商品净销售额</text
+          ><text class="stats__value" :class="{ 'stats__value--zero': !dash.monthSales }">¥{{ fenToYuan(dash.monthSales) }}</text></view
         >
         <view class="stats__tile"
           ><text class="stats__label">本月夜宵收入</text
-          ><text class="stats__value stats__value--na">--</text></view
+          ><text class="stats__value" :class="{ 'stats__value--zero': !dash.monthIncome }">¥{{ fenToYuan(dash.monthIncome) }}</text></view
         >
       </view>
+
+      <text class="stats-note">销售额不含配送费；收入含佣金与配送费，已扣冲回。</text>
 
       <view class="section-title"
         ><view
@@ -543,7 +540,7 @@ onPullDownRefresh(async () => {
   align-items: center;
 }
 .nav {
-  padding: 8rpx 0 30rpx;
+  padding: 8rpx 0 12rpx;
 }
 .identity {
   gap: 16rpx;
@@ -596,8 +593,8 @@ onPullDownRefresh(async () => {
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 36rpx;
-  border-radius: 40rpx;
+  padding: 30rpx 32rpx;
+  border-radius: 32rpx;
   background: $nb-home-hero;
   border: 1px solid rgba(210, 235, 171, 0.28);
   box-shadow: inset 0 1px 0 rgba(245, 248, 204, 0.16), 0 20rpx 55rpx rgba(0, 16, 9, 0.23);
@@ -620,38 +617,39 @@ onPullDownRefresh(async () => {
 }
 .hero__sky {
   position: absolute;
-  right: 12rpx;
-  top: 112rpx;
-  width: 270rpx;
-  height: 220rpx;
+  right: 0;
+  top: 42rpx;
+  width: 210rpx;
+  height: 160rpx;
+  opacity: 0.78;
   pointer-events: none;
   animation: moon-float 12s ease-in-out infinite alternate;
 }
 .hero__moon {
   position: absolute;
-  top: 24rpx;
-  right: 64rpx;
-  width: 90rpx;
-  height: 90rpx;
+  top: 22rpx;
+  right: 60rpx;
+  width: 64rpx;
+  height: 64rpx;
   border-radius: 50%;
   background: linear-gradient(130deg, #fff0bf, #dfcd8e 45%, #9d9c62);
   box-shadow: inset -20rpx -12rpx 0 rgba(46, 66, 39, 0.84), 0 0 55rpx rgba(241, 217, 138, 0.15);
 }
 .hero__orbit {
   position: absolute;
-  width: 244rpx;
-  height: 104rpx;
-  top: 44rpx;
-  left: 16rpx;
+  width: 200rpx;
+  height: 90rpx;
+  top: 26rpx;
+  left: 0;
   border: 1px solid rgba(223, 228, 162, 0.26);
   border-radius: 50%;
   transform: rotate(-32deg);
 }
 .hero__orbit--outer {
-  width: 280rpx;
-  height: 166rpx;
-  top: 4rpx;
-  left: -6rpx;
+  width: 218rpx;
+  height: 126rpx;
+  top: 8rpx;
+  left: -4rpx;
   border-color: rgba(207, 229, 173, 0.1);
 }
 .hero__star {
@@ -662,8 +660,8 @@ onPullDownRefresh(async () => {
   background: $nb-home-gold;
   box-shadow: 0 0 12rpx rgba(255, 226, 160, 0.36);
 }
-.hero__star--one { top: 42rpx; left: 36rpx; }
-.hero__star--two { top: 150rpx; right: 34rpx; opacity: 0.6; }
+.hero__star--one { top: 24rpx; left: 24rpx; }
+.hero__star--two { top: 110rpx; right: 24rpx; opacity: 0.6; }
 .hero__top {
   position: relative;
   z-index: 1;
@@ -680,9 +678,9 @@ onPullDownRefresh(async () => {
   letter-spacing: 2rpx;
 }
 .hello {
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 800;
-  margin-top: 7rpx;
+  margin-top: 4rpx;
 }
 /* 营业徽章：营业中金黄实底（shift--on），其余灰白弱化 */
 .shift {
@@ -716,13 +714,13 @@ onPullDownRefresh(async () => {
   position: relative;
   z-index: 1;
   gap: 18rpx;
-  margin: 38rpx 0 44rpx;
+  margin: 20rpx 0 0;
 }
 .metric__number {
-  font-size: 104rpx;
+  font-size: 88rpx;
   line-height: 1;
   font-weight: 600;
-  letter-spacing: -5rpx;
+  letter-spacing: -3rpx;
   color: $nb-home-gold;
   font-variant-numeric: tabular-nums;
 }
@@ -731,56 +729,13 @@ onPullDownRefresh(async () => {
   font-size: 26rpx;
   font-weight: 600;
 }
-/* route 三点装饰（白天同构）：done=金黄实心，active=金黄光晕 */
-.route {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto;
-  align-items: center;
-}
-.route__point {
-  width: 15rpx;
-  height: 15rpx;
-  border: 4rpx solid rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
-}
-.route__point--done {
-  background: rgba(255, 215, 94, 0.6);
-  border-color: rgba(255, 215, 94, 0.6);
-}
-.route__point--active {
-  width: 22rpx;
-  height: 22rpx;
-  background: rgba(255, 215, 94, 0.35);
-  border-color: rgba(255, 215, 94, 0.55);
-  box-shadow: 0 0 0 8rpx rgba(255, 215, 94, 0.1);
-}
-/* 未达阶段的点降为弱描边（idle 变体） */
-.route__point--idle.route__point--done,
-.route__point--idle.route__point--active {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: none;
-  width: 15rpx;
-  height: 15rpx;
-}
-.route__line {
-  height: 2rpx;
-  background: rgba(255, 255, 255, 0.16);
-}
-.route-label {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10rpx;
-  font-size: 22rpx;
-  color: $nb-home-muted;
-}
 /* ---------- 营业开关（hero 下方主操作位，白天胶囊大按钮同构） ---------- */
+.operating-actions { display: flex; gap: 12rpx; }
+.operating-actions .night-cta { flex: 1; min-width: 0; }
 .night-cta {
-  min-height: 92rpx;
+  min-height: 88rpx;
   border-radius: 999rpx;
-  margin-top: 24rpx;
+  margin-top: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -802,6 +757,8 @@ onPullDownRefresh(async () => {
   border: 1px solid rgba(225, 226, 175, 0.18);
   box-shadow: inset 0 1px 0 rgba(239, 242, 206, 0.07);
 }
+.night-cta--pause { color: $nb-home-gold; background: rgba(255,224,130,.06); border: 1px solid rgba(255,224,130,.22); }
+.night-cta[aria-disabled="true"] { opacity: .6; pointer-events: none; }
 .night-cta:active {
   opacity: 0.85;
   transform: translateY(2rpx);
@@ -810,16 +767,17 @@ onPullDownRefresh(async () => {
 .stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16rpx;
-  margin-top: 24rpx;
+  gap: 14rpx;
+  margin-top: 20rpx;
 }
+.stats-note { display: block; margin: -4rpx 4rpx 28rpx; color: #a5bba8; font-size: 21rpx; line-height: 1.6; }
 .stats__tile {
   position: relative;
   overflow: hidden;
-  min-height: 140rpx;
-  padding: 22rpx 26rpx;
+  min-height: 124rpx;
+  padding: 18rpx 22rpx;
   border: 1px solid $nb-home-outline;
-  border-radius: 28rpx;
+  border-radius: 26rpx;
   background: linear-gradient(130deg, rgba(37, 60, 44, 0.9), rgba(19, 42, 31, 0.94));
   box-shadow: inset 0 1px 0 rgba(220, 239, 199, 0.05);
 }
@@ -1065,7 +1023,7 @@ onPullDownRefresh(async () => {
   animation: home-pulse 1.2s infinite;
 }
 .home-skeleton__hero {
-  height: 320rpx;
+  height: 240rpx;
 }
 .home-skeleton__stats {
   height: 130rpx;

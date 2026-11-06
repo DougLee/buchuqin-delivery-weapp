@@ -16,19 +16,29 @@ const INTERVAL_MS = 30_000;
 let timer: ReturnType<typeof setInterval> | undefined;
 let lastCount = -1;
 let lastNightCount = -1;
+let generation = 0;
+let running = false;
+let lastToken = '';
 
-async function poll() {
+async function poll(current: number) {
+  if (current !== generation || running) return;
   // 未登录静默跳过（游客态/登录页阶段不打接口）
-  if (!uni.getStorageSync("staffToken")) return;
+  const token = uni.getStorageSync("staffToken");
+  if (!token) return;
+  if (token !== lastToken) { lastCount = -1; lastNightCount = -1; lastToken = token; }
+  const stillCurrent = () => current === generation && token === uni.getStorageSync('staffToken');
   const { role } = useSessionStore();
+  running = true;
   try {
     let count = 0;
     // IKEAGE：实习楼长与正式楼长同权（到楼待接货口径一致）
     if (isManagerRole(role)) {
       const context = await api.businessContext();
+      if (!stillCurrent()) return;
       syncWorkspaceMode(context);
       if (context.hasNightStore) {
         const night = await api.nightOrders('pending-accept', 1, 1);
+        if (!stillCurrent()) return;
         if (lastNightCount >= 0 && night.total > lastNightCount) {
           uni.vibrateShort({ fail: () => {} });
           uni.showToast({ title: `夜宵店有 ${night.total} 单待接单`, icon: 'none' });
@@ -37,10 +47,12 @@ async function poll() {
         lastNightCount = night.total;
       } else lastNightCount = -1;
       const page = await api.tasksPage("waiting-handover", 1, 1);
+      if (!stillCurrent()) return;
       count = page.total ?? 0;
     } else {
       // 抢单池仅配送员角色（后端口径），楼长以外的其他角色与骑手同路
       const list = await api.availableTasks();
+      if (!stillCurrent()) return;
       count = Array.isArray(list) ? list.length : 0;
     }
     // 数量增加才震动（回前台首拍 lastCount 已重置，不误震）
@@ -52,20 +64,25 @@ async function poll() {
     lastCount = count;
   } catch {
     /* 静默：401/网络差下轮重试 */
-  }
+  } finally { if (current === generation) running = false; }
 }
 
 /** 回前台/启动时开启（幂等）：立即首拍 + 周期轮询。 */
 export function startPolling() {
   if (timer) return;
+  const current = ++generation;
+  running = false;
   lastCount = -1;
   lastNightCount = -1;
-  void poll();
-  timer = setInterval(() => void poll(), INTERVAL_MS);
+  void poll(current);
+  timer = setInterval(() => void poll(current), INTERVAL_MS);
 }
 
 /** 切后台/退出时停表。 */
 export function stopPolling() {
+  generation++;
+  running = false;
+  lastToken = '';
   if (timer) clearInterval(timer);
   timer = undefined;
 }

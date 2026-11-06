@@ -192,8 +192,13 @@ export interface NightDepositTxn {
   createdAt: string;
 }
 
-/** 押金详情（GET deposit）：余额 + 流水（时间倒序，上限 100） */
+/** 押金详情（GET deposit）：余额 + 数据库分页流水。 */
 export interface NightDepositDetail {
+  staffId: string;
+  storeId: string;
+  total: number;
+  page: number;
+  pageSize: number;
   deposit: number;
   nextTier: number;
   gapToNext: number;
@@ -292,6 +297,9 @@ export interface NightDashboard {
   pendingOrders: number;
   todayOrders: number;
   todaySales: number;
+  todayIncome: number;
+  monthSales: number;
+  monthIncome: number;
   stockValue: number;
   commission: NightMoneyBucket;
   deliveryFee: NightMoneyBucket;
@@ -384,6 +392,7 @@ export interface NightOrder {
   completedAt: string | null;
   cancelReason: string | null;
   afterSaleStatus: string | null;
+  refund?: { status: string; amount: number; message: string } | null;
   store: { id: string; buildingName: string } | null;
 }
 
@@ -415,6 +424,13 @@ export interface NightCommissionTxn {
 
 /** 夜宵收入（GET income）：两列汇总 + 押金余额 + 佣金流水 */
 export interface NightIncome {
+  month: string;
+  businessDate: string;
+  total: number;
+  page: number;
+  pageSize: number;
+  refundTotal: number;
+  days: Array<{ day: string; orderCount: number; commission: number; deliveryFee: number }>;
   summary: { commission: NightMoneyBucket; deliveryFee: NightMoneyBucket };
   deposit: number;
   items: NightCommissionTxn[];

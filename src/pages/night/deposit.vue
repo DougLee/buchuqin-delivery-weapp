@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { ApiError, isRetryable } from "../../api/request";
+import { ApiError } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
@@ -14,7 +14,7 @@ import type {
 
 /**
  * 经营押金页（IKSW1F）：余额 + 流水 + 缴纳。
- * 押金 = 进货额度基准（库存 × 夜宵售价 ≤ 押金）；首次 500 元，按 500 元档
+ * 押金 = 进货额度基准（按历史货值计算占用）；首次 500 元，按 500 元档
  * 递增补缴。缴纳走 ND 支付单 + 微信收银台，到账以 pay-status 轮询/回调为准。
  */
 const session = useSessionStore();
@@ -24,12 +24,14 @@ const selectedTier = ref(0);
 const loading = ref(false);
 const error = ref(false);
 const guest = ref(false);
+const moreLoading = ref(false);
+let loadGeneration = 0;
 /** 缴纳动作进行中（防重复拉起收银台） */
 const paying = ref(false);
 /** 轮询超时仍未确认到账的单号：页面挂「确认到账」入口继续补查。
  *  storage 持久化（IKSZF5）——页面离开再回来确认条不消失 */
 const checkingNo = ref("");
-const CHECKING_KEY = "nightDepositCheckingNo";
+let checkingKey = '';
 
 const balance = computed(() => fenToYuan(data.value?.deposit ?? 0));
 const nextTierLine = computed(() => {
@@ -47,6 +49,7 @@ const payButtonLine = computed(() =>
 );
 
 async function load() {
+  const generation = ++loadGeneration;
   error.value = false;
   loading.value = true;
   try {
@@ -55,17 +58,33 @@ async function load() {
       api.nightDeposit(),
       api.nightDepositTiers().catch(() => undefined),
     ]);
+    if (generation !== loadGeneration) return;
     data.value = d;
+    checkingKey = `nightDepositCheckingNo:${d.staffId}:${d.storeId}`;
     tiers.value = t;
     if (!t?.tiers.some((row) => row.tier === selectedTier.value)) selectedTier.value = d.nextTier;
     // 未确认到账的单号从 storage 恢复（支付后离开页面再回来仍显示确认条）
-    checkingNo.value = (uni.getStorageSync(CHECKING_KEY) as string) || "";
+    checkingNo.value = (uni.getStorageSync(checkingKey) as string) || "";
   } catch (e) {
+    if (generation !== loadGeneration) return;
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
-    loading.value = false;
+    if (generation === loadGeneration) loading.value = false;
   }
+}
+async function loadMore() {
+  const current = data.value;
+  if (!current || loading.value || moreLoading.value || current.txns.length >= current.total) return;
+  const generation = loadGeneration;
+  moreLoading.value = true;
+  try {
+    const next = await api.nightDeposit(current.page + 1);
+    if (generation !== loadGeneration) return;
+    const seen = new Set(current.txns.map(row => row.id));
+    data.value = { ...next, txns: [...current.txns, ...next.txns.filter(row => !seen.has(row.id))] };
+  } catch { uni.showToast({ title: '加载失败，可点击重试', icon: 'none' }); }
+  finally { moreLoading.value = false; }
 }
 onShow(load);
 
@@ -76,7 +95,7 @@ async function pay() {
   try {
     const { outcome, outTradeNo } = await startDepositPay(selectedTier.value, (tradeNo) => {
       checkingNo.value = tradeNo;
-      uni.setStorageSync(CHECKING_KEY, tradeNo);
+      uni.setStorageSync(checkingKey, tradeNo);
     });
     if (outcome === "paid") {
       clearChecking(outTradeNo);
@@ -85,7 +104,7 @@ async function pay() {
     } else if (outcome === "checking") {
       // 轮询超时回调未落：单号持久化，页面挂确认入口，不留死路
       checkingNo.value = outTradeNo;
-      uni.setStorageSync(CHECKING_KEY, outTradeNo);
+      uni.setStorageSync(checkingKey, outTradeNo);
       uni.showToast({
         title: "支付结果确认中，可稍后点「确认到账」",
         icon: "none",
@@ -115,7 +134,7 @@ async function pay() {
 function clearChecking(outTradeNo: string) {
   if (checkingNo.value === outTradeNo) {
     checkingNo.value = "";
-    uni.removeStorageSync(CHECKING_KEY);
+    if (checkingKey) uni.removeStorageSync(checkingKey);
   }
 }
 
@@ -215,7 +234,7 @@ function txnView(type: string) {
           ><text class="section-kicker">RECORDS</text
           ><text class="section-title__main">押金流水</text></view
         ><text class="section-title__sub"
-          >共 {{ data.txns.length }} 笔</text
+          >共 {{ data.total }} 笔</text
         ></view
       >
       <view class="records card">
@@ -235,6 +254,7 @@ function txnView(type: string) {
         <view v-if="!data.txns.length" class="records__empty"
           >还没有押金流水，缴纳后在这里留痕</view
         >
+        <button v-if="data.txns.length < data.total" class="more-records" :disabled="moreLoading" @tap="loadMore">{{ moreLoading ? '加载中…' : '查看更早流水' }}</button>
       </view>
     </template>
   </view>
@@ -247,6 +267,7 @@ function txnView(type: string) {
 .deposit-page {
   @include nb-page;
 }
+.more-records { min-height: 88rpx; background: transparent; color: #ffe082; font-size: 24rpx; }
 /* 全局 .card 深色覆盖 */
 .deposit-page .card {
   @include nb-card;

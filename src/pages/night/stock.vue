@@ -2,7 +2,7 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { ApiError, isRetryable } from "../../api/request";
+import { ApiError } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { isDepositGapError } from "../../utils/night";
@@ -35,8 +35,10 @@ const error = ref(false);
 const guest = ref(false);
 /** 勾选数量（catalogProductId → 件数） */
 const quantities = ref<Record<string, number>>({});
+const quantityInputs = ref<Record<string, string>>({});
 /** 提交防重 */
 const submitting = ref(false);
+const confirming = ref(false);
 let requestId = "";
 
 const deposit = computed(() => dash.value?.deposit ?? 0);
@@ -58,7 +60,7 @@ const overQuota = computed(() => orderValue.value > usableQuota.value);
 const overGap = computed(() =>
   overQuota.value ? orderValue.value - usableQuota.value : 0,
 );
-const canSubmit = computed(() => pickedCount.value > 0 && !submitting.value);
+const canSubmit = computed(() => pickedCount.value > 0 && !submitting.value && !confirming.value);
 
 async function load() {
   error.value = false;
@@ -80,9 +82,10 @@ async function load() {
     for (const [k, v] of Object.entries(quantities.value))
       if (alive.has(k) && v > 0) next[k] = v;
     quantities.value = next;
+    quantityInputs.value = Object.fromEntries(Object.entries(next).map(([id, value]) => [id, String(value)]));
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }
@@ -93,6 +96,7 @@ function setQty(item: NightPoolItem, qty: number) {
   if (submitting.value || !item.canStock) return;
   requestId = "";
   const v = Math.max(0, Math.min(999, Math.floor(qty) || 0));
+  quantityInputs.value[item.catalogProductId] = String(v);
   if (v === 0) delete quantities.value[item.catalogProductId];
   else quantities.value[item.catalogProductId] = v;
 }
@@ -108,7 +112,9 @@ function onQtyInput(item: NightPoolItem, event: unknown) {
         ? Number(value)
         : 0;
   setQty(item, n);
+  quantityInputs.value[item.catalogProductId] = String(value ?? '');
 }
+function normalizeQty(item: NightPoolItem) { quantityInputs.value[item.catalogProductId] = String(qtyOf(item.catalogProductId)); }
 
 async function submit() {
   if (!canSubmit.value) return;
@@ -117,20 +123,25 @@ async function submit() {
       title: "押金额度不足",
       content: `还差 ¥${fenToYuan(orderValue.value - usableQuota.value)} 额度，请先缴纳押金。`,
       confirmText: "去交押金",
+      cancelText: '取消',
       success: (r) => {
         if (r.confirm) uni.navigateTo({ url: "/pages/night/deposit" });
       },
     });
     return;
   }
+  confirming.value = true;
   const confirmation = await new Promise<boolean>((resolve) =>
     uni.showModal({
       title: "提交备货申请",
+      confirmText: '确认提交',
+      cancelText: '再核对',
       content: `本次 ${pickedCount.value} 件，预占额度 ¥${fenToYuan(orderValue.value)}。校区审核出库后，请核对实收数量确认收货，届时才增加本店库存。`,
       success: (r) => resolve(Boolean(r.confirm)),
       fail: () => resolve(false),
     }),
   );
+  confirming.value = false;
   if (!confirmation || submitting.value) return;
   submitting.value = true;
   try {
@@ -142,6 +153,7 @@ async function submit() {
     await api.nightStockOrder(items, requestId);
     uni.showToast({ title: "申请已提交，待校区审核", icon: "none" });
     quantities.value = {};
+    quantityInputs.value = {};
     requestId = "";
     load();
   } catch (e) {
@@ -154,7 +166,8 @@ async function submit() {
         content: gap
           ? `本次备货超出押金 ${gap[1]} 元。补缴押金（500 元档递增）后即可继续进货。`
           : "本次备货货值超出押金余额，请先补缴押金（500 元档递增）。",
-        confirmText: "去补缴押金",
+        confirmText: "去补缴",
+        cancelText: '取消',
         success: (r) => {
           if (r.confirm) uni.navigateTo({ url: "/pages/night/deposit" });
         },
@@ -275,8 +288,9 @@ async function submit() {
             class="stepper__input"
             :aria-label="`${p.name}进货数量`"
             type="number"
-            :value="String(qtyOf(p.catalogProductId))"
+            :value="quantityInputs[p.catalogProductId] ?? String(qtyOf(p.catalogProductId))"
             @input="onQtyInput(p, $event)"
+            @blur="normalizeQty(p)"
           /><button
             class="stepper__btn"
             :aria-label="`增加${p.name}进货数量`"
@@ -515,16 +529,21 @@ async function submit() {
   min-width: 0;
 }
 .row__name {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 27rpx;
   font-weight: 800;
   color: $nb-text;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
 }
 .row__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14rpx;
   margin-top: 10rpx;
@@ -579,8 +598,8 @@ async function submit() {
   background: rgba(255, 255, 255, 0.08);
 }
 .stepper__input {
-  width: 64rpx;
-  height: 56rpx;
+  width: 44px;
+  height: 44px;
   border-radius: 14rpx;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: $nb-bg;

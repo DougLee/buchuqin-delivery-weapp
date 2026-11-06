@@ -49,6 +49,7 @@ interface PageResult<T> {
 }
 export const api = {
   businessContext: () => request<{
+    staffId?: string; staffRole?: StaffRole; canSwitchWorkspace?: boolean;
     mode: 'day' | 'night' | 'rest'; hasNightStore: boolean; campusName: string;
     nightStartAt: string | null; nightEndAt: string | null; reason: string;
   }>('/fulfillment/business-context'),
@@ -211,7 +212,7 @@ export const api = {
   nightDepositTiers: () =>
     request<NightDepositTiers>("/night-rider/night/deposit/tiers"),
   /** 押金详情：余额 + 流水（缴纳/扣除/退还，时间倒序） */
-  nightDeposit: () => request<NightDepositDetail>("/night-rider/night/deposit"),
+  nightDeposit: (page = 1) => request<NightDepositDetail>(`/night-rider/night/deposit?page=${page}&pageSize=20`),
   /** 发起押金缴纳：后端按 500 元档递增算差额生成 ND 支付单（金额自算，不接受自选） */
   nightDepositPay: (targetTier?: number) =>
     request<NightDepositPayIntent>("/night-rider/night/deposit/pay", {
@@ -234,16 +235,16 @@ export const api = {
       { method: "POST", data: { items, requestId } },
     ),
   /** 备货记录列表（信封分页） */
-  nightStockOrders: (page = 1, pageSize = 20) =>
+  nightStockOrders: (page = 1, pageSize = 20, status = 'all') =>
     request<PageResult<NightStockOrder>>(
-      `/night-rider/night/stock/orders?page=${page}&pageSize=${pageSize}`,
+      `/night-rider/night/stock/orders?page=${page}&pageSize=${pageSize}&status=${encodeURIComponent(status)}`,
     ),
   nightCancelStock: (id: string, reason: string) => request<NightStockOrder>(`/night-rider/night/stock/orders/${id}/cancel`, { method: "POST", data: { reason } }),
   nightReceiveStock: (id: string, items: Array<{ catalogProductId: string; quantity: number }>) => request<NightStockOrder>(`/night-rider/night/stock/orders/${id}/receive`, { method: "POST", data: { items } }),
-  nightInventoryReports: () => request<NightInventoryReport[]>("/night-rider/night/inventory/reports"),
+  nightInventoryReports: (page = 1) => request<PageResult<NightInventoryReport>>(`/night-rider/night/inventory/reports?page=${page}&pageSize=20`),
   nightInventoryReport: (data: { requestId: string; kind: "loss" | "stocktake"; reason: string; photos: string[]; items: Array<{ nightProductId: string; quantity: number; inventoryVersion: number }> }) => request<NightInventoryReport>("/night-rider/night/inventory/reports", { method: "POST", data }),
   nightResubmitLoss: (id: string, reason: string, photos: string[]) => request<NightInventoryReport>(`/night-rider/night/inventory/reports/${id}/resubmit`, { method: "POST", data: { reason, photos } }),
-  nightInventoryTxns: (productId?: string) => request<NightInventoryTxn[]>(`/night-rider/night/inventory/txns${productId ? `?productId=${encodeURIComponent(productId)}` : ""}`),
+  nightInventoryTxns: (productId?: string, page = 1) => request<PageResult<NightInventoryTxn>>(`/night-rider/night/inventory/txns?page=${page}&pageSize=20${productId ? `&productId=${encodeURIComponent(productId)}` : ""}`),
   /** 本店商品列表（资料只读，含库存/上下架/可售状态） */
   nightProducts: () => request<NightProduct[]>("/night-rider/night/products"),
   /** 上下架切换：PATCH；恢复上架时后端校验主档停售（楼长不能绕过后台停售） */
@@ -279,7 +280,7 @@ export const api = {
   nightOrderEarning: (id: string) =>
     request<NightOrderEarning>(`/night-rider/night/orders/${id}/earning`),
   /** 夜宵收入：佣金/配送费两列汇总 + 押金余额 + 佣金流水 */
-  nightIncome: () => request<NightIncome>("/night-rider/night/income"),
+  nightIncome: (month?: string, status = 'all', page = 1) => request<NightIncome>(`/night-rider/night/income?${month ? `month=${encodeURIComponent(month)}&` : ''}status=${encodeURIComponent(status)}&page=${page}&pageSize=20`),
   /** 开店（互斥/押金/可售商品校验，不满足 400 返回具体原因） */
   nightOpen: () =>
     request<{ id: string; status: string }>("/night-rider/night/store/open", {

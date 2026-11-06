@@ -6,6 +6,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { createHmac, randomBytes } from "node:crypto";
 import { nightPreviewLoginPlugin } from "./night-preview-login.mjs";
+import { nightPreviewPayPlugin } from './night-preview-pay.mjs';
 
 function invoke(options, remoteAddress = "127.0.0.1", method = "GET") {
   let handle;
@@ -53,4 +54,22 @@ test("本地预览未启动时给明确提示，不退回微信登录", () => {
   const r = invoke({ apiTarget: "http://localhost:3150", sessionPath: "/tmp/night-preview-session-does-not-exist" });
   assert.equal(r.statusCode, 503);
   assert.match(r.body, /启动本地夜宵预览 API/);
+});
+
+test('模拟押金中间件拒绝非本机、非隔离API、跨来源和非POST请求', () => {
+  for (const sample of [
+    { target: 'https://admin-test.buchuqin.com', remote: '127.0.0.1', origin: 'http://localhost:5192', method: 'POST', status: 404 },
+    { target: 'https://admin.buchuqin.com', remote: '127.0.0.1', origin: 'http://localhost:5192', method: 'POST', status: 404 },
+    { target: 'http://localhost:3150', remote: '192.0.2.1', origin: 'http://localhost:5192', method: 'POST', status: 404 },
+    { target: 'http://localhost:3150', remote: '127.0.0.1', origin: 'https://untrusted.invalid', method: 'POST', status: 404 },
+    { target: 'http://localhost:3150', remote: '127.0.0.1', origin: 'http://localhost:5192', method: 'GET', status: 405 },
+  ]) {
+    let handle;
+    const plugin = nightPreviewPayPlugin({ apiTarget: sample.target });
+    assert.equal(plugin.apply, 'serve');
+    plugin.configureServer({ middlewares: { use(route, callback) { assert.equal(route, '/__night-preview/deposit-pay'); handle = callback; } } });
+    const response = { statusCode: 200, end() {} };
+    handle({ socket: { remoteAddress: sample.remote }, headers: { host: 'localhost:5192', origin: sample.origin, 'content-type': 'application/json' }, method: sample.method }, response);
+    assert.equal(response.statusCode, sample.status);
+  }
 });

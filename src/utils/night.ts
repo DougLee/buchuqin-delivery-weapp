@@ -43,6 +43,14 @@ export async function startDepositPay(targetTier?: number, onIntent?: (tradeNo: 
   onIntent?.(intent.outTradeNo);
   let launched = false;
   try {
+    // #ifdef H5
+    if (import.meta.env.DEV && import.meta.env.VITE_NIGHT_LOCAL_PREVIEW === 'true' && intent.payParams.appId === 'LOCAL_PREVIEW_ONLY') {
+      const choice = await uni.showModal({ title: '本机模拟缴纳押金', content: '仅验证隔离测试库的押金流程，不会真实扣款。确认模拟缴纳？', confirmText: '模拟缴纳', cancelText: '取消' });
+      if (!choice.confirm) return { outcome: 'unpaid', outTradeNo: intent.outTradeNo };
+      const response = await fetch('/__night-preview/deposit-pay', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ depositOrderId: intent.depositOrderId }) });
+      if (!response.ok) throw new Error('本机模拟缴纳失败');
+    } else
+    // #endif
     await requestPayment(intent.payParams);
     launched = true;
   } catch {

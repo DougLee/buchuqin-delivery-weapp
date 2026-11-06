@@ -14,8 +14,8 @@ import {
   isGuideShown,
   markGuideShown,
 } from "../../utils/notifyQuota";
-/* V4 夜宵模式：onShow 模式守卫（night → reLaunch 夜宵工作台）+ 工作台插槽卡（纯增量） */
-import NightSlotCard from "../../components/NightSlotCard.vue";
+/* 工作台入口：仅已绑定夜宵店的正式楼长可手动切换，选择优先于时段默认值。 */
+import WorkspaceSwitch from "../../components/WorkspaceSwitch.vue";
 import { dayTabGuard } from "../../utils/nightMode";
 import type {
   Dashboard,
@@ -195,6 +195,7 @@ const H5_TEST_ACCOUNTS = {
   manager: { token: import.meta.env.DEV ? import.meta.env.VITE_H5_MANAGER_TOKEN || "" : "", label: "楼长·TS001（北区18栋）" },
 };
 function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
+  if (!import.meta.env.DEV) return;
   if (key === "night") {
     // 5188 仍连共享测试 API；夜宵新功能使用5192的独立 schema，不能混用令牌。
     const preview = new URL("/__night-preview/start", window.location.href);
@@ -241,9 +242,8 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
     <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
          当班状态由下方 hero 徽章继续展示 -->
 
-    <!-- V4 夜宵插槽卡（纯增量）：楼长且有夜宵店时常显白卡，整卡进夜宵工作台；
-         配送员/游客/加载失败一律不渲染，白天其余区块零影响 -->
-    <NightSlotCard />
+    <!-- 正式楼长双向切换条：服务端角色及夜宵店绑定双重校验。 -->
+    <WorkspaceSwitch current="day" :staff-status="data?.profile.status" />
 
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -333,16 +333,6 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
         <view class="hero__metric"
           ><text class="metric__number">{{ data.stats.pending }}</text
           ><view><text class="metric__unit">单待处理</text></view></view
-        >
-        <!-- IK8W5V：路线进度点为纯视觉装饰，不映射真实履约阶段 -->
-        <view class="route"
-          ><view class="route__point route__point--done"></view
-          ><view class="route__line"></view
-          ><view class="route__point route__point--active"></view
-          ><view class="route__line"></view><view class="route__point"></view
-        ></view>
-        <view class="route-label"
-          ><text>校园仓</text><text>配送中</text><text>寝室楼</text></view
         >
       </view>
 
@@ -596,8 +586,8 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 34rpx;
-  border-radius: 36rpx;
+  padding: 30rpx 32rpx;
+  border-radius: 32rpx;
   background: linear-gradient(
     145deg,
     $primary-deep,
@@ -631,9 +621,9 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
   letter-spacing: 2rpx;
 }
 .hello {
-  font-size: 31rpx;
+  font-size: 30rpx;
   font-weight: 800;
-  margin-top: 7rpx;
+  margin-top: 4rpx;
 }
 .shift {
   border: 2rpx solid rgba(255, 255, 255, 0.28);
@@ -663,12 +653,12 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 }
 .hero__metric {
   gap: 18rpx;
-  margin: 34rpx 0;
+  margin: 20rpx 0 0;
 }
 .metric__number {
-  font-size: 82rpx;
+  font-size: 88rpx;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 700;
   color: $lime;
 }
 .metric__unit,
@@ -684,43 +674,10 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
   opacity: 0.68;
   margin-top: 5rpx;
 }
-.route {
-  display: grid;
-  grid-template-columns: auto 1fr auto 1fr auto;
-  align-items: center;
-}
-.route__point {
-  width: 15rpx;
-  height: 15rpx;
-  border: 4rpx solid rgba(255, 255, 255, 0.45);
-  border-radius: 50%;
-}
-.route__point--done {
-  background: $lime;
-  border-color: $lime;
-}
-.route__point--active {
-  width: 22rpx;
-  height: 22rpx;
-  background: $accent;
-  border-color: #fff;
-  box-shadow: 0 0 0 8rpx rgba(255, 138, 52, 0.18);
-}
-.route__line {
-  height: 2rpx;
-  background: rgba(255, 255, 255, 0.28);
-}
-.route-label {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10rpx;
-  font-size: 18rpx;
-  opacity: 0.65;
-}
 .stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  padding: 28rpx 10rpx;
+  padding: 24rpx 10rpx;
   text-align: center;
 }
 /* 骑手两格自适应占满（原固定 4 列，销售额隐藏后右半空白） */
@@ -1058,7 +1015,7 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
   animation: home-pulse 1.2s infinite;
 }
 .home-skeleton__hero {
-  height: 320rpx;
+  height: 240rpx;
 }
 .home-skeleton__stats {
   height: 130rpx;

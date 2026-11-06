@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from "vue";
-import { uploadImage } from '../../api/upload';
+import ProofImagePicker from '../../components/ProofImagePicker.vue';
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { formatShort } from "../../utils/datetime";
@@ -54,19 +53,10 @@ const countdown = () => {
   const s = Math.floor((rest % 60000) / 1000);
   return `接单剩余 ${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
-async function chooseProof() {
-  if (uploading.value) return;
-  uni.chooseImage({ count: 3 - images.value.length, sizeType: ['compressed'], success: async (result) => {
-    uploading.value = true;
-    try {
-      for (const path of result.tempFilePaths) images.value.push(await uploadImage(path));
-    } catch { uni.showToast({ title: '照片上传失败，请重试', icon: 'none' }); }
-    finally { uploading.value = false; }
-  }});
-}
 
 async function load() {
-  if (!orderId.value) return;
+  if (!orderId.value) { error.value = true; loading.value = false; return; }
+  guest.value = false;
   error.value = false;
   loading.value = true;
   try {
@@ -76,7 +66,7 @@ async function load() {
     earning.value = await api.nightOrderEarning(orderId.value).catch(() => undefined);
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }
@@ -100,10 +90,12 @@ async function act(kind: "accept" | "deliver") {
       title: kind === "accept" ? "已接单" : "已送达完成",
       icon: "success",
     });
+  } catch {
+    // 请求层提示失败，保留凭证并刷新真实状态后再允许重试。
   } finally {
-    acting.value = false;
     // 成功/失败都重拉纠偏（状态已变时按钮随状态消失）
-    load().catch(() => {});
+    await load();
+    acting.value = false;
   }
 }
 
@@ -143,9 +135,9 @@ function rateText(rate: number | null | undefined): string {
         <view class="hero__top"
           ><text class="hero__status">{{ order.statusText }}</text
           ><text
-            v-if="order.afterSaleStatus === 'requested'"
+            v-if="['requested', 'refund-processing'].includes(order.afterSaleStatus || '')"
             class="hero__as"
-            >售后处理中</text
+            >{{ order.afterSaleStatus === 'refund-processing' ? '退款处理中' : '售后处理中' }}</text
           ></view
         >
         <text class="hero__no">单号 {{ order.orderNo }}</text>
@@ -243,7 +235,7 @@ function rateText(rate: number | null | undefined): string {
             ><text class="tl__title" :class="{ 'tl__title--dim': !t.done }">{{
               t.title
             }}</text
-            ><text v-if="t.time" class="tl__time">{{ formatShort(t.time) }}</text
+            ><text v-if="t.time || t.key === 'submit'" class="tl__time">{{ formatShort(t.time || order.createdAt) }}</text
             ></view
           ></view
         >
@@ -258,7 +250,7 @@ function rateText(rate: number | null | undefined): string {
             <image :src="image" mode="aspectFill" @tap="uni.previewImage({ urls: images, current: image })" />
             <button :disabled="acting" @tap="images.splice(i, 1)">移除</button>
           </view>
-          <button v-if="images.length < 3" class="proof-add" :disabled="uploading || acting" @tap="chooseProof">{{ uploading ? '上传中…' : '拍照 / 上传' }}</button>
+          <ProofImagePicker v-if="images.length < 3" v-model="images" :disabled="acting" @busy="uploading = $event" />
         </view>
       </view>
       <view v-for="step in order.timeline.filter(t => t.proof?.images?.length)" :key="step.key" class="card block">
@@ -267,7 +259,7 @@ function rateText(rate: number | null | undefined): string {
       </view>
       <view class="actions">
         <button
-          v-if="order.status === 'pending-accept'"
+          v-if="order.status === 'pending-accept' && order.afterSaleStatus !== 'refund-processing'"
           class="act-btn act-btn--primary"
           :disabled="acting"
           @tap="act('accept')"
@@ -275,7 +267,7 @@ function rateText(rate: number | null | undefined): string {
           {{ acting ? "处理中…" : "接 单" }}
         </button>
         <button
-          v-else-if="order.status === 'delivering'"
+          v-else-if="order.status === 'delivering' && order.afterSaleStatus !== 'refund-processing'"
           class="act-btn act-btn--primary"
           :disabled="acting || uploading || !images.length"
           @tap="act('deliver')"

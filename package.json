@@ -47,6 +47,7 @@
     "build:quickapp-webview-huawei": "uni build -p quickapp-webview-huawei",
     "build:quickapp-webview-union": "uni build -p quickapp-webview-union",
     "type-check": "vue-tsc --noEmit",
+    "test:workspace-switch": "node --test scripts/test-workspace-switch.mjs",
     "test:weapp-brands": "node --test scripts/test-weapp-brands.mjs",
     "dev:mp-weixin:daxiong": "node scripts/weapp.mjs dev daxiong",
     "build:mp-weixin:daxiong": "node scripts/weapp.mjs build daxiong"

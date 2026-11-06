@@ -2,7 +2,6 @@
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
-import { isRetryable } from "../../api/request";
 import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import type { NightProduct } from "../../types";
@@ -26,6 +25,7 @@ function goInventory() { uni.navigateTo({ url: "/pages/night/inventory" }); }
 const goStock = () => uni.navigateTo({ url: "/pages/night/stock" });
 
 async function load() {
+  guest.value = false;
   error.value = false;
   loading.value = true;
   try {
@@ -33,7 +33,7 @@ async function load() {
     items.value = await api.nightProducts();
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;
-    else if (isRetryable(e)) error.value = true;
+    else error.value = true;
   } finally {
     loading.value = false;
   }
@@ -48,9 +48,11 @@ async function toggle(p: NightProduct) {
     await api.nightToggleShelf(p.id, !p.onShelf);
     p.onShelf = !p.onShelf;
     uni.showToast({ title: p.onShelf ? "已上架" : "已下架", icon: "success" });
+  } catch {
+    // 请求层提示原因；重拉许可和货架状态，避免保留过期状态。
   } finally {
+    await load();
     acting.value = null;
-    load().catch(() => {});
   }
 }
 /** 行状态副标：停售/售罄/在售 */
@@ -245,7 +247,12 @@ function shelfNote(p: NightProduct): string {
 }
 /* 「去备货」引导 chip（金黄，可点暗示，无箭头形状） */
 .row__stock-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  box-sizing: border-box;
   margin-top: 10rpx;
   padding: 6rpx 18rpx;
   border-radius: 999rpx;

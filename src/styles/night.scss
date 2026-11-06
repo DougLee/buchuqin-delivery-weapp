@@ -44,6 +44,15 @@ $nb-hero-border: 1px solid rgba(210, 235, 171, 0.28);
   background: $nb-aurora;
   background-size: auto, auto, 28px 28px, auto;
   color: $nb-text;
+  // Use physical pixels here: 88rpx shrinks below 44px on narrow devices.
+  button {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   [role="button"] { cursor: pointer; }
   [role="button"]:focus-visible, button:focus-visible {
     outline: 2px solid $nb-gold;
