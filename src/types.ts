@@ -219,6 +219,8 @@ export interface NightDepositPayStatus {
 
 /** 商品池行（GET stock/pool）：夜主档 + 本店楼栋行；attached=false 未配置不可备货 */
 export interface NightPoolItem {
+  barcode: string | null;
+  categoryName: string;
   warehouseAvailable: number;
   canStock: boolean;
   unavailableReason: string;
