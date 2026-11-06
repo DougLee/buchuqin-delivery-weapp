@@ -14,6 +14,7 @@ const props = defineProps<{
   current: Workspace;
   status?: string;
   staffStatus?: StaffStatus;
+  inline?: boolean;
 }>();
 const context = ref<BizContext>();
 const busy = ref(false);
@@ -57,16 +58,17 @@ async function toggle() {
   <view
     v-if="visible"
     class="workspace-switch"
-    :class="{ 'workspace-switch--night': night }"
+    :class="{ 'workspace-switch--night': night, 'workspace-switch--inline': inline }"
   >
     <view class="workspace-switch__current">
       <view
+        v-if="!inline"
         class="workspace-switch__icon"
         :class="night ? 'workspace-switch__moon' : 'workspace-switch__sun'"
         ><view
       /></view>
       <view class="workspace-switch__context"
-        ><text class="workspace-switch__title">{{
+        ><text v-if="!inline" class="workspace-switch__title">{{
           night ? "夜宵店" : "白天店"
         }}</text
         ><view class="workspace-switch__status"
@@ -286,6 +288,20 @@ async function toggle() {
 }
 .workspace-switch--night .workspace-switch__button:focus-visible {
   outline-color: $nb-gold;
+}
+.workspace-switch--inline {
+  flex: none;
+  gap: 12rpx;
+  padding: 0;
+  margin: 0 0 0 auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.workspace-switch--inline .workspace-switch__button {
+  gap: 8rpx;
+  padding: 0 12rpx;
 }
 @media (prefers-reduced-motion: reduce) {
   .workspace-switch__button {

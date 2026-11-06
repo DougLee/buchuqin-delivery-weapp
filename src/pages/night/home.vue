@@ -10,6 +10,11 @@ import NightTabBar from "../../components/NightTabBar.vue";
 import WorkspaceSwitch from "../../components/WorkspaceSwitch.vue";
 /* 自定义导航（navigationStyle: custom）：内容避开状态栏+胶囊区 */
 const statusBarH = uni.getSystemInfoSync().statusBarHeight || 0;
+let nativeNavH = 0;
+// #ifdef MP-WEIXIN
+// The right-aligned switch must sit below WeChat's native capsule.
+nativeNavH = 44;
+// #endif
 import type {
   NightDashboard,
   NightOrder,
@@ -18,7 +23,7 @@ import type {
 } from "../../types";
 
 /**
- * 夜宵首页沿用翡翠与暖金：身份栏 → 单行经营态/工作台切换 → 紧凑月光主卡
+ * 夜宵首页沿用翡翠与暖金：单行身份/经营态/工作台切换 → 紧凑月光主卡
  * → 营业操作 → 经营数据 → 待接订单 → 库存摘要。主卡只展示真实待办数据，
  * 不再使用装饰流程线；无切换资格时仍在主卡保留营业状态。
  * 日夜页面守卫尊重已授权正式楼长的手动选择，订单和库存仍读取夜宵API。
@@ -205,7 +210,7 @@ onPullDownRefresh(async () => {
 </script>
 
 <template>
-  <view class="page night-home" :class="{ 'night-home--paused': !pageVisible }" :style="{ paddingTop: statusBarH + 12 + 'px' }">
+  <view class="page night-home" :class="{ 'night-home--paused': !pageVisible }" :style="{ paddingTop: statusBarH + nativeNavH + 12 + 'px' }">
     <view class="atmosphere" aria-hidden="true">
       <view class="atmosphere__jade"></view>
       <view class="atmosphere__gold"></view>
@@ -216,14 +221,13 @@ onPullDownRefresh(async () => {
     <view class="nav">
       <view class="identity">
         <view class="logo"><view class="logo__route"></view></view>
-        <view
+        <view class="identity__text"
           ><text class="brand">夜宵经营台</text
           ><text v-if="buildingLine" class="campus">{{ buildingLine }}</text></view
         >
       </view>
+      <WorkspaceSwitch inline current="night" :status="statusText" @visibility-change="workspaceSwitchVisible = $event" />
     </view>
-
-    <WorkspaceSwitch current="night" :status="statusText" @visibility-change="workspaceSwitchVisible = $event" />
 
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -540,12 +544,18 @@ onPullDownRefresh(async () => {
   align-items: center;
 }
 .nav {
-  padding: 8rpx 0 12rpx;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 8rpx 0 24rpx;
 }
 .identity {
+  flex: 1;
+  min-width: 0;
   gap: 16rpx;
 }
+.identity__text { min-width: 0; }
 .logo {
+  flex: none;
   width: 68rpx;
   height: 68rpx;
   border-radius: 20rpx;
@@ -577,6 +587,9 @@ onPullDownRefresh(async () => {
 .brand,
 .campus {
   display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand {
   font-size: 34rpx;

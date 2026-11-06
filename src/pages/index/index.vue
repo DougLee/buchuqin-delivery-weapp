@@ -222,12 +222,13 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
     <view class="nav">
       <view class="identity">
         <view class="logo"><view class="logo__route"></view></view>
-        <view
+        <view class="identity__text"
           ><text class="brand">{{ appName }}</text
           ><!-- IKAJT4：校区信息接口下发，多校区不再硬编码湖工大 -->
           <text v-if="campusLine" class="campus">{{ campusLine }}</text></view
         >
       </view>
+      <WorkspaceSwitch inline current="day" :staff-status="data?.profile.status" />
     </view>
 
     <!-- IKDQP9 低水位提示条：当天有推送失败且余额 <3 条才出现，点击连攒 10 条 -->
@@ -241,9 +242,6 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 
     <!-- IK9U4F：签到/签退功能先隐藏（决策记录：不做地理围栏签到），
          当班状态由下方 hero 徽章继续展示 -->
-
-    <!-- 正式楼长双向切换条：服务端角色及夜宵店绑定双重校验。 -->
-    <WorkspaceSwitch current="day" :staff-status="data?.profile.status" />
 
     <view v-if="error" class="retry card" role="button" @tap="load"
       ><text class="retry__title">加载失败</text
@@ -518,6 +516,10 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
   /* IKA57R：微信 env(safe-area-inset-top) 在 page 级常取 0，用平台注入的
      --status-bar-height 才躲得开状态栏 */
   padding-top: calc(24rpx + var(--status-bar-height, 0px));
+  /* #ifdef MP-WEIXIN */
+  /* Keep the header switch below the native WeChat capsule. */
+  padding-top: calc(44px + 24rpx + var(--status-bar-height, 0px));
+  /* #endif */
   background:
     radial-gradient(
       circle at 92% 8%,
@@ -538,11 +540,17 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 }
 .nav {
   justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
 }
 .identity {
+  flex: 1;
+  min-width: 0;
   gap: 16rpx;
 }
+.identity__text { min-width: 0; }
 .logo {
+  flex: none;
   width: 68rpx;
   height: 68rpx;
   border-radius: 20rpx;
@@ -572,6 +580,9 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 .brand,
 .campus {
   display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .brand {
   font-size: 34rpx;
@@ -1099,7 +1110,7 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
 .notify-guide {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 1001;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
