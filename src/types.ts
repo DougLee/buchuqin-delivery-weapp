@@ -322,6 +322,9 @@ export interface NightProduct {
   onShelf: boolean;
   saleAllowed: boolean;
   purchasable: boolean;
+  /** IKTU033 楼长推荐（楼栋行级）：本店首页/货架排序自管 */
+  featured: boolean;
+  featuredSort: number;
 }
 
 export interface NightInventoryReport {

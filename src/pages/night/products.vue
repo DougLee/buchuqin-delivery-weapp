@@ -61,6 +61,58 @@ function shelfNote(p: NightProduct): string {
   if (p.stock <= 0) return "库存为 0，请先备货";
   return p.onShelf ? "学生端可购买" : "已下架，学生端不可见";
 }
+/* ---------- IKTU033 楼长推荐（道哥 2026-11-09）：楼栋行级 featured——
+   勾选的商品在本店学生端首页/货架排前面；顺序号点「第 N 位」可改 ---------- */
+async function saveFeatured(
+  p: NightProduct,
+  featured: boolean,
+  featuredSort?: number,
+) {
+  if (acting.value) return;
+  acting.value = p.id;
+  try {
+    const r = await api.nightSetFeatured(p.id, featured, featuredSort);
+    p.featured = r.featured;
+    p.featuredSort = r.featuredSort;
+    uni.showToast({ title: featured ? "已设为推荐" : "已取消推荐", icon: "success" });
+  } catch {
+    // 请求层提示原因；本地状态不动
+  } finally {
+    acting.value = null;
+  }
+}
+/** 推荐开关：勾选时默认排到现有推荐末位；顺序可再点「第 N 位」微调 */
+async function toggleFeatured(p: NightProduct) {
+  if (acting.value) return;
+  if (p.featured) {
+    await saveFeatured(p, false);
+    return;
+  }
+  const maxSort = items.value.reduce(
+    (m, x) => (x.featured ? Math.max(m, x.featuredSort) : m),
+    0,
+  );
+  await saveFeatured(p, true, maxSort + 1);
+}
+/** 修改推荐位顺序（微信 showModal 原生输入框，0~9999） */
+function editFeaturedSort(p: NightProduct) {
+  if (acting.value) return;
+  uni.showModal({
+    title: `「${p.name}」推荐位顺序`,
+    editable: true,
+    placeholderText: String(p.featuredSort || 1),
+    content: String(p.featuredSort || 1),
+    success: (r) => {
+      if (!r.confirm) return;
+      const n = Math.floor(Number(r.content));
+      if (!Number.isInteger(n) || n < 1 || n > 9999) {
+        uni.showToast({ title: "请输入 1~9999 的整数", icon: "none" });
+        return;
+      }
+      void saveFeatured(p, true, n);
+    },
+  });
+}
 </script>
 
 <template>
@@ -120,18 +172,39 @@ function shelfNote(p: NightProduct): string {
             >去备货</text
           ></view
         >
-        <!-- 楼长唯一可控项：本店上下架；后台停售的行锁死（saleAllowed=false） -->
-        <view class="shelf"
-          ><text class="shelf__label">{{
-            p.onShelf ? "上架中" : "已下架"
-          }}</text
-          ><switch
-            class="shelf__switch"
-            :checked="p.onShelf"
-            :disabled="!p.saleAllowed || p.catalogStatus !== 'on-sale' || acting === p.id"
-            color="#ffd75e"
-            @change="toggle(p)"
-        /></view>
+        <!-- 楼长可控项：本店上下架 + 推荐（IKTU033）；后台停售的行锁死（saleAllowed=false） -->
+        <view class="ops">
+          <view class="shelf"
+            ><text class="shelf__label">{{
+              p.onShelf ? "上架中" : "已下架"
+            }}</text
+            ><switch
+              class="shelf__switch"
+              :checked="p.onShelf"
+              :disabled="!p.saleAllowed || p.catalogStatus !== 'on-sale' || acting === p.id"
+              color="#ffd75e"
+              @change="toggle(p)"
+          /></view>
+          <view class="feat">
+            <text class="feat__label" :class="{ 'feat__label--on': p.featured }">{{
+              p.featured ? "推荐中" : "推荐"
+            }}</text>
+            <switch
+              class="feat__switch"
+              :checked="!!p.featured"
+              :disabled="!p.onShelf || acting === p.id"
+              color="#ffd75e"
+              @change="toggleFeatured(p)"
+            />
+            <text
+              v-if="p.featured"
+              class="feat__sort"
+              role="button"
+              @tap="editFeaturedSort(p)"
+              >第 {{ p.featuredSort || 1 }} 位</text
+            >
+          </view>
+        </view>
       </view>
       <view v-if="!items.length" class="empty card"
         >本店还没有商品，先从「进货备货」选择商品申请备货</view
@@ -271,6 +344,40 @@ function shelfNote(p: NightProduct): string {
 .shelf__label {
   font-size: 19rpx;
   color: $nb-text-sub;
+}
+/* IKTU033 楼长推荐：右列上下堆叠（上架开关 + 推荐开关/顺序） */
+.ops {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+}
+.feat {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.feat__label {
+  font-size: 19rpx;
+  color: $nb-text-sub;
+}
+.feat__label--on {
+  color: $nb-gold;
+  font-weight: 700;
+}
+.feat__switch {
+  transform: scale(0.72);
+}
+.feat__sort {
+  font-size: 19rpx;
+  color: $nb-gold;
+  padding: 4rpx 10rpx;
+  border: 1px solid rgba(255, 226, 160, 0.4);
+  border-radius: 8rpx;
+  min-height: 24rpx;
+  display: inline-flex;
+  align-items: center;
 }
 .empty {
   padding: 70rpx 0;

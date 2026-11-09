@@ -256,6 +256,15 @@ export const api = {
         data: { onShelf },
       },
     ),
+  /** IKTU033 楼长推荐：楼栋行级 featured（本店首页/货架排序自管） */
+  nightSetFeatured: (id: string, featured: boolean, featuredSort?: number) =>
+    request<{ id: string; featured: boolean; featuredSort: number }>(
+      `/night-rider/night/products/${id}/featured`,
+      {
+        method: "PATCH" as UniApp.RequestOptions["method"],
+        data: { featured, featuredSort },
+      },
+    ),
   /** 夜宵订单列表（todo=待办[待接单+配送中]，信封分页） */
   nightOrders: (status: string, page = 1, pageSize = 20) =>
     request<PageResult<NightOrder>>(
