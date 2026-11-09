@@ -100,7 +100,8 @@
         "navigationBarTitleText": "盘点与报损",
         "navigationBarBackgroundColor": "#10271d",
         "navigationBarTextStyle": "white",
-        "backgroundColor": "#10271d"
+        "backgroundColor": "#10271d",
+        "enablePullDownRefresh": true
       }
     },
     {

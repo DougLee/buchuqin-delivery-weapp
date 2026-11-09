@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onLoad, onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
 import ProofImagePicker from "../../components/ProofImagePicker.vue";
 import { useSessionStore } from "../../stores/session";
@@ -81,6 +81,13 @@ watch(tab, () => {
 });
 onLoad((query) => {
   if (query?.tab) tab.value = String(query.tab);
+});
+onPullDownRefresh(async () => {
+  try {
+    await load(true);
+  } finally {
+    uni.stopPullDownRefresh();
+  }
 });
 async function load(reset = false) {
   const generation = ++loadGeneration;
@@ -264,12 +271,11 @@ function resubmit(report: NightInventoryReport) {
     <template v-else-if="!failed">
       <template v-if="isForm">
         <view v-if="stale" class="card hint"
-          >所选商品库存已变化，已保留填写内容。请刷新库存后重新盘点再提交。</view
+          >所选商品库存已变化，已保留填写内容。下拉刷新后重新盘点再提交。</view
         >
-        <button :disabled="busy" @tap="load(true)">刷新库存并重新盘点</button>
         <view class="card hint">{{
           tab === "stocktake"
-            ? "只清点可售实物。待配送、已冻结数量单列，不重复计算；商品有正常出入库时请刷新后重新盘点。"
+            ? "只清点可售实物。待配送、已冻结数量单列，不重复计算；商品有正常出入库时请下拉刷新后重新盘点。"
             : "提交后相应可售库存会先冻结，校区审核通过才释放额度；驳回恢复可售数量。"
         }}</view>
         <input v-model="keyword" class="search" placeholder="搜索商品名称" />
@@ -404,8 +410,9 @@ function resubmit(report: NightInventoryReport) {
   </view>
 </template>
 <style scoped lang="scss">
-.load-more { min-height: 88rpx; background: transparent; color: #ffe082; font-size: 24rpx; }
 @import "../../styles/night.scss";
+/* import 提到块首：token 须先于使用定义（原 .load-more 在 import 前只能散写色值） */
+.load-more { min-height: 88rpx; background: transparent; color: $nb-gold; font-size: 24rpx; }
 .inventory-page {
   @include nb-page;
   min-height: 100vh;

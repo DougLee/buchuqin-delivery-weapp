@@ -267,7 +267,7 @@ function txnView(type: string) {
 .deposit-page {
   @include nb-page;
 }
-.more-records { min-height: 88rpx; background: transparent; color: #ffe082; font-size: 24rpx; }
+.more-records { min-height: 88rpx; background: transparent; color: $nb-gold; font-size: 24rpx; }
 /* 全局 .card 深色覆盖 */
 .deposit-page .card {
   @include nb-card;
