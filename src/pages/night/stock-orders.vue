@@ -93,6 +93,32 @@ async function cancel(order: NightStockOrder) {
     busy.value = false;
   }
 }
+/** IKTYYX 道哥 2026-11-09：多数场景实收=申请数，主操作按申请数整单直接收货；
+ *  少收/破损等差异场景仍走「填写实收数量」手填（receive） */
+async function receiveAll(order: NightStockOrder) {
+  if (busy.value) return;
+  busy.value = true;
+  if (
+    !(await confirm(
+      "确认收货",
+      `按申请数量整单入库（申请货值 ¥${fenToYuan(order.totalValue)}）。如有少收请改用「填写实收数量」。确认后数量不可修改。`,
+    ))
+  ) { busy.value = false; return; }
+  try {
+    await api.nightReceiveStock(
+      order.id,
+      order.items.map((i) => ({
+        catalogProductId: i.catalogProductId,
+        quantity: i.quantity,
+      })),
+    );
+    await load();
+    uni.showToast({ title: "已整单入库", icon: "success" });
+  } catch {
+  } finally {
+    busy.value = false;
+  }
+}
 async function receive(order: NightStockOrder) {
   if (busy.value) return;
   const lines = order.items.map((i) => ({
@@ -204,7 +230,10 @@ function goReports() {
         ><button :disabled="busy" @tap="cancel(o)">撤回申请</button></view
       >
       <view v-if="o.status === 'shipped'" class="actions">
-        <button @tap="editReceipt(o)">
+        <button class="primary" :disabled="busy" @tap="receiveAll(o)">
+          确认收货
+        </button>
+        <button :disabled="busy" @tap="editReceipt(o)">
           {{ selected === o.id ? "收起" : "填写实收数量" }}
         </button>
         <button
@@ -257,7 +286,7 @@ function goReports() {
   padding: 34rpx;
   margin-bottom: 26rpx;
 }
-.refresh-records { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 10px; margin: 0; border-radius: 12px; background: rgba(255,255,255,.06); color: #ffe082; font-size: 12px; }
+.refresh-records { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 10px; margin: 0; border-radius: 12px; background: rgba(255,255,255,.06); color: $nb-gold; font-size: 12px; }
 .hero .title { padding-right: 48px; }
 .eyebrow {
   display: block;
@@ -321,6 +350,9 @@ button::after {
   color: $nb-text-sub;
 }
 .status {
+  /* 全局 .status（App.vue）自带浅色底 $soft，夜色下金字压浅底看不清；
+     这里按夜宵徽章范式（V4 mockup ic-y）整卡覆盖：浅金衬底 + 金字 */
+  background: $nb-gold-soft;
   color: $nb-gold;
 }
 .order-id {
