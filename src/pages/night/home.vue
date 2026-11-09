@@ -210,7 +210,7 @@ onPullDownRefresh(async () => {
 </script>
 
 <template>
-  <view class="page night-home" :class="{ 'night-home--paused': !pageVisible }" :style="{ paddingTop: statusBarH + nativeNavH + 12 + 'px' }">
+  <view class="page night-home" :class="{ 'night-home--paused': !pageVisible }" :style="{ paddingTop: statusBarH + 8 + 'px' }">
     <view class="atmosphere" aria-hidden="true">
       <view class="atmosphere__jade"></view>
       <view class="atmosphere__gold"></view>
@@ -270,25 +270,18 @@ onPullDownRefresh(async () => {
         >
       </view>
 
-      <!-- 营业操作同一行：暂停保留已有订单，打烊停止新单；恢复使用金色主操作。 -->
+      <!-- 营业单一开关（道哥 2026-11-09：暂停/打烊语义合并简化）——
+           营业中=收店；已暂停=恢复营业；已收店=开始营业。后端端点不变。 -->
       <view class="operating-actions">
       <view v-if="dash.store.status === 'closed'" class="night-cta night-cta--open" role="button" :aria-disabled="acting" @tap="act('open')">
         {{ acting ? "处理中…" : "开始营业" }}
       </view>
-      <template v-else-if="dash.store.status === 'open'">
-      <view class="night-cta night-cta--pause" role="button" :aria-disabled="acting" @tap="act('pause')">{{ acting ? '处理中…' : '暂停接单' }}</view>
-      <view class="night-cta night-cta--close" role="button" :aria-disabled="acting" @tap="act('close')">
+      <view v-else-if="dash.store.status === 'open'" class="night-cta night-cta--pause" role="button" :aria-disabled="acting" @tap="act('close')">
         {{ acting ? "处理中…" : "打烊收店" }}
       </view>
-      </template>
-      <template v-else-if="dash.store.status === 'paused'">
-        <view class="night-cta night-cta--open" role="button" :aria-disabled="acting" @tap="act('resume')">
-          {{ acting ? "处理中…" : "恢复营业" }}
-        </view>
-        <view class="night-cta night-cta--close" role="button" :aria-disabled="acting" @tap="act('close')">
-          打烊收店
-        </view>
-      </template>
+      <view v-else-if="dash.store.status === 'paused'" class="night-cta night-cta--open" role="button" :aria-disabled="acting" @tap="act('resume')">
+        {{ acting ? "处理中…" : "恢复营业" }}
+      </view>
       <text v-else-if="dash.store.status === 'suspended'" class="store-hint"
         >店铺已被平台停业，请联系运营</text
       >
@@ -546,7 +539,7 @@ onPullDownRefresh(async () => {
 .nav {
   justify-content: space-between;
   gap: 16rpx;
-  padding: 8rpx 0 24rpx;
+  padding: 4rpx 0 18rpx;
 }
 .identity {
   flex: 1;
