@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>夜宵店长工作台 · V4（V3 结构 × 深色渲染：白天浅色 / 夜宵深色）</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+body { background:#e8ece9; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif; padding:32px 24px 64px; }
+.canvas-head { max-width:1720px; margin:0 auto 28px; }
+.canvas-head h1 { font-size:22px; font-weight:800; color:#12351f; }
+.canvas-head p { font-size:13px; color:#6b7a70; margin-top:6px; line-height:1.8; }
+.canvas-head b { color:#12351f; }
+.line-title { max-width:1720px; margin:0 auto 18px; font-size:12.5px; color:#7d8c81; }
+.line-title .tag { font-size:12px; font-weight:800; color:#fff; background:#07883b; border-radius:6px; padding:4px 10px; margin-right:10px; }
+.frames { display:grid; grid-template-columns:repeat(5, 1fr); gap:24px; max-width:1720px; margin:0 auto; }
+@media (max-width:1500px){ .frames{ grid-template-columns:repeat(3,1fr);} }
+@media (max-width:1000px){ .frames{ grid-template-columns:repeat(2,1fr);} }
+@media (max-width:700px){ .frames{ grid-template-columns:1fr;} }
+.frame-wrap { display:flex; flex-direction:column; gap:10px; }
+.frame-cap { font-size:12px; color:#5d6d62; line-height:1.65; padding:0 4px; }
+.frame-cap b { color:#2c4534; }
+.phone { width:100%; aspect-ratio:390/800; border-radius:44px; padding:10px; background:#101613; box-shadow:0 24px 48px rgba(16,40,25,.28); position:relative; overflow:hidden; }
+.phone::after { content:""; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:118px; height:26px; background:#101613; border-radius:0 0 16px 16px; z-index:40; }
+.screen { width:100%; height:100%; border-radius:34px; overflow:hidden; display:flex; flex-direction:column; background:#f4f7f4; position:relative; }
+.screen-scroll { flex:1; overflow-y:auto; scrollbar-width:none; }
+.screen-scroll::-webkit-scrollbar { display:none; }
+.pad { padding:14px 16px 0; }
+.tabbar { flex:none; display:flex; background:#fff; border-top:.5px solid rgba(0,0,0,.06); padding:8px 0 18px; }
+.tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; color:#9aa79e; font-weight:600; position:relative; }
+.tab.on { color:#07883b; font-weight:800; }
+.tab svg { width:21px; height:21px; }
+.tab .dot { position:absolute; top:-2px; right:24%; min-width:15px; height:15px; border-radius:999px; background:#e25c05; color:#fff; font-size:9px; font-weight:900; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+.chip { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; border-radius:999px; padding:4px 10px; }
+svg.ic { width:18px; height:18px; flex:none; }
+
+/* ===== V4 夜宵深色渲染（夜宵窗口三页 + tabbar；白天插槽卡保持浅色） ===== */
+.screen.dark { background:#0e1411; }
+.dark .pad { }
+.dark .hero { background:linear-gradient(145deg,#15241b,#0e1a13 72%,#13231a); border:1px solid rgba(255,255,255,.07); }
+.dark .eyebrow { color:rgba(255,215,94,.75); }
+.dark .hello { color:#fff; }
+.dark .shift { background:rgba(255,255,255,.08); color:#a8b8ac; }
+.dark .shift.on { background:#ffd75e; color:#3d2c00; }
+.dark .metric-number { color:#fff; }
+.dark .metric-unit { color:#7d8f83; }
+.dark .route .ln { background:rgba(255,255,255,.12); }
+.dark .route .ln.done { background:rgba(255,215,94,.5); }
+.dark .route .pt { background:rgba(255,255,255,.18); }
+.dark .route-label { color:#7d8f83; }
+.dark .stats { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .stats .sv { color:#fff; }
+.dark .stats .sv.zero { color:#5d6f63; }
+.dark .stats .sl { color:#7d8f83; }
+.dark .kcard { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .kcard .kk { color:#dce6de; }
+.dark .kcard .kv { color:#7d8f83; }
+.dark .kcard .kv b { color:#ffd75e; }
+.dark .btn-day.close { background:#1a241d; color:#a8b8ac; border:1px solid rgba(255,255,255,.08); }
+.dark .overview { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .overview .ol { color:#7d8f83; }
+.dark .overview .ot { color:#fff; }
+.dark .overview .os { color:#7d8f83; }
+.dark .overview .on-num { color:#ffd75e; }
+.dark .overview .on-unit { color:#7d8f83; }
+.dark .dtab { background:#141d17; border:1px solid rgba(255,255,255,.07); color:#7d8f83; box-shadow:none; }
+.dark .dtab.on { background:#ffd75e; color:#3d2c00; border-color:#ffd75e; }
+.dark .dtab.warn { color:#fbbf24; }
+.dark .dtab.warn.on { background:#fbbf24; color:#3d2c00; }
+.dark .ordcard { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .oc-seq { color:#2a362e; }
+.dark .oc-no { color:#eef4ef; }
+.dark .oc-tag.night { background:rgba(74,222,128,.1); color:#4ade80; }
+.dark .oc-tag.day { background:rgba(251,191,36,.1); color:#fbbf24; }
+.dark .oc-amt { color:#fff; }
+.dark .oc-goods { color:#7d8f83; }
+.dark .oc-addr { color:#a8b8ac; }
+.dark .oc-foot { border-top-color:rgba(255,255,255,.06); }
+.dark .cd { color:#fbbf24; background:rgba(251,191,36,.1); }
+.dark .btn-acc { background:#ffd75e; color:#3d2c00; }
+.dark .income-hero { background:linear-gradient(145deg,#15241b,#0e1a13 72%,#13231a); border:1px solid rgba(255,255,255,.07); }
+.dark .ih-label { color:#7d8f83; }
+.dark .ih-month { background:rgba(255,255,255,.08); color:#a8b8ac; }
+.dark .ih-amount { color:#ffd75e; }
+.dark .ih-amount small { color:#7d8f83; }
+.dark .trend .bar { background:rgba(255,215,94,.22); }
+.dark .trend .bar.hot { background:#ffd75e; }
+.dark .trend-tx { color:#7d8f83; }
+.dark .records { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .record + .record { border-top-color:rgba(255,255,255,.06); }
+.dark .rec-ic { background:rgba(74,222,128,.1); color:#4ade80; }
+.dark .rec-t { color:#dce6de; }
+.dark .rec-s { color:#7d8f83; }
+.dark .rec-amt { color:#4ade80; }
+.dark .tabbar { background:#101713; border-top-color:rgba(255,255,255,.07); }
+.dark .tab { color:#6e7f74; }
+.dark .tab.on { color:#ffd75e; }
+/* 我的（夜宵模式深色变体） */
+.dark .profile-bg { background:#0e1411; }
+.dark .pf-head { background:linear-gradient(135deg,#15241b,#0e1a13); border-bottom:1px solid rgba(255,255,255,.07); }
+.dark .pf-ava { background:#ffd75e; color:#3d2c00; }
+.dark .pf-group { background:#141d17; border:1px solid rgba(255,255,255,.07); box-shadow:none; }
+.dark .pg-head { border-bottom-color:rgba(255,255,255,.06); }
+.dark .pg-title { color:#eef4ef; }
+.dark .pg-moon::after { background:#141d17; }
+.dark .pg-row + .pg-row { border-top-color:rgba(255,255,255,.06); }
+.dark .pg-t { color:#dce6de; }
+.dark .pg-s { color:#7d8f83; }
+.dark .pg-go { color:#5d6f63; }
+.dark .ic-y { background:rgba(255,215,94,.12); color:#ffd75e; }
+.dark .ic-g { background:rgba(74,222,128,.1); color:#4ade80; }
+.dark .ic-b { background:rgba(96,165,250,.1); color:#93c5fd; }
+.dark .dw-head { background:#141d17; }
+.dark .dw-greet { color:#fff; }
+.dark .dw-sub { color:#7d8f83; }
+/* 深色模式徽章微调 */
+.dark .badge-open { background:#ffd75e; color:#3d2c00; }
+
+/* ===== 白天工作台同构元素（V3 核心口径） ===== */
+.hero { position:relative; overflow:hidden; padding:20px 20px 18px; border-radius:26px; background:linear-gradient(145deg,#0a5a2e,#0d6b3a 72%,#0d844a); color:#fff; }
+.hero::before { content:""; position:absolute; right:-40px; top:-50px; width:150px; height:150px; border-radius:50%; background:rgba(255,255,255,.06); }
+.eyebrow { display:block; font-size:10px; font-weight:800; letter-spacing:2.5px; color:rgba(255,255,255,.62); }
+.hello { display:block; font-size:19px; font-weight:900; margin-top:6px; }
+.shift { font-size:11px; font-weight:800; background:rgba(255,255,255,.16); border-radius:999px; padding:5px 12px; }
+.shift.on { background:#ffd75e; color:#6b4a00; }
+.metric-row { display:flex; align-items:baseline; gap:7px; margin-top:16px; }
+.metric-number { font-size:42px; font-weight:900; letter-spacing:-1px; font-variant-numeric:tabular-nums; }
+.metric-unit { font-size:13px; color:rgba(255,255,255,.72); font-weight:700; }
+.route { display:flex; align-items:center; gap:0; margin-top:14px; }
+.route .pt { width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.3); }
+.route .pt.done { background:#ffd75e; }
+.route .pt.active { background:#fff; box-shadow:0 0 8px rgba(255,255,255,.6); }
+.route .ln { flex:1; height:2px; background:rgba(255,255,255,.2); }
+.route .ln.done { background:rgba(255,215,94,.7); }
+.route-label { display:flex; justify-content:space-between; margin-top:6px; font-size:10px; color:rgba(255,255,255,.55); }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); background:#fff; border-radius:20px; padding:18px 8px; text-align:center; margin-top:12px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.stats .sv { display:block; font-size:16px; font-weight:900; color:#12351f; font-variant-numeric:tabular-nums; }
+.stats .sv.zero { color:#b8c4ba; }
+.stats .sl { display:block; font-size:10px; color:#8a978d; margin-top:4px; font-weight:600; }
+.kcard { display:flex; align-items:center; justify-content:space-between; background:#fff; border-radius:20px; padding:15px 16px; margin-top:12px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.kcard .kk { font-size:12.5px; font-weight:800; color:#2c4534; }
+.kcard .kv { font-size:12px; color:#8a978d; font-weight:700; font-variant-numeric:tabular-nums; }
+.kcard .kv b { color:#0d6b3a; font-weight:900; }
+.btn-day { height:48px; border-radius:24px; margin-top:12px; display:flex; align-items:center; justify-content:center; gap:7px; font-size:16px; font-weight:900; cursor:pointer; }
+.btn-day.open { background:linear-gradient(135deg,#ffd75e,#ffc93c); color:#5a3e00; box-shadow:0 8px 20px rgba(255,201,60,.4); }
+.btn-day.close { background:#fff; color:#7d8c81; border:.5px solid rgba(0,0,0,.08); }
+/* 任务页同构 */
+.overview { background:#fff; border-radius:22px; padding:16px 18px; display:flex; align-items:center; justify-content:space-between; margin-top:12px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.overview .ol { font-size:10px; font-weight:800; letter-spacing:2px; color:#8a978d; }
+.overview .ot { font-size:17px; font-weight:900; color:#12351f; margin-top:4px; }
+.overview .os { font-size:11px; color:#93a096; margin-top:4px; }
+.overview .on-num { font-size:34px; font-weight:900; color:#12351f; font-variant-numeric:tabular-nums; }
+.overview .on-unit { font-size:12px; color:#8a978d; font-weight:700; margin-left:3px; }
+.tabs-scroll { margin-top:12px; display:flex; gap:8px; overflow:hidden; }
+.dtab { flex:none; font-size:12.5px; font-weight:800; border-radius:999px; padding:9px 16px; background:#fff; color:#6b7a70; cursor:pointer; box-shadow:0 1px 2px rgba(18,53,31,.04); }
+.dtab.on { background:#12351f; color:#fff; }
+.dtab.warn { color:#d97706; }
+.dtab.warn.on { background:#d97706; color:#fff; }
+.ordcard { background:#fff; border-radius:18px; padding:14px 15px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.ordcard + .ordcard { margin-top:10px; }
+.oc-seq { font-size:20px; font-weight:900; color:#dfe8e1; letter-spacing:1px; }
+.oc-top { display:flex; align-items:center; gap:8px; }
+.oc-no { font-size:12px; font-weight:800; color:#12351f; font-variant-numeric:tabular-nums; }
+.oc-tag { font-size:10px; font-weight:800; border-radius:6px; padding:3px 8px; }
+.oc-tag.night { background:#eef7f1; color:#0d6b3a; }
+.oc-amt { margin-left:auto; font-size:15px; font-weight:900; color:#12351f; }
+.oc-goods { font-size:11.5px; color:#6b7a70; margin-top:7px; line-height:1.6; }
+.oc-addr { font-size:11.5px; color:#44553f; font-weight:700; margin-top:6px; }
+.oc-foot { display:flex; align-items:center; margin-top:11px; padding-top:11px; border-top:.5px solid rgba(0,0,0,.06); }
+.cd { font-size:11px; font-weight:800; color:#d97706; background:#fff3e0; border-radius:8px; padding:4px 9px; font-variant-numeric:tabular-nums; }
+.btn-acc { margin-left:auto; min-width:96px; height:36px; border-radius:18px; background:#07883b; color:#fff; font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+/* 收入页同构 */
+.income-hero { background:linear-gradient(145deg,#0a5a2e,#0d6b3a 72%,#0d844a); border-radius:26px; padding:20px; color:#fff; position:relative; overflow:hidden; margin-top:12px; }
+.income-hero::before { content:""; position:absolute; right:-40px; bottom:-60px; width:150px; height:150px; border-radius:50%; background:rgba(255,255,255,.06); }
+.ih-top { display:flex; align-items:center; justify-content:space-between; }
+.ih-label { font-size:12px; font-weight:700; color:rgba(255,255,255,.7); }
+.ih-month { font-size:11px; font-weight:800; background:rgba(255,255,255,.14); border-radius:999px; padding:5px 12px; }
+.ih-amount { font-size:38px; font-weight:900; margin-top:10px; font-variant-numeric:tabular-nums; }
+.ih-amount small { font-size:16px; margin-right:2px; }
+.trend { display:flex; align-items:flex-end; gap:7px; height:44px; margin-top:14px; }
+.trend .bar { flex:1; background:rgba(255,255,255,.35); border-radius:3px 3px 0 0; }
+.trend .bar.hot { background:#ffd75e; }
+.trend-tx { font-size:10.5px; color:rgba(255,255,255,.6); margin-top:8px; }
+.records { background:#fff; border-radius:20px; margin-top:12px; padding:4px 16px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.record { display:flex; align-items:center; gap:11px; padding:13px 0; }
+.record + .record { border-top:.5px solid rgba(0,0,0,.05); }
+.rec-ic { width:36px; height:36px; border-radius:11px; background:#e7f4ec; color:#0d6b3a; display:flex; align-items:center; justify-content:center; flex:none; }
+.rec-t { font-size:13px; font-weight:800; color:#2c4534; }
+.rec-s { font-size:10.5px; color:#93a096; margin-top:2px; }
+.rec-amt { margin-left:auto; font-size:14.5px; font-weight:900; color:#0d6b3a; font-variant-numeric:tabular-nums; }
+/* 我的分组（白天同款白卡列表行） */
+.profile-bg { background:#f4f7f4; height:100%; }
+.pf-head { background:linear-gradient(135deg,#07883b,#0d6b3a); padding:56px 18px 20px; color:#fff; display:flex; align-items:center; gap:12px; }
+.pf-ava { width:52px; height:52px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; color:#0d6b3a; }
+.pf-name { font-size:17px; font-weight:900; }
+.pf-sub { font-size:11px; color:rgba(255,255,255,.75); margin-top:3px; }
+.pf-group { background:#fff; border-radius:20px; margin:14px 16px 0; overflow:hidden; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.pg-head { padding:13px 16px 11px; display:flex; align-items:center; gap:8px; border-bottom:.5px solid rgba(0,0,0,.05); }
+.pg-title { font-size:13px; font-weight:900; color:#12351f; flex:1; }
+.pg-moon { width:18px; height:18px; border-radius:50%; background:linear-gradient(135deg,#ffd75e,#f5b81e); position:relative; flex:none; }
+.pg-moon::after { content:""; position:absolute; right:-2px; top:-2px; width:14px; height:14px; border-radius:50%; background:#fff; }
+.pg-row { display:flex; align-items:center; gap:11px; padding:13px 16px; cursor:pointer; }
+.pg-row + .pg-row { border-top:.5px solid rgba(0,0,0,.05); }
+.pg-ic { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; }
+.pg-t { font-size:13.5px; font-weight:800; color:#2c4534; }
+.pg-s { font-size:10.5px; color:#93a096; margin-top:2px; }
+.pg-go { margin-left:auto; color:#c3cec6; }
+.ic-g { background:#e7f4ec; color:#0d6b3a; }
+.ic-y { background:#fff6dc; color:#b07800; }
+.ic-b { background:#e8f1fb; color:#2563eb; }
+/* 工作台状态卡 V3（白天端融入版：白卡+细描边+月牙小标，与白天卡片同体系） */
+.day-workbench { background:#f4f7f4; height:100%; }
+.dw-head { background:#fff; padding:52px 16px 14px; }
+.dw-greet { font-size:20px; font-weight:900; color:#12351f; }
+.dw-sub { font-size:12px; color:#8a978d; margin-top:4px; }
+.ns-card { margin:12px 16px 0; border-radius:20px; background:#fff; border:1px solid #e2ebe4; padding:15px 16px; cursor:pointer; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.ns-row { display:flex; align-items:center; gap:9px; }
+.ns-moon { width:24px; height:24px; border-radius:50%; background:linear-gradient(135deg,#ffd75e,#f5b81e); position:relative; flex:none; }
+.ns-moon::after { content:""; position:absolute; right:-2px; top:-3px; width:18px; height:18px; border-radius:50%; background:#fff; }
+.ns-title { font-size:14px; font-weight:900; color:#12351f; flex:1; }
+.ns-badge { font-size:10.5px; font-weight:800; background:#fff2d8; color:#b07800; border-radius:999px; padding:4px 10px; }
+.ns-badge.on { background:#ffd75e; color:#6b4a00; }
+.ns-foot { margin-top:11px; padding-top:10px; border-top:.5px solid rgba(0,0,0,.06); font-size:11px; color:#8a978d; display:flex; align-items:center; font-variant-numeric:tabular-nums; }
+.ns-foot b { color:#0d6b3a; font-weight:900; }
+.ns-foot .go { margin-left:auto; font-weight:800; color:#07883b; }
+.note { max-width:1720px; margin:28px auto 0; background:#fff; border-radius:14px; padding:18px 22px; font-size:13px; color:#44553f; line-height:1.9; box-shadow:0 1px 4px rgba(18,53,31,.06); }
+.note b { color:#12351f; }
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <h1>夜宵店长工作台 · V3（单线）</h1>
+  <p>V4 = <b>V3 结构 × 深色渲染</b>：夜宵窗口三页（工作台/订单/收入）+「我的」整页深色（专业骑手暗光友好），白天端浅色原样——打开即知进入夜间营业形态——夜宵工作台复刻白天工作台结构（hero 渐变卡同款 / 四联金额 stats 同款）、夜宵订单复刻任务页结构（TASK BOARD overview + 横滑分段 + 编号卡片）、夜宵收入复刻收入页结构（INCOME hero + 月份切换 + 近 7 日柱状 + 明细）；「我的」用白天分组样式（低调白卡行）；白天未完单 = 订单页分段「白天未完」（替换 V2 的橙色横条）。夜宵识别仅保留小元素：TONIGHT eyebrow、月牙小标、营业徽章金黄。</p>
+</div>
+
+<div class="line-title"><span class="tag">V3</span>白天结构复刻 + 夜宵数据 · 5 画面（工作台 / 订单 / 收入 / 我的 / 白天插槽卡）</div>
+<div class="frames">
+
+  <!-- 1 夜宵工作台 -->
+  <div class="frame-wrap">
+    <div class="phone"><div class="screen dark">
+      <div class="screen-scroll">
+        <div class="pad">
+          <div class="hero">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between">
+              <div>
+                <span class="eyebrow">TONIGHT · 夜宵经营</span>
+                <span class="hello">晚上好，方福宁</span>
+              </div>
+              <span class="shift on">营业中</span>
+            </div>
+            <div class="metric-row"><span class="metric-number">2</span><span class="metric-unit">单待接单</span></div>
+            <div class="route">
+              <div class="pt done"></div><div class="ln done"></div>
+              <div class="pt active"></div><div class="ln"></div>
+              <div class="pt"></div>
+            </div>
+            <div class="route-label"><span>接单</span><span>配送中</span><span>送达完成</span></div>
+          </div>
+          <div class="stats">
+            <div><span class="sv">¥312<span style="font-size:10px">.50</span></span><span class="sl">今日夜宵销售额</span></div>
+            <div><span class="sv">¥47<span style="font-size:10px">.80</span></span><span class="sl">今日夜宵收入</span></div>
+            <div><span class="sv">¥1240</span><span class="sl">本月夜宵销售额</span></div>
+            <div><span class="sv">¥186<span style="font-size:10px">.20</span></span><span class="sl">本月夜宵收入</span></div>
+          </div>
+          <div class="kcard">
+            <span class="kk">经营押金</span>
+            <span class="kv">余额 <b>¥500</b> · 可进货额度 ¥414</span>
+          </div>
+          <div class="kcard">
+            <span class="kk">库存货值</span>
+            <span class="kv">¥86 · <b>6 种商品</b>（1 种售罄）</span>
+          </div>
+          <div class="btn-day close">打烊收店</div>
+          <div class="frame-cap" style="margin:12px 2px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ 结构与白天工作台逐块对应：hero（eyebrow/问候/状态徽章/大数字/路线点）→ 四联金额 → 夜宵专属两行（押金/库存，白天端无此二行）→ 开店开关。<br>低频入口（押金/进货/商品管理）在「我的」（见画面 4）。</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>夜宵店</div>
+        <div class="tab"><span class="dot">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>订单</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>收入</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>我的</div>
+      </div>
+    </div></div>
+    <div class="frame-cap"><b>① 夜宵工作台（Hub）</b> — 白天工作台同构：eyebrow 换 TONIGHT、当班徽章换营业状态、大数字=待接单、路线点换夜宵履约段；四联金额对齐白天 stats（夜宵口径）；押金/库存两行紧凑卡 + 打烊按钮。</div>
+  </div>
+
+  <!-- 2 夜宵订单 -->
+  <div class="frame-wrap">
+    <div class="phone"><div class="screen dark">
+      <div class="screen-scroll">
+        <div class="pad">
+          <div class="overview">
+            <div><div class="ol">NIGHT ORDERS</div><div class="ot">夜宵订单</div><div class="os">按时效排序，优先处理即将超时订单</div></div>
+            <div><span class="on-num">3</span><span class="on-unit">单</span></div>
+          </div>
+          <div class="tabs-scroll">
+            <div class="dtab warn on">白天未完 2</div>
+            <div class="dtab">待接单 2</div>
+            <div class="dtab">配送中 1</div>
+            <div class="dtab">已完成 15</div>
+          </div>
+          <div style="margin-top:12px">
+            <div class="ordcard">
+              <div class="oc-top"><span class="oc-seq">01</span><span class="oc-no">BCQ2311…9211</span><span class="oc-tag" style="background:#fff3e0;color:#d97706">白天单</span><span class="oc-amt">¥28.00</span></div>
+              <div class="oc-goods">可比克薯片 ×1 · 农夫山泉 ×1 · 卫龙辣条 ×2</div>
+              <div class="oc-addr">📍 西区9栋 302 · 李同学 137****0815</div>
+              <div class="oc-foot"><span class="cd">⏱ 已超时 12 分</span><div class="btn-acc">继续配送</div></div>
+            </div>
+            <div class="ordcard">
+              <div class="oc-top"><span class="oc-seq">02</span><span class="oc-no">BCQ2311…9077</span><span class="oc-tag" style="background:#fff3e0;color:#d97706">白天单</span><span class="oc-amt">¥15.50</span></div>
+              <div class="oc-goods">乐事薯片 ×1 · 王老吉 ×1</div>
+              <div class="oc-addr">📍 西区9栋 118 · 陈同学 186****3390</div>
+              <div class="oc-foot"><span class="cd">⏱ 剩余 18:22</span><div class="btn-acc">继续配送</div></div>
+            </div>
+          </div>
+          <div class="frame-cap" style="margin:12px 2px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ 「白天未完」分段（默认选中当有未完单）：白天单带灰绿品牌编号+橙色时效标，操作按钮「继续配送」——收尾通道融入任务页同款交互，不再用横条。</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>夜宵店</div>
+        <div class="tab on"><span class="dot">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>订单</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>收入</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>我的</div>
+      </div>
+    </div></div>
+    <div class="frame-cap"><b>② 夜宵订单</b> — 白天任务页同构：TASK BOARD 式 overview + 横滑分段（首段「白天未完」承接收尾）+ 编号卡片（序号水印/时效徽章/右侧操作钮）。切到「待接单」分段即夜宵新单（接单按钮+倒计时）。</div>
+  </div>
+
+  <!-- 3 夜宵收入 -->
+  <div class="frame-wrap">
+    <div class="phone"><div class="screen dark">
+      <div class="screen-scroll">
+        <div class="pad">
+          <div class="income-hero">
+            <div class="ih-top">
+              <div class="ih-label">NIGHT INCOME · 本月夜宵收入 · 待结算</div>
+              <span class="ih-month">2026-11 ▾</span>
+            </div>
+            <div class="ih-amount"><small>¥</small>186.20</div>
+            <div class="trend">
+              <div class="bar" style="height:30%"></div><div class="bar hot" style="height:55%"></div>
+              <div class="bar" style="height:40%"></div><div class="bar hot" style="height:88%"></div>
+              <div class="bar" style="height:35%"></div><div class="bar hot" style="height:66%"></div>
+              <div class="bar" style="height:48%"></div>
+            </div>
+            <div class="trend-tx">近 7 日完成 23 单 · 佣金 ¥32.40 + 配送费 ¥18.00</div>
+          </div>
+          <div class="records">
+            <div class="record">
+              <div class="rec-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18"/></svg></div>
+              <div><div class="rec-t">订单 YX…50001</div><div class="rec-s">11-05 23:12 · 佣金 ¥2.70 + 配送费 ¥2.00</div></div>
+              <div class="rec-amt">+¥4.70</div>
+            </div>
+            <div class="record">
+              <div class="rec-ic"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18"/></svg></div>
+              <div><div class="rec-t">订单 YX…50002</div><div class="rec-s">11-05 23:40 · 佣金 ¥1.00 + 配送费 ¥2.00</div></div>
+              <div class="rec-amt">+¥3.00</div>
+            </div>
+            <div class="record">
+              <div class="rec-ic" style="background:#fff3e0;color:#d97706"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6l6 6-6 6"/><path d="M13 6h8"/></svg></div>
+              <div><div class="rec-t">退款冲回 YX…49988</div><div class="rec-s">11-04 21:05 · 券后佣金冲回</div></div>
+              <div class="rec-amt" style="color:#d97706">-¥1.20</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>夜宵店</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>订单</div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>收入</div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>我的</div>
+      </div>
+    </div></div>
+    <div class="frame-cap"><b>③ 夜宵收入</b> — 白天收入页同构：NIGHT INCOME kicker + 月份切换 + 大金额 + 近 7 日柱状 + 明细流水（佣金/配送费分列展示、退款负数冲回橙红）。押金不在此页出现。</div>
+  </div>
+
+  <!-- 4 我的 -->
+  <div class="frame-wrap">
+    <div class="phone"><div class="screen dark"><div class="profile-bg">
+      <div class="pf-head">
+        <div class="pf-ava">方</div>
+        <div><div class="pf-name">方福宁</div><div class="pf-sub">工号 HG-D6 · 楼长 · 西区9栋</div></div>
+      </div>
+      <div class="pf-group">
+        <div class="pg-head">
+          <div class="pg-moon"></div>
+          <div class="pg-title">夜宵经营 · 西区9栋店</div>
+          <span class="chip" style="background:#fff2d8;color:#b07800">未开业</span>
+        </div>
+        <div class="pg-row">
+          <div class="pg-ic ic-y"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg></div>
+          <div><div class="pg-t">押金</div><div class="pg-s">¥500 · 可进货额度 ¥414</div></div>
+          <svg class="pg-go" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="pg-row">
+          <div class="pg-ic ic-g"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v7a9 9 0 0 0 18 0V3z"/><path d="M12 12v9"/></svg></div>
+          <div><div class="pg-t">进货备货</div><div class="pg-s">库存货值 ¥86 · 6 种商品</div></div>
+          <svg class="pg-go" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+        <div class="pg-row">
+          <div class="pg-ic ic-b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div>
+          <div><div class="pg-t">商品管理</div><div class="pg-s">上下架 · 停售以后台为准</div></div>
+          <svg class="pg-go" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>
+        </div>
+      </div>
+      <div class="pf-group">
+        <div class="pg-row"><div style="font-size:13.5px;font-weight:800;color:#2c4534">我的收入</div></div>
+        <div class="pg-row" style="border-top:.5px solid rgba(0,0,0,.05)"><div style="font-size:13.5px;font-weight:800;color:#2c4534">账号与设置</div></div>
+      </div>
+      <div class="frame-cap" style="margin:14px 16px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ 共享「我的」tab：夜宵经营分组用与白天分组完全同款的白卡列表行样式（低调融入，15A）；楼长可见、配送员不渲染（17）。</div>
+    </div></div></div>
+    <div class="frame-cap"><b>④ 我的</b> — 「夜宵经营」分组与白天分组同款白卡行样式，仅月牙小标识别；三行入口带实时数据摘要。</div>
+  </div>
+
+  <!-- 5 白天工作台插槽卡 V3 -->
+  <div class="frame-wrap">
+    <div class="phone"><div class="screen"><div class="day-workbench">
+      <div class="dw-head">
+        <div class="dw-greet">下午好，方福宁</div>
+        <div class="dw-sub">湖北工业大学 · 今日已跑 12 单</div>
+      </div>
+      <div class="ns-card">
+        <div class="ns-row">
+          <div class="ns-moon"></div>
+          <div class="ns-title">我的夜宵店 · 西区9栋</div>
+          <span class="ns-badge">未开业</span>
+        </div>
+        <div class="ns-foot"><span>押金 <b>¥500</b> · 库存货值 <b>¥86</b> · 额度 <b>¥414</b></span><span class="go">进入 ›</span></div>
+      </div>
+      <div class="frame-cap" style="margin:14px 16px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ V3：白天工作台（浅色示意）里只插一张**白卡同体系**状态卡（细描边+月牙小标），不再用深绿渐变大卡——融入感优先，整卡点击进夜宵工作台。<br>· 楼长登录常显（白天也可见，17）；配送员不渲染<br>· 营业中态：徽章金黄「营业中 · 2 待接」</div>
+    </div></div></div>
+    <div class="frame-cap"><b>⑤ 白天工作台状态卡 V3</b> — 白卡同体系融入版：去渐变、去大数字阵，一行数据摘要 + 进入箭头。白天端保持干净。</div>
+  </div>
+</div>
+
+<div class="note">
+  <b>V3 定稿要点</b>：<br>
+  · <b>操作逻辑与白天店一致</b>：三页结构逐块复刻白天对应页（hero/四联金额、TASK BOARD overview/分段/编号卡、INCOME hero/月份/柱状/明细），楼长零学习成本。<br>
+  · <b>白天未完单</b>：改为订单页分段「白天未完 N」（首段、按时效排序）——撤掉 V2 橙色横条；处理完成分段自动消失。<br>
+  · <b>夜宵识别收敛为小元素</b>：TONIGHT/NIGHT INCOME eyebrow、月牙小标、营业徽章金黄、订单 YX 单号——不再有大面积夜色渐变（hub hero 沿用白天工作台同款品牌渐变，只是内容换夜宵）。<br>
+  · <b>角色门控</b>：夜宵 tabbar/菜单仅楼长渲染；配送员登录与现在完全一致。<br>
+  · <b>白天端</b>：仅工作台插一张白卡状态条（⑤），其余零改动；互斥组件拆除回退。
+</div>
+
+</body>
+</html>

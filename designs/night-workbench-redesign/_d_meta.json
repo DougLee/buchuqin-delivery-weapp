@@ -1,0 +1,18 @@
+{
+  "type": "design",
+  "designSystems": [],
+  "primaryDesignSystem": null,
+  "assets": {
+    "夜宵店长工作台重设计（双方案可交互原型）": {
+      "versions": [
+        {
+          "path": "index.html",
+          "createdAt": "2026-11-06T07:52:34.168Z",
+          "status": "needs-review"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-11-06T07:52:34.169Z",
+  "updatedAt": "2026-11-06T07:52:34.169Z"
+}

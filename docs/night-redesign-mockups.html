@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>夜宵店长工作台 · 方向稿（2 线 × 4 画面）</title>
+<style>
+/* ============ 画布 ============ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+body { background:#e8ece9; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif; padding:32px 24px 64px; }
+.canvas-head { max-width:1720px; margin:0 auto 28px; }
+.canvas-head h1 { font-size:22px; font-weight:800; color:#12351f; letter-spacing:.5px; }
+.canvas-head p { font-size:13px; color:#6b7a70; margin-top:6px; line-height:1.7; }
+.line-block { max-width:1720px; margin:0 auto 56px; }
+.line-title { display:flex; align-items:baseline; gap:12px; margin-bottom:18px; }
+.line-title .tag { font-size:12px; font-weight:800; color:#fff; background:#12351f; border-radius:6px; padding:4px 10px; letter-spacing:1px; }
+.line-title h2 { font-size:18px; font-weight:800; color:#1d3527; }
+.line-title span { font-size:12.5px; color:#7d8c81; }
+.frames { display:grid; grid-template-columns:repeat(4, 1fr); gap:28px; }
+@media (max-width:1400px){ .frames{ grid-template-columns:repeat(2,1fr);} }
+@media (max-width:760px){ .frames{ grid-template-columns:1fr;} }
+.frame-wrap { display:flex; flex-direction:column; gap:10px; }
+.frame-cap { font-size:12.5px; color:#5d6d62; line-height:1.6; padding:0 4px; }
+.frame-cap b { color:#2c4534; }
+/* 手机壳 */
+.phone { width:100%; aspect-ratio:390/800; border-radius:44px; padding:10px; background:#101613; box-shadow:0 24px 48px rgba(16,40,25,.28), 0 2px 8px rgba(16,40,25,.18); position:relative; overflow:hidden; }
+.phone::after { content:""; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:118px; height:26px; background:#101613; border-radius:0 0 16px 16px; z-index:40; }
+.screen { width:100%; height:100%; border-radius:34px; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+.screen-scroll { flex:1; overflow-y:auto; scrollbar-width:none; }
+.screen-scroll::-webkit-scrollbar { display:none; }
+/* tabbar */
+.tabbar { flex:none; display:flex; background:#fff; border-top:.5px solid rgba(0,0,0,.06); padding:8px 0 18px; }
+.tabbar.dark { background:#141d17; border-top-color:rgba(255,255,255,.07); }
+.tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; color:#9aa79e; font-weight:600; }
+.tab.on { color:#07883b; font-weight:800; }
+.tab.dark-t.on { color:#ffd75e; }
+.tab svg { width:21px; height:21px; }
+/* 通用 */
+.pad { padding:14px 16px 0; }
+.card { background:#fff; border-radius:20px; padding:16px; }
+.hairline { height:.5px; background:rgba(0,0,0,.06); }
+.chip { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; border-radius:999px; padding:4px 10px; }
+.kicker { font-size:10px; font-weight:800; letter-spacing:2px; opacity:.75; }
+.big-num { font-weight:900; letter-spacing:-.5px; font-variant-numeric:tabular-nums; }
+.btn-primary { display:flex; align-items:center; justify-content:center; height:48px; border-radius:24px; font-size:16px; font-weight:800; color:#fff; background:#07883b; cursor:pointer; }
+svg.ic { width:18px; height:18px; flex:none; }
+
+/* ============ 线 1 · 品牌绿延伸 ============ */
+.l1 .screen { background:#f4f7f4; }
+.l1 .storehead { background:linear-gradient(135deg,#10381f,#0d6b3a); border-radius:22px; padding:18px 18px 16px; color:#fff; position:relative; overflow:hidden; }
+.l1 .storehead::before { content:""; position:absolute; right:-30px; top:-38px; width:130px; height:130px; border-radius:50%; background:rgba(255,255,255,.05); }
+.l1 .storehead::after { content:""; position:absolute; right:-6px; top:-14px; width:64px; height:64px; border-radius:50%; background:rgba(255,255,255,.06); }
+.l1 .sh-name { font-size:19px; font-weight:900; letter-spacing:.3px; }
+.l1 .sh-meta { display:flex; align-items:center; gap:8px; margin-top:7px; font-size:11.5px; color:rgba(255,255,255,.78); }
+.l1 .badge-open { background:#ffd75e; color:#6b4a00; font-weight:800; }
+.l1 .gauges { display:grid; grid-template-columns:1fr 1fr 1fr; background:#fff; border-radius:20px; margin-top:14px; padding:14px 0; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.l1 .gauge { text-align:center; position:relative; }
+.l1 .gauge + .gauge::before { content:""; position:absolute; left:0; top:12%; height:76%; width:.5px; background:rgba(0,0,0,.07); }
+.l1 .gauge .gv { font-size:21px; font-weight:900; color:#12351f; }
+.l1 .gauge .gv.gold { color:#b07800; }
+.l1 .gauge .gl { font-size:10.5px; color:#8a978d; margin-top:3px; font-weight:600; }
+.l1 .openrow { display:flex; gap:10px; margin-top:14px; }
+.l1 .btn-open { flex:1; height:52px; border-radius:26px; background:linear-gradient(135deg,#ffd75e,#ffc93c); color:#5a3e00; font-size:17px; font-weight:900; display:flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 8px 20px rgba(255,201,60,.4); cursor:pointer; }
+.l1 .btn-ghost { width:52px; height:52px; border-radius:26px; background:#fff; display:flex; align-items:center; justify-content:center; color:#0d6b3a; box-shadow:0 1px 3px rgba(18,53,31,.08); }
+.l1 .sect { font-size:14px; font-weight:800; color:#1d3527; margin:18px 2px 10px; display:flex; justify-content:space-between; align-items:center; }
+.l1 .sect span { font-size:11.5px; color:#8a978d; font-weight:600; }
+.l1 .fn { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.l1 .fn-card { background:#fff; border-radius:18px; padding:15px 14px; display:flex; align-items:center; gap:10px; box-shadow:0 1px 3px rgba(18,53,31,.05); cursor:pointer; }
+.l1 .fn-ic { width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:none; }
+.l1 .fn-t { font-size:13.5px; font-weight:800; color:#243b2d; }
+.l1 .fn-s { font-size:10.5px; color:#93a096; margin-top:2px; }
+.l1 .today { background:#fff; border-radius:20px; padding:16px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+/* 押金页 L1 */
+.l1 .dep-balance { text-align:center; padding:26px 0 22px; }
+.l1 .dep-balance .bl { font-size:12px; color:#8a978d; font-weight:600; }
+.l1 .dep-balance .bv { font-size:40px; font-weight:900; color:#12351f; margin-top:6px; }
+.l1 .dep-balance .bv small { font-size:16px; font-weight:800; margin-right:2px; }
+.l1 .tier { border:1.5px solid #dfe8e1; border-radius:16px; padding:13px 14px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:#fff; }
+.l1 .tier.sel { border-color:#07883b; background:#f2faf5; box-shadow:0 0 0 3px rgba(7,136,59,.08); }
+.l1 .tier .tv { font-size:16px; font-weight:900; color:#12351f; }
+.l1 .tier .td { font-size:10.5px; color:#8a978d; margin-top:2px; }
+.l1 .tier .radio { width:18px; height:18px; border-radius:50%; border:2px solid #c9d6cd; }
+.l1 .tier.sel .radio { border-color:#07883b; background:#07883b; box-shadow:inset 0 0 0 3px #fff; }
+.l1 .ledger { display:flex; align-items:center; gap:10px; padding:12px 0; }
+.l1 .ledger + .ledger { border-top:.5px solid rgba(0,0,0,.05); }
+.l1 .lg-ic { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; }
+.l1 .lg-t { font-size:12.5px; font-weight:700; color:#2c4534; }
+.l1 .lg-s { font-size:10.5px; color:#93a096; margin-top:2px; }
+.l1 .lg-amt { margin-left:auto; font-size:14px; font-weight:900; }
+/* 进货确认 L1 */
+.l1 .stock-line { display:flex; align-items:center; gap:12px; background:#fff; border-radius:18px; padding:12px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.l1 .stock-line + .stock-line { margin-top:10px; }
+.l1 .sl-img { width:56px; height:56px; border-radius:14px; background:#eef3ef; display:flex; align-items:center; justify-content:center; }
+.l1 .counter { display:flex; align-items:center; gap:2px; }
+.l1 .counter button { width:30px; height:30px; border-radius:50%; border:none; background:#eef3ef; color:#0d6b3a; font-size:16px; font-weight:900; cursor:pointer; }
+.l1 .counter .n { min-width:34px; text-align:center; font-size:15px; font-weight:900; color:#12351f; }
+.l1 .confirm-card { background:#fff; border-radius:20px; padding:16px; box-shadow:0 1px 3px rgba(18,53,31,.05); }
+.l1 .crow { display:flex; justify-content:space-between; font-size:13px; padding:7px 0; }
+.l1 .crow .k { color:#7d8c81; }
+.l1 .crow .v { font-weight:800; color:#12351f; }
+.l1 .crow.hl { border-top:.5px solid rgba(0,0,0,.06); margin-top:5px; padding-top:12px; }
+.l1 .crow.hl .v { font-size:17px; font-weight:900; }
+.l1 .crow.warn .v { color:#d97706; }
+/* 工作台插槽卡 L1 */
+.l1 .day-workbench { background:#f4f7f4; height:100%; }
+.l1 .dw-head { background:#fff; padding:52px 16px 14px; }
+.l1 .dw-greet { font-size:20px; font-weight:900; color:#12351f; }
+.l1 .dw-sub { font-size:12px; color:#8a978d; margin-top:4px; }
+.l1 .prep-card { margin:14px 16px 0; background:#fff; border-radius:20px; overflow:hidden; box-shadow:0 6px 18px rgba(18,53,31,.1); border:1px solid #e4ece6; }
+.l1 .prep-top { background:linear-gradient(135deg,#10381f,#0d6b3a); padding:14px 16px; color:#fff; display:flex; align-items:center; gap:8px; }
+.l1 .prep-title { font-size:14.5px; font-weight:900; flex:1; }
+.l1 .prep-need { display:flex; }
+.l1 .prep-item { flex:1; padding:13px 14px; display:flex; align-items:center; gap:9px; cursor:pointer; }
+.l1 .prep-item + .prep-item { border-left:.5px solid rgba(0,0,0,.06); }
+.l1 .prep-dot { width:8px; height:8px; border-radius:50%; background:#e25c05; }
+.l1 .prep-dot.ok { background:#0d9e4c; }
+.l1 .prep-tx { font-size:12.5px; font-weight:800; color:#2c4534; }
+.l1 .prep-go { margin-left:auto; font-size:11px; color:#8a978d; font-weight:700; }
+
+/* ============ 线 2 · 专业骑手深色工作台 ============ */
+.l2 .screen { background:#0e1411; }
+.l2 .storehead { background:linear-gradient(160deg,#15241b,#0e1a13); border:1px solid rgba(255,255,255,.07); border-radius:22px; padding:18px; color:#fff; position:relative; }
+.l2 .sh-status { display:flex; align-items:center; gap:8px; }
+.l2 .st-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 10px #22c55e88; }
+.l2 .st-tx { font-size:12px; font-weight:800; color:#86efac; letter-spacing:1px; }
+.l2 .sh-time { margin-left:auto; font-size:11px; color:#7d8f83; font-variant-numeric:tabular-nums; }
+.l2 .sh-name { font-size:20px; font-weight:900; margin-top:10px; }
+.l2 .sh-meta { font-size:11.5px; color:#7d8f83; margin-top:5px; }
+.l2 .gauges { border:1px solid rgba(255,255,255,.07); background:#141d17; border-radius:20px; margin-top:14px; display:grid; grid-template-columns:1fr 1fr 1fr; padding:15px 0; }
+.l2 .gauge { text-align:center; position:relative; }
+.l2 .gauge + .gauge::before { content:""; position:absolute; left:0; top:14%; height:72%; width:1px; background:rgba(255,255,255,.06); }
+.l2 .gauge .gv { font-size:21px; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; }
+.l2 .gauge .gv.gold { color:#ffd75e; text-shadow:0 0 18px rgba(255,215,94,.35); }
+.l2 .gauge .gl { font-size:10.5px; color:#7d8f83; margin-top:4px; font-weight:600; }
+.l2 .btn-open { height:54px; border-radius:16px; margin-top:14px; background:linear-gradient(135deg,#ffd75e,#f5b81e); color:#3d2c00; font-size:17px; font-weight:900; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 10px 26px rgba(255,215,94,.22); cursor:pointer; letter-spacing:2px; }
+.l2 .sect { font-size:13px; font-weight:800; color:#a8b8ac; margin:20px 2px 10px; letter-spacing:1px; }
+.l2 .fn { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.l2 .fn-card { background:#141d17; border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:14px; display:flex; align-items:center; gap:11px; cursor:pointer; }
+.l2 .fn-ic { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; flex:none; }
+.l2 .fn-t { font-size:13.5px; font-weight:800; color:#eef4ef; }
+.l2 .fn-s { font-size:10.5px; color:#7d8f83; margin-top:2px; }
+.l2 .today { background:#141d17; border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:15px 16px; display:flex; align-items:center; justify-content:space-between; }
+.l2 .today .tt { font-size:12px; color:#7d8f83; }
+.l2 .today .tv { font-size:22px; font-weight:900; color:#ffd75e; font-variant-numeric:tabular-nums; }
+.l2 .tabbar { background:#101713; }
+.l2 .tab { color:#6e7f74; }
+/* 押金 L2 */
+.l2 .dep-balance { text-align:center; padding:28px 0 24px; background:linear-gradient(180deg,#15241b,#0e1411); border-radius:22px; border:1px solid rgba(255,255,255,.07); }
+.l2 .dep-balance .bl { font-size:11.5px; color:#7d8f83; letter-spacing:2px; }
+.l2 .dep-balance .bv { font-size:42px; font-weight:900; color:#fff; margin-top:8px; font-variant-numeric:tabular-nums; }
+.l2 .dep-balance .bv small { font-size:15px; color:#7d8f83; font-weight:700; margin-right:4px; }
+.l2 .tier { background:#141d17; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:14px 15px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+.l2 .tier.sel { border-color:#ffd75e; background:#1a2417; box-shadow:0 0 0 3px rgba(255,215,94,.1); }
+.l2 .tier .tv { font-size:17px; font-weight:900; color:#fff; }
+.l2 .tier .tv small { font-size:11px; color:#7d8f83; font-weight:600; margin-left:6px; }
+.l2 .tier.sel .radio { border-color:#ffd75e; background:#ffd75e; box-shadow:inset 0 0 0 3px #141d17; }
+.l2 .btn-pay { height:52px; border-radius:16px; background:#ffd75e; color:#3d2c00; font-weight:900; font-size:16.5px; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 26px rgba(255,215,94,.2); cursor:pointer; }
+.l2 .ledger { display:flex; align-items:center; gap:10px; padding:12px 0; }
+.l2 .ledger + .ledger { border-top:1px solid rgba(255,255,255,.05); }
+.l2 .lg-t { font-size:12.5px; font-weight:700; color:#dce6de; }
+.l2 .lg-s { font-size:10.5px; color:#7d8f83; margin-top:2px; }
+.l2 .lg-amt { margin-left:auto; font-size:14px; font-weight:900; }
+/* 进货确认 L2 */
+.l2 .stock-line { display:flex; align-items:center; gap:12px; background:#141d17; border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:12px; }
+.l2 .stock-line + .stock-line { margin-top:10px; }
+.l2 .sl-img { width:56px; height:56px; border-radius:13px; background:#1c2620; display:flex; align-items:center; justify-content:center; }
+.l2 .sl-name { font-size:13.5px; font-weight:800; color:#eef4ef; }
+.l2 .sl-sub { font-size:10.5px; color:#7d8f83; margin-top:3px; }
+.l2 .counter button { width:30px; height:30px; border-radius:50%; border:none; background:#1e2a22; color:#ffd75e; font-size:16px; font-weight:900; cursor:pointer; }
+.l2 .counter .n { min-width:34px; text-align:center; font-size:15px; font-weight:900; color:#fff; }
+.l2 .confirm-card { background:#141d17; border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:16px; }
+.l2 .crow { display:flex; justify-content:space-between; font-size:13px; padding:7px 0; }
+.l2 .crow .k { color:#7d8f83; }
+.l2 .crow .v { font-weight:800; color:#eef4ef; font-variant-numeric:tabular-nums; }
+.l2 .crow.hl { border-top:1px solid rgba(255,255,255,.07); margin-top:5px; padding-top:12px; }
+.l2 .crow.hl .v { font-size:17px; font-weight:900; color:#ffd75e; }
+.l2 .crow.warn .v { color:#fbbf24; }
+/* 工作台插槽卡 L2（白天端保持浅色原样——插槽卡也用浅色系融入） */
+.l2 .day-workbench { background:#f4f7f4; height:100%; }
+.l2 .prep-card { margin:14px 16px 0; background:#17211b; border-radius:20px; overflow:hidden; box-shadow:0 8px 22px rgba(10,26,16,.28); }
+.l2 .prep-top { padding:14px 16px; display:flex; align-items:center; gap:8px; }
+.l2 .prep-title { font-size:14.5px; font-weight:900; color:#fff; flex:1; }
+.l2 .prep-moon { width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg,#ffd75e,#f5b81e); position:relative; overflow:hidden; }
+.l2 .prep-moon::after { content:""; position:absolute; right:-4px; top:-3px; width:20px; height:20px; border-radius:50%; background:#17211b; }
+.l2 .prep-item { padding:13px 14px; display:flex; align-items:center; gap:9px; }
+.l2 .prep-item + .prep-item { border-top:1px solid rgba(255,255,255,.06); }
+.l2 .prep-tx { font-size:12.5px; font-weight:800; color:#dce6de; }
+.l2 .prep-sub { font-size:10.5px; color:#7d8f83; margin-top:2px; }
+.l2 .prep-go { margin-left:auto; font-size:11px; color:#ffd75e; font-weight:800; }
+/* rest 态卡 */
+.l2 .rest-strip { margin:14px 16px 0; background:#15241b; border-radius:16px; padding:13px 16px; display:flex; align-items:center; gap:10px; }
+.l2 .rest-tx { font-size:12.5px; color:#a8b8ac; font-weight:600; }
+.l2 .rest-tx b { color:#ffd75e; font-weight:800; }
+/* 图标色块 */
+.ic-g { background:#e7f4ec; color:#0d6b3a; }
+.ic-y { background:#fff6dc; color:#b07800; }
+.ic-b { background:#e8f1fb; color:#2563eb; }
+.ic-p { background:#f3ecfd; color:#7c3aed; }
+.ic-gd { background:rgba(255,215,94,.12); color:#ffd75e; }
+.ic-gd2 { background:rgba(34,197,94,.12); color:#4ade80; }
+.ic-gd3 { background:rgba(96,165,250,.12); color:#93c5fd; }
+.ic-gd4 { background:rgba(251,191,36,.12); color:#fbbf24; }
+.note { max-width:1720px; margin:0 auto; background:#fff; border-radius:14px; padding:18px 22px; font-size:13px; color:#44553f; line-height:1.9; box-shadow:0 1px 4px rgba(18,53,31,.06); }
+.note b { color:#12351f; }
+</style>
+</head>
+<body>
+
+<div class="canvas-head">
+  <h1>夜宵店长工作台 · 方向稿</h1>
+  <p>定稿规格：服务端驱动三态（白天营业 / 夜宵窗口「打开即夜店」/ 闭店休息）· 夜宵版 tabbar 镜像白天（店 / 单 / 收 / 我）· 白天端零影响（仅纯增量插槽卡）<br>两条视觉线 × 4 关键画面。数据为演示样例，页面均为 390px 视口比例。</p>
+</div>
+
+<!-- ==================== 线 1 ==================== -->
+<div class="line-block l1">
+  <div class="line-title"><span class="tag">线 1</span><h2>品牌绿延伸 · 夜色店头</h2><span>白天端同源的浅色体系，夜宵识别集中在店头深绿渐变 + 金黄强调——与用户端夜宵形态一脉相承，切换无割裂</span></div>
+  <div class="frames">
+
+    <!-- 画面 1：夜宵 Hub -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div class="storehead">
+              <div class="sh-name">西区9栋 · 夜宵店</div>
+              <div class="sh-meta"><span class="chip badge-open">营业中</span><span>湖北工业大学 · 不出寝</span></div>
+              <div style="margin-top:14px" class="gauges">
+                <div class="gauge"><div class="gv">¥500</div><div class="gl">押金余额</div></div>
+                <div class="gauge"><div class="gv">¥86</div><div class="gl">库存货值</div></div>
+                <div class="gauge"><div class="gv gold">¥414</div><div class="gl">可进货额度</div></div>
+              </div>
+            </div>
+            <div class="openrow">
+              <div class="btn-open">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                开店营业
+              </div>
+              <div class="btn-ghost">
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+              </div>
+            </div>
+            <div class="sect">经营管理 <span>商品 6 · 售罄 1</span></div>
+            <div class="fn">
+              <div class="fn-card"><div class="fn-ic ic-y"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg></div><div><div class="fn-t">押金</div><div class="fn-s">余额与流水</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-g"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v7a9 9 0 0 0 18 0V3z"/><path d="M12 12v9"/></svg></div><div><div class="fn-t">进货</div><div class="fn-s">额度 ¥414</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-b"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><div class="fn-t">商品管理</div><div class="fn-s">上下架</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-p"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg></div><div><div class="fn-t">夜宵订单</div><div class="fn-s">2 待接单</div></div></div>
+            </div>
+            <div class="sect">今日营业 <span>22:00 - 02:00</span></div>
+            <div class="today">
+              <div><div style="font-size:11px;color:#8a978d;font-weight:600">销售额</div><div class="big-num" style="font-size:22px;color:#12351f;margin-top:2px">¥312<span style="font-size:12px;color:#8a978d;font-weight:700">.50</span></div></div>
+              <div style="text-align:center"><div style="font-size:11px;color:#8a978d;font-weight:600">订单</div><div class="big-num" style="font-size:22px;color:#12351f;margin-top:2px">18</div></div>
+              <div style="text-align:right"><div style="font-size:11px;color:#8a978d;font-weight:600">预计收入</div><div class="big-num" style="font-size:22px;color:#0d6b3a;margin-top:2px">¥47<span style="font-size:12px;color:#8a978d;font-weight:700">.80</span></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>夜宵店</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>订单</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>收入</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>我的</div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>夜宵 Hub</b> — 店头（状态/仪表三格）+ 金黄开店主按钮 + 经营入口 2×2 + 今日营业摘要。额度数字金黄强调。</div>
+    </div>
+
+    <!-- 画面 2：押金 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <svg style="color:#12351f" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <span style="font-size:16px;font-weight:900;color:#12351f">押金</span>
+              <span class="chip" style="background:#e7f4ec;color:#0d6b3a">经营保障 · 可退</span>
+            </div>
+            <div class="dep-balance">
+              <div class="bl">有效押金余额</div>
+              <div class="bv"><small>¥</small>500</div>
+              <div style="font-size:11px;color:#8a978d;margin-top:6px">库存货值 ¥86 · 剩余可进货额度 <b style="color:#b07800">¥414</b></div>
+            </div>
+            <div class="sect">选择缴纳档位 <span>500 元一档</span></div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="tier sel"><div><div class="tv">补缴至 ¥1000</div><div class="td">本次支付 ¥500 · 额度升至 ¥914</div></div><div class="radio"></div></div>
+              <div class="tier"><div><div class="tv">补缴至 ¥1500</div><div class="td">本次支付 ¥1000 · 额度升至 ¥1414</div></div><div class="radio"></div></div>
+              <div class="tier"><div><div class="tv">补缴至 ¥2000</div><div class="td">本次支付 ¥1500 · 额度升至 ¥1914</div></div><div class="radio"></div></div>
+            </div>
+            <div class="btn-primary" style="margin-top:16px">微信支付 ¥500</div>
+            <div style="font-size:10.5px;color:#93a096;text-align:center;margin-top:10px;line-height:1.6">押金用于保障进货额度，不计入收入<br>退出经营时按规则清算退还</div>
+            <div class="sect">流水 <span>全部</span></div>
+            <div class="card" style="padding:4px 14px">
+              <div class="ledger"><div class="lg-ic ic-g"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div><div><div class="lg-t">缴纳押金</div><div class="lg-s">11-05 22:14 · 微信支付</div></div><div class="lg-amt" style="color:#0d9e4c">+¥500</div></div>
+              <div class="ledger"><div class="lg-ic ic-y"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div><div><div class="lg-t">违规扣除</div><div class="lg-s">11-01 09:30 · 平台判责</div></div><div class="lg-amt" style="color:#d97706">-¥50</div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>押金</b> — 余额大数字居中、档位卡选中态（绿描边+浅绿底）、用途说明在支付按钮下方、流水正负分色。</div>
+    </div>
+
+    <!-- 画面 3：进货确认 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <svg style="color:#12351f" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <span style="font-size:16px;font-weight:900;color:#12351f">确认进货</span>
+              <span class="chip" style="background:#fff6dc;color:#b07800;margin-left:auto">支付即入库</span>
+            </div>
+            <div class="stock-line">
+              <div class="sl-img"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9db5a5" stroke-width="1.6"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18"/></svg></div>
+              <div style="flex:1"><div style="font-size:13.5px;font-weight:800;color:#12351f">测试夜宵泡面</div><div style="font-size:10.5px;color:#93a096;margin-top:3px">夜宵售价 ¥5.00 · 现库存 2</div></div>
+              <div class="counter"><button>−</button><div class="n">10</div><button>＋</button></div>
+            </div>
+            <div class="stock-line">
+              <div class="sl-img"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9db5a5" stroke-width="1.6"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6"/></svg></div>
+              <div style="flex:1"><div style="font-size:13.5px;font-weight:800;color:#12351f">火腿肠</div><div style="font-size:10.5px;color:#93a096;margin-top:3px">夜宵售价 ¥2.50 · 现库存 0</div></div>
+              <div class="counter"><button>−</button><div class="n">20</div><button>＋</button></div>
+            </div>
+            <div class="confirm-card" style="margin-top:14px">
+              <div class="crow"><span class="k">本次进货货值</span><span class="v">¥100.00</span></div>
+              <div class="crow"><span class="k">入库后库存货值</span><span class="v">¥186.00</span></div>
+              <div class="crow"><span class="k">有效押金</span><span class="v">¥500.00</span></div>
+              <div class="crow"><span class="k">进货后剩余额度</span><span class="v">¥314.00</span></div>
+              <div class="crow hl"><span class="k">确认入库</span><span class="v">2 种 · 30 件 · ¥100.00</span></div>
+            </div>
+            <div class="btn-primary" style="margin-top:14px">确认进货 · 即时入库</div>
+            <div style="font-size:10.5px;color:#93a096;text-align:center;margin-top:10px">确认成功商品立即上架可售 · 无需审批</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>进货确认</b> — 商品行（数量步进）+ 四要素清单逐行明示 + 高亮合计行。「支付即入库」徽章定预期。</div>
+    </div>
+
+    <!-- 画面 4：白天工作台插槽卡 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen"><div class="day-workbench">
+        <div class="dw-head">
+          <div class="dw-greet">下午好，方福宁</div>
+          <div class="dw-sub">湖北工业大学 · 今日已跑 12 单</div>
+        </div>
+        <!-- rest 态提示条（闭店未到窗口） -->
+        <div class="rest-strip" style="background:linear-gradient(135deg,#10381f,#0d6b3a)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd75e" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+          <div class="rest-tx" style="color:#fff">白天已打烊 · <b>夜宵 22:00 开档</b>，可先备货</div>
+        </div>
+        <!-- 常显准备卡 -->
+        <div class="prep-card">
+          <div class="prep-top">
+            <div class="prep-moon"></div>
+            <div class="prep-title">我的夜宵店 · 西区9栋</div>
+            <span class="chip" style="background:rgba(255,215,94,.15);color:#ffd75e">未开业</span>
+          </div>
+          <div class="prep-item">
+            <div class="prep-dot" style="background:#e25c05"></div>
+            <div><div class="prep-tx">缴纳经营押金</div><div class="prep-sub">未缴纳 · 开店前需完成</div></div>
+            <div class="prep-go">去处理 ›</div>
+          </div>
+          <div class="prep-item">
+            <div class="prep-dot"></div>
+            <div><div class="prep-tx">进货备货</div><div class="prep-sub">库存货值 ¥0 · 建议常备 3~5 种</div></div>
+            <div class="prep-go">去备货 ›</div>
+          </div>
+        </div>
+        <div class="frame-cap" style="margin:14px 16px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ 白天工作台原样（示意浅色底），仅纯增量插入此卡。<br>· 白天营业中：常显小卡（Q14 B 定稿）<br>· 闭店未到窗口：顶部追加夜色提示条，准备卡成为主动作<br>· 事项清零后卡片自动收敛为一行状态</div>
+      </div></div></div>
+      <div class="frame-cap"><b>白天工作台插槽卡</b> — 深色卡在浅色白天端中形成夜宵识别锚点；两态：准备引导（未开业）/ 休息提示条（闭店等开档）。事项完成后收敛。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 线 2 ==================== -->
+<div class="line-block l2">
+  <div class="line-title"><span class="tag" style="background:#17211b">线 2</span><h2>专业骑手深色工作台</h2><span>整页深色（暗光夜作业友好），仪表盘感 + 高对比金黄 CTA——行业骑手 App 的夜间形态，与白天端形成鲜明「营业时段感」</span></div>
+  <div class="frames">
+
+    <!-- 画面 1：夜宵 Hub -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div class="storehead">
+              <div class="sh-status"><div class="st-dot"></div><span class="st-tx">营业中 OPEN</span><span class="sh-time">22:00 - 02:00</span></div>
+              <div class="sh-name">西区9栋 · 夜宵店</div>
+              <div class="sh-meta">湖北工业大学 · 不出寝食社</div>
+              <div class="gauges">
+                <div class="gauge"><div class="gv">¥500</div><div class="gl">押金余额</div></div>
+                <div class="gauge"><div class="gv">¥86</div><div class="gl">库存货值</div></div>
+                <div class="gauge"><div class="gv gold">¥414</div><div class="gl">可进货额度</div></div>
+              </div>
+            </div>
+            <div class="btn-open">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              开店营业
+            </div>
+            <div class="sect">经营管理</div>
+            <div class="fn">
+              <div class="fn-card"><div class="fn-ic ic-gd"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></svg></div><div><div class="fn-t">押金</div><div class="fn-s">¥500 · 流水可查</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-gd2"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v7a9 9 0 0 0 18 0V3z"/><path d="M12 12v9"/></svg></div><div><div class="fn-t">进货</div><div class="fn-s">额度 ¥414</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-gd3"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></div><div><div class="fn-t">商品管理</div><div class="fn-s">6 在售 · 1 售罄</div></div></div>
+              <div class="fn-card"><div class="fn-ic ic-gd4"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg></div><div><div class="fn-t">夜宵订单</div><div class="fn-s" style="color:#fbbf24;font-weight:800">2 待接单</div></div></div>
+            </div>
+            <div class="sect">今日营业 · 22:00 - 02:00</div>
+            <div class="today">
+              <div class="tt">销售额</div>
+              <div class="tv">¥312.50</div>
+              <div style="text-align:center"><div class="tt">订单</div><div style="font-size:22px;font-weight:900;color:#fff">18</div></div>
+              <div style="text-align:right"><div class="tt">预计收入</div><div style="font-size:22px;font-weight:900;color:#4ade80">¥47.80</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar dark">
+          <div class="tab dark-t on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>夜宵店</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0"/></svg>订单</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>收入</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>我的</div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>夜宵 Hub</b> — 状态灯+OPEN 字标、仪表金黄发光强调、开店按钮金黄满宽高对比。整页深色，夜间作业不刺眼。</div>
+    </div>
+
+    <!-- 画面 2：押金 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <svg style="color:#fff" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <span style="font-size:16px;font-weight:900;color:#fff">押金</span>
+              <span class="chip" style="background:rgba(255,215,94,.12);color:#ffd75e;margin-left:auto">经营保障 · 可退</span>
+            </div>
+            <div class="dep-balance">
+              <div class="bl">有效押金余额</div>
+              <div class="bv"><small>¥</small>500</div>
+              <div style="font-size:11px;color:#7d8f83;margin-top:8px">库存货值 ¥86 · 剩余可进货额度 <b style="color:#ffd75e">¥414</b></div>
+            </div>
+            <div class="sect">选择缴纳档位 · 500 元一档</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="tier sel"><div><div class="tv">补缴至 ¥1000<small>推荐</small></div><div style="font-size:10.5px;color:#7d8f83;margin-top:2px">本次支付 ¥500 · 额度升至 ¥914</div></div><div class="radio" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2)"></div></div>
+              <div class="tier"><div><div class="tv">补缴至 ¥1500</div><div style="font-size:10.5px;color:#7d8f83;margin-top:2px">本次支付 ¥1000 · 额度升至 ¥1414</div></div><div class="radio" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2)"></div></div>
+              <div class="tier"><div><div class="tv">补缴至 ¥2000</div><div style="font-size:10.5px;color:#7d8f83;margin-top:2px">本次支付 ¥1500 · 额度升至 ¥1914</div></div><div class="radio" style="width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.2)"></div></div>
+            </div>
+            <div class="btn-pay" style="margin-top:16px">微信支付 ¥500</div>
+            <div style="font-size:10.5px;color:#6e7f74;text-align:center;margin-top:10px;line-height:1.6">押金用于保障进货额度，不计入收入<br>退出经营时按规则清算退还</div>
+            <div class="sect">流水</div>
+            <div style="background:#141d17;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:4px 14px">
+              <div class="ledger"><div class="fn-ic ic-gd" style="width:34px;height:34px;border-radius:10px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg></div><div><div class="lg-t">缴纳押金</div><div class="lg-s">11-05 22:14 · 微信支付</div></div><div class="lg-amt" style="color:#4ade80">+¥500</div></div>
+              <div class="ledger"><div class="fn-ic ic-gd4" style="width:34px;height:34px;border-radius:10px"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></div><div><div class="lg-t">违规扣除</div><div class="lg-s">11-01 09:30 · 平台判责</div></div><div class="lg-amt" style="color:#fbbf24">-¥50</div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>押金</b> — 余额卡渐变深底 + 白色大数字；档位选中金黄描边；主按钮金黄高对比。流水正绿负黄分色。</div>
+    </div>
+
+    <!-- 画面 3：进货确认 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen">
+        <div class="screen-scroll">
+          <div class="pad">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <svg style="color:#fff" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+              <span style="font-size:16px;font-weight:900;color:#fff">确认进货</span>
+              <span class="chip" style="background:rgba(74,222,128,.12);color:#4ade80;margin-left:auto">支付即入库</span>
+            </div>
+            <div class="stock-line">
+              <div class="sl-img"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5d6f63" stroke-width="1.6"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18"/></svg></div>
+              <div style="flex:1"><div class="sl-name">测试夜宵泡面</div><div class="sl-sub">夜宵售价 ¥5.00 · 现库存 2</div></div>
+              <div class="counter"><button>−</button><div class="n">10</div><button>＋</button></div>
+            </div>
+            <div class="stock-line">
+              <div class="sl-img"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5d6f63" stroke-width="1.6"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.6 12.4a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6"/></svg></div>
+              <div style="flex:1"><div class="sl-name">火腿肠</div><div class="sl-sub">夜宵售价 ¥2.50 · 现库存 0</div></div>
+              <div class="counter"><button>−</button><div class="n">20</div><button>＋</button></div>
+            </div>
+            <div class="confirm-card" style="margin-top:14px">
+              <div class="crow"><span class="k">本次进货货值</span><span class="v">¥100.00</span></div>
+              <div class="crow"><span class="k">入库后库存货值</span><span class="v">¥186.00</span></div>
+              <div class="crow"><span class="k">有效押金</span><span class="v">¥500.00</span></div>
+              <div class="crow"><span class="k">进货后剩余额度</span><span class="v">¥314.00</span></div>
+              <div class="crow hl"><span class="k">确认入库</span><span class="v">2 种 · 30 件 · ¥100.00</span></div>
+            </div>
+            <div class="btn-pay" style="margin-top:14px">确认进货 · 即时入库</div>
+            <div style="font-size:10.5px;color:#6e7f74;text-align:center;margin-top:10px">确认成功商品立即上架可售 · 无需审批</div>
+          </div>
+        </div>
+      </div></div>
+      <div class="frame-cap"><b>进货确认</b> — 深色卡+细描边分隔，四要素行数字用等宽数字对齐；金黄合计行收口。</div>
+    </div>
+
+    <!-- 画面 4：白天工作台插槽卡 -->
+    <div class="frame-wrap">
+      <div class="phone"><div class="screen"><div class="day-workbench">
+        <div class="dw-head">
+          <div class="dw-greet">下午好，方福宁</div>
+          <div class="dw-sub">湖北工业大学 · 今日已跑 12 单</div>
+        </div>
+        <div class="rest-strip">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd75e" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+          <div class="rest-tx">白天已打烊 · <b>夜宵 22:00 开档</b>，可先备货</div>
+        </div>
+        <div class="prep-card">
+          <div class="prep-top">
+            <div class="prep-moon"></div>
+            <div class="prep-title">我的夜宵店 · 西区9栋</div>
+            <span class="chip" style="background:rgba(255,215,94,.12);color:#ffd75e">未开业</span>
+          </div>
+          <div class="prep-item">
+            <div class="prep-dot" style="background:#e25c05"></div>
+            <div><div class="prep-tx">缴纳经营押金</div><div class="prep-sub">未缴纳 · 开店前需完成</div></div>
+            <div class="prep-go">去处理 ›</div>
+          </div>
+          <div class="prep-item">
+            <div class="prep-dot"></div>
+            <div><div class="prep-tx">进货备货</div><div class="prep-sub">库存货值 ¥0 · 建议常备 3~5 种</div></div>
+            <div class="prep-go">去备货 ›</div>
+          </div>
+        </div>
+        <div class="frame-cap" style="margin:14px 16px 0;color:#8a978d;font-size:11px;line-height:1.7">↑ 插槽卡在两条线中形态不同：线 1 深绿渐变头（融入白天浅色端），线 2 整卡深色（强对比锚点）。白天端本体均为浅色原样。</div>
+      </div></div></div>
+      <div class="frame-cap"><b>白天工作台插槽卡</b> — 线 2 采用整卡深色+月牙图形标识（非 emoji），与白天浅色端强对比，一眼识别「这是夜宵的事」。</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>两线差异速览</b>：<br>
+  · <b>线 1 品牌绿延伸</b>：白天端同源浅色体系，夜宵识别集中在店头——用户端↔楼长端视觉血缘一致，白天/夜宵切换「柔和换挡」，适合强调「同一个品牌的两个时段」。<br>
+  · <b>线 2 专业深色工作台</b>：整页深色仪表盘，夜作业暗光友好、信息密度感强，白天/夜宵切换「明确换挡」（打开即知道进入另一种营业形态），适合强调专业工具属性。<br>
+  · 共同点：夜宵版 tabbar 镜像白天（店/单/收/我）、押金档位/流水、进货四要素、白天端插槽卡均为纯增量（白天端本体浅色原样）。<br>
+  · 选定后：拆互斥组件回退白天端 → 按定稿线全面实施 8 个夜宵页 + 插槽卡 → 构建验证 → 你开发者工具复验。
+</div>
+
+</body>
+</html>
