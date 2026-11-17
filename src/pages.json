@@ -8,7 +8,16 @@
         "backgroundTextStyle": "dark"
       }
     },
-    { "path": "pages/night/opening", "style": { "navigationBarTitleText": "临时营业申请" } },
+    {
+      "path": "pages/night/opening",
+      "style": {
+        "navigationBarTitleText": "临时营业申请",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
+      }
+    },
     {
       "path": "pages/login/index",
       "style": {
