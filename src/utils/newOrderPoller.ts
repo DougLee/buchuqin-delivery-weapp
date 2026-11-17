@@ -17,61 +17,73 @@ let timer: ReturnType<typeof setInterval> | undefined;
 let lastCount = -1;
 let lastNightCount = -1;
 let generation = 0;
-let running = false;
 let lastToken = '';
+type PollRun = { generation: number; token: string };
+let dayRun: PollRun | undefined;
+let nightRun: PollRun | undefined;
 
-async function poll(current: number) {
-  if (current !== generation || running) return;
-  // 未登录静默跳过（游客态/登录页阶段不打接口）
-  const token = uni.getStorageSync("staffToken");
-  if (!token) return;
-  if (token !== lastToken) { lastCount = -1; lastNightCount = -1; lastToken = token; }
-  const stillCurrent = () => current === generation && token === uni.getStorageSync('staffToken');
-  const { role } = useSessionStore();
-  running = true;
+function isCurrent(run: PollRun, active: PollRun | undefined) {
+  return run === active && run.generation === generation && run.token === uni.getStorageSync('staffToken');
+}
+
+async function pollDay(run: PollRun, manager: boolean) {
   try {
-    let count = 0;
-    // IKEAGE：实习楼长与正式楼长同权（到楼待接货口径一致）
-    if (isManagerRole(role)) {
-      const context = await api.businessContext();
-      if (!stillCurrent()) return;
-      syncWorkspaceMode(context);
-      if (context.hasNightStore && (context.nightEnabled || context.hasNightHistory)) {
-        const night = await api.nightOrders('pending-accept', 1, 1);
-        if (!stillCurrent()) return;
-        if (lastNightCount >= 0 && night.total > lastNightCount) {
-          uni.vibrateShort({ fail: () => {} });
-          uni.showToast({ title: `夜宵店有 ${night.total} 单待接单`, icon: 'none' });
-          uni.$emit('night:new-orders');
-        }
-        lastNightCount = night.total;
-      } else lastNightCount = -1;
-      const page = await api.tasksPage("waiting-handover", 1, 1);
-      if (!stillCurrent()) return;
-      count = page.total ?? 0;
-    } else {
-      // 抢单池仅配送员角色（后端口径），楼长以外的其他角色与骑手同路
+    let count: number;
+    if (manager) count = (await api.tasksPage("waiting-handover", 1, 1)).total ?? 0;
+    else {
       const list = await api.availableTasks();
-      if (!stillCurrent()) return;
       count = Array.isArray(list) ? list.length : 0;
     }
-    // 数量增加才震动（回前台首拍 lastCount 已重置，不误震）
+    if (!isCurrent(run, dayRun)) return;
     if (lastCount >= 0 && count > lastCount) {
       uni.vibrateShort({ fail: () => {} });
-      // 新单到达广播：任务页监听后静默重拉，卡片状态不再滞后
       uni.$emit("ikdnvw:new-orders");
     }
     lastCount = count;
   } catch {
-    /* 静默：401/网络差下轮重试 */
-  } finally { if (current === generation) running = false; }
+    /* 白天失败只等待白天下轮重试，不阻塞夜宵。 */
+  } finally { if (dayRun === run) dayRun = undefined; }
+}
+
+async function pollNight(run: PollRun) {
+  try {
+    const context = await api.businessContext();
+    if (!isCurrent(run, nightRun)) return;
+    syncWorkspaceMode(context);
+    if (context.hasNightStore && (context.nightEnabled || context.hasNightHistory)) {
+      const night = await api.nightOrders('pending-accept', 1, 1);
+      if (!isCurrent(run, nightRun)) return;
+      if (lastNightCount >= 0 && night.total > lastNightCount) {
+        uni.vibrateShort({ fail: () => {} });
+        uni.showToast({ title: `夜宵店有 ${night.total} 单待接单`, icon: 'none' });
+        uni.$emit('night:new-orders');
+      }
+      lastNightCount = night.total;
+    } else lastNightCount = -1;
+  } catch {
+    /* 夜宵失败不改变工作台或白天提醒，下轮独立重试。 */
+  } finally { if (nightRun === run) nightRun = undefined; }
+}
+
+function poll(current: number) {
+  if (current !== generation) return;
+  const token = uni.getStorageSync("staffToken") as string;
+  if (!token) return;
+  if (token !== lastToken) {
+    lastCount = -1; lastNightCount = -1; lastToken = token;
+    dayRun = undefined; nightRun = undefined;
+  }
+  const manager = isManagerRole(useSessionStore().role);
+  // Separate in-flight guards let either channel progress while the other waits.
+  if (!dayRun) { dayRun = { generation: current, token }; void pollDay(dayRun, manager); }
+  if (manager && !nightRun) { nightRun = { generation: current, token }; void pollNight(nightRun); }
 }
 
 /** 回前台/启动时开启（幂等）：立即首拍 + 周期轮询。 */
 export function startPolling() {
   if (timer) return;
   const current = ++generation;
-  running = false;
+  dayRun = undefined; nightRun = undefined;
   lastCount = -1;
   lastNightCount = -1;
   void poll(current);
@@ -81,7 +93,7 @@ export function startPolling() {
 /** 切后台/退出时停表。 */
 export function stopPolling() {
   generation++;
-  running = false;
+  dayRun = undefined; nightRun = undefined;
   lastToken = '';
   if (timer) clearInterval(timer);
   timer = undefined;
