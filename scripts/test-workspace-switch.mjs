@@ -143,7 +143,7 @@ test("实习楼长无资格时不被时段默认值反复导航到夜宵工作�
 test('校区关闭仍可处理既有历史，不能重新进入经营或显示切换',async()=>{const f=fixture();const c=context({nightEnabled:false,canSwitchWorkspace:false,hasNightHistory:true});f.setContext(c);assert.equal(f.module.canSwitchWorkspace(c),false);assert.equal(f.module.canViewNightHistory(c),true);const access=await f.module.nightHistoryContext();assert.equal(access.nightEnabled,false);assert.equal(f.navigation.length,0);assert.equal(await f.module.ensureNightCampus(),false);assert.equal(f.navigation.at(-1).url,'/pages/index/index');});
 
 test('轮询保留已授权的夜宵历史页，校区关闭仍将经营首页切回白天', () => {
-  for (const state of [{ nightEnabled: false, canSwitchWorkspace: false, mode: 'rest' }, { mode: 'day' }]) {
+  for (const state of [{ nightEnabled: false, canSwitchWorkspace: false, hasNightHistory: true, mode: 'rest' }, { mode: 'day' }]) {
     for (const route of ['pages/night/orders-tab', 'pages/night/income-tab']) {
       const f = fixture(); f.setRoute(route);
       f.module.syncWorkspaceMode(context(state));
@@ -156,4 +156,10 @@ test('轮询保留已授权的夜宵历史页，校区关闭仍将经营首页�
   const revoked = fixture(); revoked.setRoute('pages/night/orders-tab');
   revoked.module.syncWorkspaceMode(context({ staffRole: 'intern-building-manager', canSwitchWorkspace: false }));
   assert.equal(revoked.navigation[0].url, '/pages/index/index');
+});
+
+test('空店在未开通时不提供历史入口，不能使用旧本地选择进入夜宵', () => {
+  const f=fixture(),c=context({nightEnabled:false,hasNightHistory:false,canSwitchWorkspace:false});
+  assert.equal(f.module.canViewNightHistory(c),false);assert.equal(f.module.canSwitchWorkspace(c),false);
+  assert.equal(f.module.workspaceOf(c),'day');
 });

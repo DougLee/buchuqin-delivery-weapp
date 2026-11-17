@@ -89,7 +89,7 @@ export function workspaceOf(ctx: BizContext): Workspace {
 
 /** 历史读取与收尾不授予新增经营资格。 */
 export function canViewNightHistory(ctx?: BizContext): boolean {
-  return Boolean(uni.getStorageSync('staffToken') && ctx?.staffId && ctx.staffRole === 'building-manager' && ctx.hasNightStore);
+  return Boolean(uni.getStorageSync('staffToken') && ctx?.staffId && ctx.staffRole === 'building-manager' && ctx.hasNightStore && (ctx.nightEnabled || ctx.hasNightHistory === true));
 }
 async function loadNightAccess(history: boolean): Promise<BizContext | undefined> {
   const token = uni.getStorageSync('staffToken') as string;

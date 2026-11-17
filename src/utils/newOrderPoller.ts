@@ -36,7 +36,7 @@ async function poll(current: number) {
       const context = await api.businessContext();
       if (!stillCurrent()) return;
       syncWorkspaceMode(context);
-      if (context.hasNightStore) {
+      if (context.hasNightStore && (context.nightEnabled || context.hasNightHistory)) {
         const night = await api.nightOrders('pending-accept', 1, 1);
         if (!stillCurrent()) return;
         if (lastNightCount >= 0 && night.total > lastNightCount) {
