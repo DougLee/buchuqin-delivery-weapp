@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nightHistoryContext } from "../../utils/nightMode";
 import { computed, ref } from "vue";
 import { onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -19,6 +20,7 @@ import type { NightIncome } from "../../types";
  * 大金额展示本月「待结算」佣金与配送费的 pending 桶合计。
  */
 const session = useSessionStore();
+const campusEnabled = ref(false);
 const income = ref<NightIncome>();
 const loading = ref(false);
 const error = ref(false);
@@ -65,6 +67,8 @@ async function load(append = false) {
   guest.value = false; error.value = false;
   try {
     await session.ensure();
+    const ctx = await nightHistoryContext(); if (!ctx) return;
+    campusEnabled.value = ctx.nightEnabled === true;
     const result = await api.nightIncome(month.value || undefined, statusFilter.value, append ? (income.value?.page ?? 0) + 1 : 1);
     if (current !== generation) return;
     if (append && income.value) result.items = [...income.value.items, ...result.items.filter(item => !income.value!.items.some(old => old.id === item.id))];
@@ -225,7 +229,7 @@ onShow(() => {
     <button v-if="income.items.length < income.total" class="load-more" :disabled="loading || moreLoading" @tap="load(true)">{{ moreLoading ? '加载中…' : '加载更多流水' }}</button>
   </view>
   <!-- 夜宵自绘 TabBar（error/loading/guest 态也常驻，模式锚点） -->
-  <NightTabBar active="income" />
+  <NightTabBar v-if="campusEnabled" active="income" />
 </template>
 
 <style scoped lang="scss">

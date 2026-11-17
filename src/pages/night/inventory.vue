@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nightHistoryContext } from "../../utils/nightMode";
 import { computed, ref, watch } from "vue";
 import { onLoad, onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -12,6 +13,7 @@ import type {
   NightInventoryTxn,
 } from "../../types";
 const session = useSessionStore();
+const campusEnabled = ref(false);
 const tab = ref("stocktake");
 const products = ref<NightProduct[]>([]);
 const reports = ref<NightInventoryReport[]>([]);
@@ -95,12 +97,15 @@ async function load(reset = false) {
   failed.value = false;
   try {
     await session.ensure();
+    const ctx = await nightHistoryContext(); if (!ctx) return;
+    campusEnabled.value = ctx.nightEnabled === true;
     const [catalog, reportResult, txnResult] = await Promise.all([
-      api.nightProducts(),
+      campusEnabled.value ? api.nightProducts() : Promise.resolve([]),
       api.nightInventoryReports(),
       api.nightInventoryTxns(),
     ]);
     if (generation !== loadGeneration) return;
+    if (!campusEnabled.value && !['reports', 'txns'].includes(tab.value)) tab.value = 'reports';
     products.value = catalog;
     reports.value = reportResult.items;
     txns.value = txnResult.items;
@@ -258,7 +263,7 @@ function resubmit(report: NightInventoryReport) {
         ]"
         :key="t.id"
         :class="{ active: tab === t.id }"
-        :disabled="busy"
+        :disabled="busy || (!campusEnabled && ['stocktake','loss'].includes(t.id))"
         @tap="tab = t.id"
       >
         {{ t.name }}

@@ -8,6 +8,7 @@ import {
   fetchQuota,
   getCachedQuota,
   grantTimes,
+  notifyAuthReady,
   gzhQrcodeOf,
   setNotifyTemplateId,
 } from "../../utils/notifyQuota";
@@ -84,6 +85,7 @@ function showGzhQrcode() {
   if (gzhQrcode.value) uni.previewImage({ urls: [gzhQrcode.value] });
 }
 async function addQuota() {
+  if (!notifyAuthReady()) return;
   if (adding.value) return;
   adding.value = true;
   // 一击一条（道哥反馈弹窗体验）：未勾「总是保持」每次授权必弹窗，
@@ -106,6 +108,7 @@ async function addQuota() {
 const nightMode = ref(false);
 /** 夜宵经营入口仅向已绑定夜宵店的正式楼长展示。 */
 const hasNightStore = ref(false);
+const hasNightHistory = ref(false);
 /** 分组实时摘要（押金/库存货值/额度/商品种数），拉不到显示 "--" */
 const nightDash = ref<NightDashboard>();
 const nightProducts = ref<NightProduct[]>();
@@ -139,7 +142,7 @@ function applyNightChrome(on: boolean) {
   }
 }
 async function loadNightContext() {
-  hasNightStore.value = false;
+  hasNightStore.value = false; hasNightHistory.value = false;
   // 仅登录后拉取（游客不拉，白天态不受影响）
   if (!uni.getStorageSync("staffToken")) {
     hasNightStore.value = false;
@@ -150,6 +153,7 @@ async function loadNightContext() {
   try {
     const ctx = await fetchBizContext();
     hasNightStore.value = canSwitchWorkspace(ctx);
+    hasNightHistory.value = ctx.nightEnabled === false && ctx.staffRole === 'building-manager' && ctx.hasNightStore && ctx.hasNightHistory === true;
     nightMode.value = workspaceOf(ctx) === "night";
     applyNightChrome(nightMode.value);
     if (!hasNightStore.value) return;
@@ -162,6 +166,7 @@ async function loadNightContext() {
 }
 function updateBusinessContext(ctx: BizContext) {
   hasNightStore.value = canSwitchWorkspace(ctx);
+    hasNightHistory.value = ctx.nightEnabled === false && ctx.staffRole === 'building-manager' && ctx.hasNightStore && ctx.hasNightHistory === true;
   nightMode.value = workspaceOf(ctx) === "night";
   applyNightChrome(nightMode.value);
 }
@@ -414,6 +419,14 @@ async function logout() {
     >
     <!-- V4 夜宵经营分组（画面④）：与白天分组同款白卡行，仅月牙小标识别；
          仅「有夜宵店（楼长资格）」渲染，配送员不渲染；三行带实时数据摘要 -->
+    <view v-if="hasNightHistory" class="menu card night-group">
+      <view class="night-group__head"><text class="night-group__title">夜宵历史与待办</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/orders-tab')"><view class="menu__body"><text>历史订单与配送收尾</text></view><text class="link-chip">查看</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/stock-orders')"><view class="menu__body"><text>备货进度与待收货</text></view><text class="link-chip">核对</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/deposit')"><view class="menu__body"><text>押金记录</text></view><text class="link-chip">查看</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/income-tab')"><view class="menu__body"><text>历史收入</text></view><text class="link-chip">查看</text></view>
+      <view role="button" @tap="goNightPage('/pages/night/inventory')"><view class="menu__body"><text>盘点审核记录与库存流水</text></view><text class="link-chip">查看</text></view>
+    </view>
     <view v-if="hasNightStore" class="menu card night-group">
       <view class="night-group__head">
         <view class="night-group__moon"></view>

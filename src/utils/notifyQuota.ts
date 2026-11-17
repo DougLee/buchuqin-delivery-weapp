@@ -19,10 +19,12 @@ import type { NotifyQuotaInfo } from "../types";
  *  由 profile.notifyTemplateId 下发（道哥 2026-11-02 大雄推送修复）。 */
 export const NOTIFY_TMPL_ID = "uqDmjNXOnCQH-QCfLE6ch8vTaDfXtiIxfklqmVv026M";
 
-let notifyTemplateId = NOTIFY_TMPL_ID;
+let notifyTemplateId = "";
+let templateOwner = "";
 /** profile 下发组织模板后调用（profile 页/首页 ensure 时） */
 export const setNotifyTemplateId = (v?: string | null) => {
-  if (v) notifyTemplateId = v;
+  notifyTemplateId = v?.trim() || '';
+  templateOwner = notifyTemplateId ? String(uni.getStorageSync('staffToken') || '') : '';
 };
 const currentTemplateId = () => notifyTemplateId;
 
@@ -68,7 +70,7 @@ export async function fetchQuota(): Promise<NotifyQuotaInfo> {
 function askOnce(): Promise<boolean> {
   return new Promise((resolve) => {
     const tmpl = currentTemplateId();
-    uni.requestSubscribeMessage({
+    try { uni.requestSubscribeMessage({
       tmplIds: [tmpl],
       success: (r) => {
         // @dcloudio/types 未给 success 结果加模板 ID 索引签名，这里断言取值
@@ -82,6 +84,7 @@ function askOnce(): Promise<boolean> {
         resolve(false);
       },
     });
+    } catch { resolve(false); }
   });
 }
 
@@ -98,16 +101,18 @@ let granting = false;
 export async function grantTimes(n: number): Promise<number> {
   // H5 等无订阅消息 API 的环境 / 上一轮还在跑：直接不弹
   if (granting || typeof uni.requestSubscribeMessage !== "function") return 0;
+  const owner = String(uni.getStorageSync('staffToken') || '');
+  if (!owner || templateOwner !== owner || !notifyTemplateId) return 0;
   granting = true;
   let ok = 0;
   try {
     // 授权前确保模板为本组织下发值（道哥 2026-11-02）：所有点击入口
     // （首页引导/我的页补充）统一在此换模板，不再依赖 onShow 时序
-    await ensureTemplate();
     for (let i = 0; i < n; i++) {
-      if (!(await askOnce())) break;
+      if (owner !== uni.getStorageSync('staffToken') || !(await askOnce())) break;
       ok++;
     }
+    if (owner !== uni.getStorageSync('staffToken')) return 0;
     if (ok > 0) {
       // 上报失败不回滚（用户已真实授权，额度以服务端记账为准，request 层已 toast）
       try {
@@ -137,16 +142,21 @@ export async function grantTimes(n: number): Promise<number> {
  *  模板换进来——否则冷启动直进首页时仍用 org-a 默认值，他组织授权
  *  20001「模板不存在」（本次 DX001 实测）。**成功才置位**，失败允许
  *  下次授权动作重试（一次 profile 请求成本可接受） */
-let templateEnsured = false;
 async function ensureTemplate(): Promise<void> {
-  if (templateEnsured) return;
+  const owner = String(uni.getStorageSync('staffToken') || '');
+  if (!owner || templateOwner === owner) return;
   try {
     const p = await api.profile(useSessionStore().role);
-    setNotifyTemplateId(p.notifyTemplateId);
-    templateEnsured = true;
-  } catch {
-    /* 静默：沿用现有值，下次授权动作再试 */
-  }
+    if (owner === uni.getStorageSync('staffToken')) setNotifyTemplateId(p.notifyTemplateId);
+  } catch { /* 保留未就绪状态，下一次预载可重试。 */ }
+}
+/** 点击必须使用已预载的本组织模板，不能先等网络再调用微信授权。 */
+export function notifyAuthReady(): boolean {
+  const owner = String(uni.getStorageSync('staffToken') || '');
+  if (owner && templateOwner === owner && notifyTemplateId) return true;
+  void ensureTemplate();
+  uni.showToast({ title: '通知配置加载中，请稍后再次点击', icon: 'none' });
+  return false;
 }
 
 export async function silentTopUp(): Promise<void> {
@@ -161,6 +171,7 @@ export async function silentTopUp(): Promise<void> {
     return;
   if (!uni.getStorageSync("staffToken") || granting) return;
   try {
+    await ensureTemplate();
     const { quota } = await fetchQuota();
     await grantTimes(quota < 5 ? 3 : 1);
   } catch {

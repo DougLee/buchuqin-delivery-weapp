@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nightHistoryContext } from "../../utils/nightMode";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onPullDownRefresh, onReachBottom, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -19,6 +20,7 @@ import type { NightOrder, Task } from "../../types";
  * 白天未完段「继续配送」跳任务详情/新单轮询静默重拉。
  */
 const session = useSessionStore();
+const campusEnabled = ref(false);
 /** 当前分段：day=白天未完（条件段） pending 配送中已完成 */
 type SectionKey = "day" | "pending" | "delivering" | "done" | "history";
 const active = ref<SectionKey>("pending");
@@ -61,6 +63,8 @@ async function load() {
   loading.value = true;
   try {
     await session.ensure();
+    const ctx = await nightHistoryContext(); if (!ctx) return;
+    campusEnabled.value = ctx.nightEnabled === true;
     // 白天未完单（收尾段）：失败静默不渲染该段，不打断夜宵列表
     try {
       const day = await api.tasksPage("unfinished", 1, 20);
@@ -449,7 +453,7 @@ onUnmounted(stopTick);
     </template>
 
     <!-- 夜宵自绘 TabBar：订单角标=待接单数 -->
-    <NightTabBar active="orders" :badge="pendingTotal" />
+    <NightTabBar v-if="campusEnabled" active="orders" :badge="pendingTotal" />
   </view>
 </template>
 

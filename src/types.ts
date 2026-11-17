@@ -328,6 +328,7 @@ export interface NightProduct {
 }
 
 export interface NightInventoryReport {
+  responsibility?: "platform" | "manager" | null; compensationAmount?: number;
   id: string;
   kind: string;
   status: string;
@@ -351,6 +352,7 @@ export interface NightInventoryTxn {
 
 /** 夜宵订单商品快照行 */
 export interface NightOrderItem {
+  image?: string;
   productId: string;
   name: string;
   price: number;
@@ -473,3 +475,5 @@ export interface BattleRoomDetail {
     registeredAt: string;
   }>;
 }
+
+export interface NightOpeningRequest { id: string; storeId: string; startAt: string; endAt: string; reason: string; status: 'pending' | 'approved' | 'rejected'; reviewReason: string; createdAt: string; }

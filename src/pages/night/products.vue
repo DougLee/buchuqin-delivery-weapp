@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ensureNightCampus } from "../../utils/nightMode";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -30,6 +31,7 @@ async function load() {
   loading.value = true;
   try {
     await session.ensure();
+    if (!(await ensureNightCampus())) return;
     items.value = await api.nightProducts();
   } catch (e) {
     if (isBindRequired(e)) guest.value = true;

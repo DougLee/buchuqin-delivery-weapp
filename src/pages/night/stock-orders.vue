@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nightHistoryContext } from "../../utils/nightMode";
 import { computed, ref, watch } from "vue";
 import { onPullDownRefresh, onShow, onReachBottom } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -8,6 +9,7 @@ import { formatShort } from "../../utils/datetime";
 import type { NightStockOrder } from "../../types";
 
 const session = useSessionStore();
+const campusEnabled = ref(false);
 const items = ref<NightStockOrder[]>([]);
 const loading = ref(false);
 const failed = ref(false);
@@ -39,6 +41,8 @@ async function load(reset = true) {
   if (reset) { items.value = []; total.value = 0; }
   try {
     await session.ensure();
+    const ctx = await nightHistoryContext(); if (!ctx) return;
+    campusEnabled.value = ctx.nightEnabled === true;
     const next = reset ? 1 : page.value + 1;
     const r = await api.nightStockOrders(next, 20, filter.value);
     if (current !== generation) return;

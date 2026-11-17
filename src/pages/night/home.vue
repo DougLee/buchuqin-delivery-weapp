@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ensureNightCampus } from "../../utils/nightMode";
 import { computed, onUnmounted, ref } from "vue";
 import { onHide, onPullDownRefresh, onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -75,6 +76,7 @@ async function load() {
   loading.value = true;
   try {
     await session.ensure();
+    if (!(await ensureNightCampus())) return;
     // 问候名字（失败不影响工作台，无名问候）
     profile.value = await api.profile(session.role).catch(() => undefined);
     dash.value = await api.nightDashboard();
@@ -285,6 +287,7 @@ onPullDownRefresh(async () => {
       <text v-else-if="dash.store.status === 'suspended'" class="store-hint"
         >店铺已被平台停业，请联系运营</text
       >
+      <button v-if="dash.store.status !== 'suspended'" class="opening-entry" @tap="go('/pages/night/opening')">临时营业申请 / 进度</button>
       </view>
 
       <!-- 商品净销售额与确认收入使用全量账本；预计收入不计入确认收入。 -->
@@ -395,6 +398,7 @@ onPullDownRefresh(async () => {
 </template>
 
 <style scoped lang="scss">
+.opening-entry { margin-top: 16rpx; color: #ffe1a2; background: rgba(255,225,162,.08); border: 1px solid rgba(255,225,162,.2); font-size: 25rpx; border-radius: 24rpx; min-height: 88rpx; line-height: 88rpx; }
 @import "../../styles/night.scss";
 /* 翡翠夜色：实色卡面保证文字对比，独立装饰层仅动画 transform。 */
 .night-home {

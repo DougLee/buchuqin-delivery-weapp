@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nightHistoryContext } from "../../utils/nightMode";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { api } from "../../api";
@@ -18,6 +19,7 @@ import type {
  * 递增补缴。缴纳走 ND 支付单 + 微信收银台，到账以 pay-status 轮询/回调为准。
  */
 const session = useSessionStore();
+const campusEnabled = ref(false);
 const data = ref<NightDepositDetail>();
 const tiers = ref<NightDepositTiers>();
 const selectedTier = ref(0);
@@ -54,9 +56,11 @@ async function load() {
   loading.value = true;
   try {
     await session.ensure();
+    const ctx = await nightHistoryContext(); if (!ctx) return;
+    campusEnabled.value = ctx.nightEnabled === true;
     const [d, t] = await Promise.all([
       api.nightDeposit(),
-      api.nightDepositTiers().catch(() => undefined),
+      campusEnabled.value ? api.nightDepositTiers().catch(() => undefined) : Promise.resolve(undefined),
     ]);
     if (generation !== loadGeneration) return;
     data.value = d;
@@ -89,7 +93,7 @@ async function loadMore() {
 onShow(load);
 
 async function pay() {
-  if (paying.value) return;
+  if (paying.value || !campusEnabled.value) return;
   if (checkingNo.value) { await confirmArrival(); return; }
   paying.value = true;
   try {
@@ -218,7 +222,7 @@ function txnView(type: string) {
       </view>
 
       <button
-        v-if="data.gapToNext > 0"
+        v-if="campusEnabled && data.gapToNext > 0"
         class="pay-btn"
         :disabled="paying"
         @tap="pay"
@@ -226,7 +230,7 @@ function txnView(type: string) {
         {{ paying ? "支付处理中…" : checkingNo ? '查询上一笔支付结果' : payButtonLine }}
       </button>
       <text v-else class="pay-full"
-        >押金已足额，无需缴纳；备货额度以当前余额为基准。</text
+        >{{ campusEnabled ? '押金已足额，无需缴纳；备货额度以当前余额为基准。' : '校区未开通夜宵经营，仅展示已有押金和流水。' }}</text
       >
 
       <view class="section-title"

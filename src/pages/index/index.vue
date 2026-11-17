@@ -11,6 +11,7 @@ import { quickAction, type QuickAction } from "../../utils/task-actions";
 import {
   fetchQuota,
   grantTimes,
+  notifyAuthReady,
   isGuideShown,
   markGuideShown,
 } from "../../utils/notifyQuota";
@@ -143,6 +144,7 @@ async function refreshNotifyBar() {
 }
 const toppingUp = ref(false);
 async function topUpTen() {
+  if (!notifyAuthReady()) return;
   if (toppingUp.value) return;
   toppingUp.value = true;
   // 弹窗体验（道哥 2026-09-07 反馈）：未勾「总是保持」每次授权必弹窗——
@@ -158,6 +160,7 @@ async function topUpTen() {
 const guideVisible = ref(false);
 const guideOpening = ref(false);
 async function openGuideNotify() {
+  if (!notifyAuthReady()) return;
   if (guideOpening.value) return;
   guideOpening.value = true;
   markGuideShown();

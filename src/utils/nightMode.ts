@@ -8,6 +8,8 @@ export interface BizContext {
   staffId?: string;
   staffRole?: StaffRole;
   canSwitchWorkspace?: boolean;
+  nightEnabled: boolean;
+  hasNightHistory?: boolean;
   mode: "day" | "night" | "rest";
   hasNightStore: boolean;
   campusName: string;
@@ -33,6 +35,7 @@ export function fallbackContext(): BizContext {
   return {
     mode: "day",
     hasNightStore: false,
+    nightEnabled: false,
     campusName: "",
     nightStartAt: null,
     nightEndAt: null,
@@ -44,6 +47,7 @@ export function canSwitchWorkspace(ctx?: BizContext): boolean {
   return Boolean(
     uni.getStorageSync("staffToken") &&
     ctx?.staffId &&
+    ctx.nightEnabled === true &&
     ctx.staffRole === "building-manager" &&
     ctx.hasNightStore &&
     ctx.canSwitchWorkspace === true,
@@ -80,8 +84,26 @@ export function workspaceOf(ctx: BizContext): Workspace {
     const selected = uni.getStorageSync(SELECTION_PREFIX + ctx.staffId);
     if (selected === "day" || selected === "night") return selected;
   }
-  return ctx.mode === "night" && ctx.hasNightStore ? "night" : "day";
+  return canSwitchWorkspace(ctx) && ctx.mode === "night" ? "night" : "day";
 }
+
+/** 历史读取与收尾不授予新增经营资格。 */
+export function canViewNightHistory(ctx?: BizContext): boolean {
+  return Boolean(uni.getStorageSync('staffToken') && ctx?.staffId && ctx.staffRole === 'building-manager' && ctx.hasNightStore);
+}
+async function loadNightAccess(history: boolean): Promise<BizContext | undefined> {
+  const token = uni.getStorageSync('staffToken') as string;
+  if (!token) return;
+  try {
+    const ctx = await api.businessContext();
+    if (!acceptContext(ctx, token)) return;
+    if (canSwitchWorkspace(ctx) || (history && canViewNightHistory(ctx))) return ctx;
+    uni.showToast({ title: ctx.nightEnabled ? '暂无夜宵经营资格' : '本校区未开通夜宵服务', icon: 'none' });
+    uni.reLaunch({ url: '/pages/index/index' });
+  } catch { uni.showToast({ title: '夜宵经营资格校验失败，请重试', icon: 'none' }); }
+}
+export async function ensureNightCampus(): Promise<boolean> { return !!await loadNightAccess(false); }
+export async function nightHistoryContext(): Promise<BizContext | undefined> { return loadNightAccess(true); }
 export function clearWorkspaceSelection() {
   const token = uni.getStorageSync("staffToken");
   if (lastContext && lastContext.token === token && lastContext.context.staffId)
@@ -109,7 +131,7 @@ export async function switchWorkspace(target: Workspace): Promise<boolean> {
     const ctx = await api.businessContext();
     if (!acceptContext(ctx, token)) return false;
     if (!canSwitchWorkspace(ctx)) {
-      uni.showToast({ title: "仅已绑定夜宵店的正式楼长可切换", icon: "none" });
+      uni.showToast({ title: ctx.nightEnabled ? "仅已绑定夜宵店的正式楼长可切换" : "本校区未开通夜宵服务", icon: "none" });
       return false;
     }
     const key = SELECTION_PREFIX + ctx.staffId,
@@ -169,13 +191,7 @@ export function nightTabGuard(): void {
   } catch {
     /* 兼容旧基础库 */
   }
-  void fetchBizContext().then((ctx) => {
-    if (workspaceOf(ctx) === "night") return;
-    // 断网冷启动保留当前页面等待重试，不清空有效选择。
-    if (uni.getStorageSync("staffToken") && !ctx.staffId && !ctx.campusName)
-      return;
-    if (getCurrentPages().length <= 1) switchGuarded("/pages/index/index");
-  });
+  // 经营资格由各页 load 中的 ensureNightCampus 实时校验，避免并行导航。
 }
 export function switchNightTab(target: NightSection): void {
   if (target === "profile") uni.switchTab({ url: "/pages/profile/index" });
@@ -193,6 +209,8 @@ export function syncWorkspaceMode(ctx: BizContext): void {
   if (
     workspace === "day" &&
     Object.values(NIGHT_PAGE_OF).some((url) => url.slice(1) === route)
-  )
+  ) {
+    if (canViewNightHistory(ctx) && [NIGHT_PAGE_OF.orders, NIGHT_PAGE_OF.income].some(url => url.slice(1) === route)) return;
     switchGuarded("/pages/index/index");
+  }
 }

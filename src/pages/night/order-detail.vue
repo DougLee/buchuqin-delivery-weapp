@@ -99,6 +99,10 @@ async function act(kind: "accept" | "deliver") {
   }
 }
 
+function previewProduct(image?: string) {
+  if (!image) { uni.showToast({ title: '该商品暂无图片', icon: 'none' }); return; }
+  uni.previewImage({ urls: [image], current: image });
+}
 function dial(phone: string) {
   if (!phone) return;
   uni.makePhoneCall({ phoneNumber: phone, fail: () => {} });
@@ -154,7 +158,7 @@ function rateText(rate: number | null | undefined): string {
       <view class="card block">
         <text class="block__head">商品快照</text>
         <view v-for="(i, idx) in order.items" :key="idx" class="goods"
-          ><text class="goods__name">{{ i.name }}</text
+          ><text class="goods__name" role="button" @tap="previewProduct(i.image)">{{ i.name }}</text
           ><text class="goods__qty">×{{ i.quantity }}</text
           ><text class="goods__amount">¥{{ fenToYuan(i.price * i.quantity) }}</text></view
         >
@@ -358,7 +362,7 @@ function rateText(rate: number | null | undefined): string {
 }
 .hero__no {
   margin-top: 16rpx;
-  font-size: 22rpx;
+  font-size: 26rpx;
   opacity: 0.72;
 }
 .hero__time {
@@ -407,7 +411,9 @@ function rateText(rate: number | null | undefined): string {
   font-weight: 700;
 }
 .goods__qty {
-  font-size: 21rpx;
+  font-size: 34rpx;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
   color: $nb-text-sub;
   margin: 0 18rpx;
 }

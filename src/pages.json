@@ -8,6 +8,7 @@
         "backgroundTextStyle": "dark"
       }
     },
+    { "path": "pages/night/opening", "style": { "navigationBarTitleText": "临时营业申请" } },
     {
       "path": "pages/login/index",
       "style": {

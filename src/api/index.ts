@@ -48,8 +48,11 @@ interface PageResult<T> {
   total: number;
 }
 export const api = {
+  nightOpeningRequests: () => request<import('../types').NightOpeningRequest[]>('/night-rider/night/opening-requests'),
+  nightRequestOpening: (data: { requestId: string; startAt: string; endAt: string; reason: string }) => request<import('../types').NightOpeningRequest>('/night-rider/night/opening-requests', { method: 'POST', data }),
   businessContext: () => request<{
     staffId?: string; staffRole?: StaffRole; canSwitchWorkspace?: boolean;
+    nightEnabled: boolean; hasNightHistory?: boolean;
     mode: 'day' | 'night' | 'rest'; hasNightStore: boolean; campusName: string;
     nightStartAt: string | null; nightEndAt: string | null; reason: string;
   }>('/fulfillment/business-context'),
