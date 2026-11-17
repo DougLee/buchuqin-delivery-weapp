@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
+import { onResize, onShow } from '@dcloudio/uni-app';
 import { api } from '../../api';
 import { ensureNightCampus } from '../../utils/nightMode';
 import { useSessionStore } from '../../stores/session';
 import type { NightOpeningRequest } from '../../types';
 
 const session = useSessionStore(), rows = ref<NightOpeningRequest[]>([]), busy = ref(false), error = ref(false);
+const datePickerVersion = ref(0);
+// #ifdef H5
+// Recreate native date controls after a resize so the H5 picker restores its
+// custom wrapper when returning to a phone width. Bound form values are retained.
+onResize(() => { datePickerVersion.value++; });
+// #endif
 const cn = (value: Date) => new Date(value.getTime() + 8 * 3600000).toISOString();
 const from = cn(new Date()), until = cn(new Date(Date.now() + 3600000));
 const startDate = ref(from.slice(0, 10)), startTime = ref(from.slice(11, 16)), endDate = ref(until.slice(0, 10)), endTime = ref(until.slice(11, 16)), reason = ref('');
@@ -34,8 +40,8 @@ onShow(load);
   <view class="page opening-page">
     <view class="opening-intro"><text class="eyebrow">EXTRA HOURS</text><text class="title">临时营业申请</text><text class="muted">正常夜宵时段可直接开店；其他时段需校区批准。许可仅在申请时段有效，结束后停止新单。</text></view>
     <view class="card form">
-      <text class="label">开始时间</text><view class="time-row"><picker mode="date" :value="startDate" @change="startDate = $event.detail.value"><view>{{ startDate }}</view></picker><picker mode="time" :value="startTime" @change="startTime = $event.detail.value"><view>{{ startTime }}</view></picker></view>
-      <text class="label">结束时间</text><view class="time-row"><picker mode="date" :value="endDate" @change="endDate = $event.detail.value"><view>{{ endDate }}</view></picker><picker mode="time" :value="endTime" @change="endTime = $event.detail.value"><view>{{ endTime }}</view></picker></view>
+      <text class="label">开始时间</text><view class="time-row"><picker :key="'start-date-' + datePickerVersion" mode="date" :value="startDate" @change="startDate = $event.detail.value"><view>{{ startDate }}</view></picker><picker mode="time" :value="startTime" @change="startTime = $event.detail.value"><view>{{ startTime }}</view></picker></view>
+      <text class="label">结束时间</text><view class="time-row"><picker :key="'end-date-' + datePickerVersion" mode="date" :value="endDate" @change="endDate = $event.detail.value"><view>{{ endDate }}</view></picker><picker mode="time" :value="endTime" @change="endTime = $event.detail.value"><view>{{ endTime }}</view></picker></view>
       <text class="label">申请原因</text><textarea v-model="reason" maxlength="500" placeholder="说明本次临时营业安排" /><button class="primary-btn" :disabled="busy || rows.some(r => r.status === 'pending' && +new Date(r.endAt) > Date.now())" @tap="submit">{{ busy ? '提交中…' : '提交校区审核' }}</button>
     </view>
     <view v-if="error" class="card history" @tap="load">记录加载失败，点击重试</view>
