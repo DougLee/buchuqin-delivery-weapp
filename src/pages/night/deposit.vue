@@ -15,7 +15,7 @@ import type {
 
 /**
  * 经营押金页（IKSW1F）：余额 + 流水 + 缴纳。
- * 押金 = 进货额度基准（按历史货值计算占用）；首次 500 元，按 500 元档
+ * 押金 = 进货额度基准（按历史货值计算占用）；按校区配置的押金档位
  * 递增补缴。缴纳走 ND 支付单 + 微信收银台，到账以 pay-status 轮询/回调为准。
  */
 const session = useSessionStore();
@@ -43,7 +43,7 @@ const nextTierLine = computed(() => {
     ? `再补 ${fenToYuan(d.gapToNext)} 元可升至 ${d.nextTier / 100} 元档`
     : `已达 ${d.nextTier / 100} 元档`;
 });
-/** 缴纳按钮文案：后端按 500 元档递增自动算差额（无自选金额入参） */
+/** 缴纳按钮文案：后端按校区押金档位递增自动算差额（无自选金额入参） */
 const payButtonLine = computed(() =>
   data.value && selectedTier.value > 0
     ? `缴纳 ¥${fenToYuan(selectedTier.value - data.value.deposit)} · 升至 ${selectedTier.value / 100} 元档`
@@ -201,7 +201,7 @@ function txnView(type: string) {
       >
 
       <view v-if="tiers" class="tiers card">
-        <text class="tiers__head">押金档位（500 元档递增）</text>
+        <text class="tiers__head">押金档位（按档递增）</text>
         <view
           v-for="(t, i) in tiers.tiers"
           :key="t.tier"

@@ -28,7 +28,7 @@ const PAID_POLL_INTERVAL = 2000;
 
 /**
  * 押金支付统一流程（复刻用户端 startPayFlow 口径）：
- * 1. POST deposit/pay 生成 ND 支付单（后端按 500 元档递增自动算差额）
+ * 1. POST deposit/pay 生成 ND 支付单（后端按校区押金档位递增自动算差额）
  * 2. uni.requestPayment 拉起微信收银台
  * 3. GET deposit/pay-status 轮询确认到账（回调故障时服务端主动查微信单落账）
  * 返回 outcome=paid（已到账，余额已更新）/ unpaid（未完成支付）/ checking

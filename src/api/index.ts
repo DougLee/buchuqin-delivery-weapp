@@ -216,7 +216,7 @@ export const api = {
     request<NightDepositTiers>("/night-rider/night/deposit/tiers"),
   /** 押金详情：余额 + 流水（缴纳/扣除/退还，时间倒序） */
   nightDeposit: (page = 1) => request<NightDepositDetail>(`/night-rider/night/deposit?page=${page}&pageSize=20`),
-  /** 发起押金缴纳：后端按 500 元档递增算差额生成 ND 支付单（金额自算，不接受自选） */
+  /** 发起押金缴纳：后端按校区押金档位递增算差额生成 ND 支付单（金额自算，不接受自选） */
   nightDepositPay: (targetTier?: number) =>
     request<NightDepositPayIntent>("/night-rider/night/deposit/pay", {
       method: "POST",
