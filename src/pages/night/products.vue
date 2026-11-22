@@ -20,7 +20,20 @@ const guest = ref(false);
 const acting = ref<string | null>(null);
 const keyword = ref("");
 const filter = ref("all");
-const visible = computed(() => items.value.filter(p => p.name.includes(keyword.value.trim()) && (filter.value === "all" || (filter.value === "on" ? p.purchasable : !p.purchasable))));
+/** 148 分类筛选（类目来自夜主档 categoryName，与用户端类目同源） */
+const category = ref("all");
+const categories = computed(() => [...new Set(items.value.map(p => p.categoryName).filter(Boolean))]);
+/** 148 库存排序：低库存在前，方便楼长看哪些货要补 */
+const sortStock = ref(false);
+const visible = computed(() => {
+  const kw = keyword.value.trim();
+  const list = items.value.filter(p =>
+    p.name.includes(kw) &&
+    (filter.value === "all" || (filter.value === "on" ? p.purchasable : !p.purchasable)) &&
+    (category.value === "all" || p.categoryName === category.value)
+  );
+  return sortStock.value ? [...list].sort((a, b) => a.stock - b.stock) : list;
+});
 function goInventory() { uni.navigateTo({ url: "/pages/night/inventory" }); }
 /** 库存为 0 的行给「去备货」引导（IKSZF5 空态带动作） */
 const goStock = () => uni.navigateTo({ url: "/pages/night/stock" });
@@ -140,8 +153,9 @@ function editFeaturedSort(p: NightProduct) {
           >商品资料与售价由平台统一设定（本店不能改价改资料），你只能控制本店上下架；下架不影响库存与已有订单。</text
         ></view
       >
-      <view class="tools"><input v-model="keyword" placeholder="搜索本店商品" /><button @tap="goInventory">盘点 / 报损</button></view>
+      <view class="tools"><input v-model="keyword" placeholder="搜索本店商品" /><button @tap="goInventory">盘点 / 报损</button><button :class="{ active: sortStock }" @tap="sortStock = !sortStock">{{ sortStock ? "库存低→高 ✓" : "按库存排序" }}</button></view>
       <view class="filters"><button v-for="f in [{ id: 'all', name: '全部商品' }, { id: 'on', name: '可售' }, { id: 'off', name: '暂不可售' }]" :key="f.id" :class="{ active: filter === f.id }" @tap="filter = f.id">{{ f.name }}</button></view>
+      <view class="filters"><button :class="{ active: category === 'all' }" @tap="category = 'all'">全部分类</button><button v-for="cat in categories" :key="cat" :class="{ active: category === cat }" @tap="category = cat">{{ cat }}</button></view>
       <view v-for="p in visible" :key="p.id" class="row card">
         <image
           v-if="p.image"

@@ -315,6 +315,8 @@ export interface NightProduct {
   id: string;
   catalogProductId: string;
   name: string;
+  /** 夜主档分类名（148 分类筛选/排序用，与用户端类目同源） */
+  categoryName: string;
   image: string | null;
   price: number;
   catalogStatus: string;
