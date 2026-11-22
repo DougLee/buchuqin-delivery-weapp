@@ -157,8 +157,8 @@ function rateText(rate: number | null | undefined): string {
       <!-- 商品快照（改价不追溯，以下单时为准） -->
       <view class="card block">
         <text class="block__head">商品快照</text>
-        <view v-for="(i, idx) in order.items" :key="idx" class="goods"
-          ><text class="goods__name" role="button" @tap="previewProduct(i.image)">{{ i.name }}</text
+        <view v-for="(i, idx) in order.items" :key="idx" class="goods" role="button" @tap="previewProduct(i.image)"
+          ><text class="goods__name">{{ i.name }}</text
           ><text class="goods__qty">×{{ i.quantity }}</text
           ><text class="goods__amount">¥{{ fenToYuan(i.price * i.quantity) }}</text></view
         >
@@ -402,7 +402,7 @@ function rateText(rate: number | null | undefined): string {
 .goods {
   display: flex;
   align-items: center;
-  min-height: 64rpx;
+  min-height: 72rpx;
 }
 .goods__name {
   flex: 1;
@@ -411,14 +411,14 @@ function rateText(rate: number | null | undefined): string {
   font-weight: 700;
 }
 .goods__qty {
-  font-size: 34rpx;
+  font-size: 42rpx;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
   color: $nb-text-sub;
   margin: 0 18rpx;
 }
 .goods__amount {
-  font-size: 24rpx;
+  font-size: 30rpx;
   font-weight: 800;
   color: $nb-text;
   font-variant-numeric: tabular-nums;
