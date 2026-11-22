@@ -27,6 +27,8 @@ import type {
 
 const session = useSessionStore();
 const data = ref<Dashboard>();
+/** 141 白天台夜宵待处理单数（有挂店楼长才拉，失败静默隐藏角标） */
+const nightBadge = ref(0);
 const shift = ref<Shift>();
 /** 加载失败标记（IK8W5V）：失败时展示重试入口，避免页面永久空白 */
 const error = ref(false);
@@ -63,6 +65,15 @@ async function load() {
     shift.value = s;
     // IKDQP9：登录态下查订阅额度（低水位条）；骑手首次「接单中」→ 上岗引导半屏
     void refreshNotifyBar();
+    // 141 白天台夜宵待处理角标：楼长系拉夜宵台待接单数（非楼长/无店静默失败隐藏）
+    void api
+      .nightDashboard()
+      .then((nd) => {
+        nightBadge.value = nd.pendingOrders;
+      })
+      .catch(() => {
+        nightBadge.value = 0;
+      });
     // IKSW1F 夜宵店入口状态（仅楼长系；失败静默不影响白天工作台首屏）
     // 道哥 2026-09-09：授权引导全员放开——楼长（含实习）也收到楼下推送，
     // 登录且上岗同样弹一次授权框（IKEAGE 撤销此前对楼长系的排除）
@@ -231,7 +242,12 @@ function h5TestLogin(key: keyof typeof H5_TEST_ACCOUNTS | "night") {
           <text v-if="campusLine" class="campus">{{ campusLine }}</text></view
         >
       </view>
-      <WorkspaceSwitch inline current="day" :staff-status="data?.profile.status" />
+      <WorkspaceSwitch
+        inline
+        current="day"
+        :staff-status="data?.profile.status"
+        :badge="nightBadge"
+      />
     </view>
 
     <!-- IKDQP9 低水位提示条：当天有推送失败且余额 <3 条才出现，点击连攒 10 条 -->

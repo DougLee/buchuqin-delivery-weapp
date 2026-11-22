@@ -15,6 +15,8 @@ const props = defineProps<{
   status?: string;
   staffStatus?: StaffStatus;
   inline?: boolean;
+  /** IKX23R/141 白天台夜宵待处理单数（>0 显示红点角标，提示切夜宵处理） */
+  badge?: number;
 }>();
 const context = ref<BizContext>();
 const busy = ref(false);
@@ -77,6 +79,12 @@ async function toggle() {
           }}</text></view
         ></view
       >
+      <!-- 141 白天台夜宵待处理角标：点击按钮即切夜宵处理 -->
+      <text
+        v-if="!night && badge"
+        class="workspace-switch__badge"
+        >{{ badge > 99 ? "99+" : badge }}</text
+      >
     </view>
     <button
       class="workspace-switch__button"
@@ -124,6 +132,23 @@ async function toggle() {
   align-items: center;
   gap: 12rpx;
   min-width: 0;
+  position: relative;
+}
+/* 141 白天台夜宵待处理红点角标 */
+.workspace-switch__badge {
+  position: absolute;
+  top: -10rpx;
+  right: -18rpx;
+  min-width: 30rpx;
+  height: 30rpx;
+  padding: 0 8rpx;
+  border-radius: 30rpx;
+  background: #e34d3f;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 30rpx;
+  text-align: center;
 }
 .workspace-switch__title {
   display: block;
