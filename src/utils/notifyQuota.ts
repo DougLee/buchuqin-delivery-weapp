@@ -141,8 +141,10 @@ export async function grantTimes(n: number): Promise<number> {
 /** 模板 ensure（道哥 2026-11-02）：授权动作前拉一次 profile，把组织下发
  *  模板换进来——否则冷启动直进首页时仍用 org-a 默认值，他组织授权
  *  20001「模板不存在」（本次 DX001 实测）。**成功才置位**，失败允许
- *  下次授权动作重试（一次 profile 请求成本可接受） */
-async function ensureTemplate(): Promise<void> {
+ *  下次授权动作重试（一次 profile 请求成本可接受）。
+ *  IKXLWS 导出：首页 load/上岗引导弹出时提前预热，消灭首次点击
+ *  「通知配置加载中」竞态（微信授权要求手势内同步调用，不能点击时等网络） */
+export async function ensureTemplate(): Promise<void> {
   const owner = String(uni.getStorageSync('staffToken') || '');
   if (!owner || templateOwner === owner) return;
   try {

@@ -9,6 +9,7 @@ import { useSessionStore, isBindRequired } from "../../stores/session";
 import { fenToYuan } from "../../utils/money";
 import { quickAction, type QuickAction } from "../../utils/task-actions";
 import {
+  ensureTemplate,
   fetchQuota,
   grantTimes,
   notifyAuthReady,
@@ -55,6 +56,10 @@ async function load() {
   loading.value = true;
   try {
     await session.ensure();
+    // IKXLWS 冷启动预热订阅模板：上岗引导渲染前 profile 已在路上，
+    // 首次点「开启通知」不再撞「通知配置加载中」（微信授权要求手势内
+    // 同步调用，点击时不能等网络，只能靠提前预载）
+    void ensureTemplate();
     const [d, s] = await Promise.all([
       api.dashboard(session.role).then((d) => {
         return d;
@@ -170,6 +175,11 @@ async function topUpTen() {
 /** 上岗引导半屏（IKDQP9）：骑手首次切「接单中」回工作台弹一次（storage 标记） */
 const guideVisible = ref(false);
 const guideOpening = ref(false);
+// IKXLWS：引导弹出的瞬间再补一次预热——首页 load 的预热若被慢网拖住，
+// 这里兜底让首次点击尽可能就绪（notifyAuthReady 内部还有最后一层兜底）
+watch(guideVisible, (v) => {
+  if (v) void ensureTemplate();
+});
 async function openGuideNotify() {
   if (!notifyAuthReady()) return;
   if (guideOpening.value) return;
