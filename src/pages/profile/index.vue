@@ -123,6 +123,11 @@ const nightStockLine = computed(() => {
   const count = ps ? `${ps.length} 种商品` : "-- 种商品";
   return `库存货值 ¥${fenToYuan(d.stockValue)} · ${count}`;
 });
+/** 夜宵售后待处理数（IKXW9K）：入口角标 + 摘要行 */
+const aftersalePending = ref(0);
+const aftersaleLine = computed(() =>
+  aftersalePending.value ? `${aftersalePending.value} 单待处理` : "同意 · 拒绝 · 转交平台",
+);
 /** 夜宵模式导航栏与原生 tabBar 切换（仅 tab 页有效）：深底白字 / 恢复白天 */
 function applyNightChrome(on: boolean) {
   if (on) {
@@ -160,6 +165,9 @@ async function loadNightContext() {
     // 分组摘要数据：失败静默保持 "--"，不影响页面主内容
     nightDash.value = await api.nightDashboard().catch(() => undefined);
     nightProducts.value = await api.nightProducts().catch(() => undefined);
+    aftersalePending.value = (
+      await api.nightAfterSalesSummary().catch(() => ({ pending: 0 }))
+    ).pending;
   } catch {
     /* 静默：兜底 day（fetchBizContext 已兜），此处只防未处理拒绝 */
   }
@@ -446,6 +454,14 @@ async function logout() {
         ><view class="menu__body"
           ><text>进货备货</text><text>{{ nightStockLine }}</text></view
         ><text class="link-chip">进入</text></view
+      >
+      <view role="button" @tap="goNightPage('/pages/night/aftersales')"
+        ><view class="menu__icon night-ic-goods"></view
+        ><view class="menu__body"
+          ><text>售后处理</text><text>{{ aftersaleLine }}</text></view
+        ><text v-if="aftersalePending" class="night-group__badge">{{
+          aftersalePending > 99 ? "99+" : aftersalePending
+        }}</text></view
       >
       <view role="button" @tap="goNightPage('/pages/night/products')"
         ><view class="menu__icon night-ic-goods"></view
@@ -1378,6 +1394,20 @@ async function logout() {
   color: #b07800;
   border-radius: 999rpx;
   padding: 6rpx 16rpx;
+}
+/* IKXW9K：售后待处理角标（红泡，压在分组行右缘） */
+.night-group__badge {
+  flex: none;
+  min-width: 34rpx;
+  height: 34rpx;
+  padding: 0 10rpx;
+  border-radius: 999rpx;
+  background: #e34d3f;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 700;
+  line-height: 34rpx;
+  text-align: center;
 }
 .night-group__chip--on {
   background: #ffd75e;

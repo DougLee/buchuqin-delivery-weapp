@@ -193,6 +193,32 @@ export interface NightDepositTxn {
 }
 
 /** 押金详情（GET deposit）：余额 + 数据库分页流水。 */
+/** 楼长售后处理条目（IKXW9K）：列表/操作共用 */
+export interface NightAfterSaleItem {
+  id: string;
+  orderNo: string;
+  payableAmount: number;
+  orderStatus: string;
+  orderStatusText: string;
+  afterSaleStatus: string | null;
+  contactName: string;
+  buildingName: string;
+  room: string;
+  createdAt: string;
+  type: string;
+  description: string;
+  images: string[];
+  requestedAmount: number | null;
+  requestedItems: { productId: string; name: string; quantity: number }[];
+  appliedAt: string | null;
+  refund: {
+    totalAmount: number;
+    status: string;
+    operatorId: string;
+    completedAt: string | null;
+  } | null;
+}
+
 export interface NightDepositDetail {
   staffId: string;
   storeId: string;

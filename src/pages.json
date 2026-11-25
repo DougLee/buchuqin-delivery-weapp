@@ -74,6 +74,16 @@
       }
     },
     {
+      "path": "pages/night/aftersales",
+      "style": {
+        "navigationBarTitleText": "售后处理",
+        "navigationBarBackgroundColor": "#10271d",
+        "navigationBarTextStyle": "white",
+        "backgroundColor": "#10271d",
+        "backgroundColorContent": "#10271d"
+      }
+    },
+    {
       "path": "pages/night/deposit",
       "style": {
         "navigationBarTitleText": "经营押金",

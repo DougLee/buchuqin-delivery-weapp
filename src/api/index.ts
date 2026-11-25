@@ -10,6 +10,7 @@ import type {
   NightDepositDetail,
   NightDepositPayIntent,
   NightDepositPayStatus,
+  NightAfterSaleItem,
   NightDepositTiers,
   NightIncome,
   NightOrder,
@@ -228,6 +229,30 @@ export const api = {
       `/night-rider/night/deposit/pay-status${
         outTradeNo ? `?outTradeNo=${encodeURIComponent(outTradeNo)}` : ""
       }`,
+    ),
+  /** 楼长售后处理（IKXW9K）：待处理数（夜宵经营入口角标） */
+  nightAfterSalesSummary: () =>
+    request<{ pending: number }>("/night-rider/night/aftersales/summary"),
+  /** 售后列表：pending 待处理 / handled 已处理 */
+  nightAfterSales: (scope: "pending" | "handled" = "pending") =>
+    request<NightAfterSaleItem[]>(`/night-rider/night/aftersales?scope=${scope}`),
+  /** 同意售后退款（仅正式楼长；原路退回，不自动回库） */
+  nightAfterSaleApprove: (id: string) =>
+    request<{ id: string; afterSaleStatus: string }>(
+      `/night-rider/night/aftersales/${id}/approve`,
+      { method: "POST" },
+    ),
+  /** 拒绝售后（仅正式楼长，理由必填且用户可见） */
+  nightAfterSaleReject: (id: string, reason: string) =>
+    request<{ id: string; afterSaleStatus: string }>(
+      `/night-rider/night/aftersales/${id}/reject`,
+      { method: "POST", data: { reason } },
+    ),
+  /** 转交平台处理（实习楼长唯一动作） */
+  nightAfterSaleEscalate: (id: string) =>
+    request<{ id: string; escalated: boolean }>(
+      `/night-rider/night/aftersales/${id}/escalate`,
+      { method: "POST" },
     ),
   /** 商品池：本校区夜主档 + 本店楼栋行（当前库存/上架状态） */
   nightStockPool: () => request<NightPoolItem[]>("/night-rider/night/stock/pool"),
