@@ -49,15 +49,23 @@ function switchTab(t: "pending" | "handled") {
   void load();
 }
 
+function isOverdue(item: NightAfterSaleItem): boolean {
+  return !!item.appliedAt && Date.now() - new Date(item.appliedAt).getTime() > 24 * 60 * 60 * 1000;
+}
+
 function statusChip(item: NightAfterSaleItem): string {
   if (item.refund) {
     const s = item.refund.status;
-    if (s === "success") return "已退款";
+    if (s === "succeeded" || s === "success") return "已退款";
     if (s === "failed") return "退款失败";
     return "退款处理中";
   }
+  if (item.afterSaleStatus === "requested") {
+    if (isOverdue(item)) return "已超时·平台处理";
+    if (item.escalated) return "已转交平台";
+    return "待处理";
+  }
   return {
-    requested: item.appliedAt && Date.now() - new Date(item.appliedAt).getTime() > 24 * 60 * 60 * 1000 ? "已超时·平台处理" : "待处理",
     "refund-processing": "退款处理中",
     resolved: "已退款",
     rejected: "已拒绝",
@@ -65,12 +73,22 @@ function statusChip(item: NightAfterSaleItem): string {
   }[item.afterSaleStatus ?? ""] ?? "—";
 }
 
+function isHotChip(item: NightAfterSaleItem): boolean {
+  const chip = statusChip(item);
+  return chip === "已超时·平台处理" || chip === "已转交平台" || chip === "退款失败";
+}
+
 function preview(urls: string[], current: string) {
   uni.previewImage({ urls, current });
 }
 
+function showActionError(err: unknown, fallback: string) {
+  const msg = err instanceof Error && err.message ? err.message : fallback;
+  uni.showToast({ title: msg.slice(0, 30), icon: "none" });
+}
+
 function approve(item: NightAfterSaleItem) {
-  const amount = fenToYuan(item.refund?.totalAmount ?? item.requestedAmount ?? 0);
+  const amount = fenToYuan(item.refund?.totalAmount ?? item.requestedAmount ?? item.payableAmount);
   uni.showModal({
     title: "同意退款",
     content: `将原路退回 ¥${amount}（不自动回库存），佣金同步冲减。确认？`,
@@ -78,9 +96,14 @@ function approve(item: NightAfterSaleItem) {
       if (!res.confirm || acting.value) return;
       acting.value = item.id;
       try {
-        await api.nightAfterSaleApprove(item.id);
-        uni.showToast({ title: "已同意，原路退回中", icon: "none" });
+        const ret = await api.nightAfterSaleApprove(item.id);
+        uni.showToast({
+          title: ret?.afterSaleStatus === "resolved" ? "已同意，退款成功" : "已同意，原路退回中",
+          icon: "none",
+        });
         void load();
+      } catch (err) {
+        showActionError(err, "同意退款失败，请稍后重试");
       } finally {
         acting.value = "";
       }
@@ -105,6 +128,8 @@ function reject(item: NightAfterSaleItem) {
         await api.nightAfterSaleReject(item.id, reason);
         uni.showToast({ title: "已拒绝", icon: "none" });
         void load();
+      } catch (err) {
+        showActionError(err, "拒绝失败，请稍后重试");
       } finally {
         acting.value = "";
       }
@@ -123,6 +148,8 @@ function escalate(item: NightAfterSaleItem) {
         await api.nightAfterSaleEscalate(item.id);
         uni.showToast({ title: "已转交平台处理", icon: "none" });
         void load();
+      } catch (err) {
+        showActionError(err, "转交失败，请稍后重试");
       } finally {
         acting.value = "";
       }
@@ -150,12 +177,15 @@ function escalate(item: NightAfterSaleItem) {
     <view v-for="item in items" :key="item.id" class="card as">
       <view class="as__top">
         <text class="as__no">{{ item.orderNo }}</text>
-        <text class="as__chip" :class="{ 'as__chip--hot': statusChip(item) === '已超时·平台处理' }">{{ statusChip(item) }}</text>
+        <text class="as__chip" :class="{ 'as__chip--hot': isHotChip(item) }">{{ statusChip(item) }}</text>
       </view>
       <view class="as__user">{{ item.contactName }} · {{ item.buildingName }} {{ item.room }}</view>
       <view class="as__type">
         <text class="as__type-tag">{{ item.type }}</text>
-        <text class="as__amount">申请退 ¥{{ fenToYuan(item.requestedAmount ?? 0) }}</text>
+        <text class="as__amount">申请退 ¥{{ fenToYuan(item.requestedAmount ?? item.payableAmount) }}</text>
+      </view>
+      <view v-if="item.requestedItems?.length" class="as__items">
+        <text v-for="g in item.requestedItems" :key="g.productId" class="as__item-pill">{{ g.name }} ×{{ g.quantity }}</text>
       </view>
       <view class="as__desc">{{ item.description }}</view>
       <view v-if="item.images?.length" class="as__imgs">
@@ -177,10 +207,10 @@ function escalate(item: NightAfterSaleItem) {
         <button
           v-if="isIntern"
           class="as__btn as__btn--primary"
-          :disabled="acting === item.id"
+          :disabled="acting === item.id || !!item.escalated"
           @tap="escalate(item)"
         >
-          转交平台处理
+          {{ item.escalated ? "已转交平台处理" : "转交平台处理" }}
         </button>
         <template v-else>
           <button class="as__btn" :disabled="acting === item.id" @tap="reject(item)">拒绝</button>
@@ -221,6 +251,8 @@ function escalate(item: NightAfterSaleItem) {
 .as__type { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
 .as__type-tag { padding: 4rpx 14rpx; border-radius: 10rpx; background: rgba(158, 223, 178, 0.1); color: $nb-text; font-size: 23rpx; }
 .as__amount { color: $nb-gold; font-size: 28rpx; font-weight: 800; font-variant-numeric: tabular-nums; }
+.as__items { display: flex; flex-wrap: wrap; gap: 8rpx; }
+.as__item-pill { padding: 4rpx 12rpx; border-radius: 8rpx; background: rgba(255, 255, 255, 0.06); color: $nb-text-sub; font-size: 22rpx; }
 .as__desc { color: $nb-text; font-size: 25rpx; line-height: 1.5; word-break: break-all; }
 .as__imgs { display: flex; gap: 12rpx; flex-wrap: wrap; }
 .as__img { width: 140rpx; height: 140rpx; border-radius: 12rpx; background: rgba(255, 255, 255, 0.06); }

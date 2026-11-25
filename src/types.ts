@@ -201,6 +201,7 @@ export interface NightAfterSaleItem {
   orderStatus: string;
   orderStatusText: string;
   afterSaleStatus: string | null;
+  escalated?: boolean;
   contactName: string;
   buildingName: string;
   room: string;
