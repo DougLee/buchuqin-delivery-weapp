@@ -235,6 +235,8 @@ function editFeaturedSort(p: NightProduct) {
 @import "../../styles/night.scss";
 .products-page {
   @include nb-page;
+  /* 底部导航遮挡修复：与 income-tab/home/orders-tab 同款留底，末尾商品完整可见 */
+  padding-bottom: calc(170rpx + env(safe-area-inset-bottom, 0px));
 }
 .products-page .card {
   @include nb-card;
